@@ -44,3 +44,5 @@ git push -u origin feature/real-stock-photos
 ```
 
 Merge to `main` when the preview looks right.
+
+<!-- deploy check -->
