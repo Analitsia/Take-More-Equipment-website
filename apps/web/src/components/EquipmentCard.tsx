@@ -42,6 +42,20 @@ export default function EquipmentCard({
     ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
     : "w-[62vw] max-w-[320px] sm:w-[272px] sm:max-w-none md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
 
+  // Nothing on a travelling card may sit inside its own clip. `truncate` is
+  // `overflow: hidden`, and a clip on a card that is being re-rasterised at the
+  // edge of the screen gets snapped to whole device pixels, so the text inside
+  // it lands somewhere slightly different each time the card is redrawn — the
+  // label appears to dash sideways. The one spec label with no clip, "Grade A",
+  // was also the one that never moved. So carousel labels are all sized to
+  // their own content, like that one, and the row wraps to a second line on the
+  // narrowest phones instead of ellipsising. Static grid cards keep truncation:
+  // they never move, and their columns are tighter.
+  const specItem = grid
+    ? "flex items-center gap-1 min-w-0"
+    : "flex items-center gap-1 shrink-0";
+  const specText = grid ? "truncate" : "whitespace-nowrap";
+
   // Carousel cards get no entrance animation of their own: the row they sit in
   // is already moving, and a per-card opacity/scale tween on top of that reads
   // as the card lagging behind its neighbours. Grid cards still fade in.
@@ -143,17 +157,17 @@ export default function EquipmentCard({
             </div>
           </div>
           <div
-            className={`flex justify-between items-center font-light text-white/80 gap-1.5 ${
-              grid ? "text-[10px]" : "text-[10px] md:text-xs"
+            className={`flex justify-between items-center font-light text-white/80 gap-x-1.5 gap-y-1 ${
+              grid ? "text-[10px]" : "flex-wrap text-[10px] md:text-xs"
             }`}
           >
-            <div className="flex items-center gap-1 min-w-0">
+            <div className={specItem}>
               <iconify-icon icon="solar:widget-linear" className="text-muted shrink-0"></iconify-icon>
-              <span className="truncate">{capacity}</span>
+              <span className={specText}>{capacity}</span>
             </div>
-            <div className="flex items-center gap-1 min-w-0">
+            <div className={specItem}>
               <iconify-icon icon="solar:bolt-linear" className="text-muted shrink-0"></iconify-icon>
-              <span className="truncate">{power}</span>
+              <span className={specText}>{power}</span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <iconify-icon

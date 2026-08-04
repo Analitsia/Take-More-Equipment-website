@@ -48,6 +48,10 @@ body {
 .moving-card {
   transform: translateZ(0);
   backface-visibility: hidden;
+  /* Declares the card as moving content, so the engine keeps it rasterised
+     instead of redrawing it as its visible region changes at the screen edge —
+     the redraws are what let things inside the card shift by a pixel. */
+  will-change: transform;
 }
 
 /* Those same cards drop the backdrop blur. `backdrop-filter` samples what is

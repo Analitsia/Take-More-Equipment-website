@@ -53,6 +53,7 @@ export default function HighlightsTrack() {
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let setWidth = 0; // width of one copy of the set, gap included
+    let wrapWidth = 0; // setWidth, rounded to the device-pixel grid
     let offset = 0; // px the track is shifted left by
     let velocity = 0; // px/s, eases back to `drift`
     let drift = 0; // px/s the row moves when left alone
@@ -68,6 +69,32 @@ export default function HighlightsTrack() {
     let travelled = 0; // furthest the pointer got from where it went down
     let samples: { time: number; x: number }[] = [];
     let swallowClick = false;
+
+    // On a dense screen the row is placed on whole device pixels.
+    //
+    // A card at a fractional device-pixel position has to be re-rounded every
+    // time the engine redraws it — which it does as the card crosses the edges
+    // of the screen and its visible region changes — and each redraw can round
+    // the things inside it differently. Small labels are where a fraction of a
+    // pixel is a large share of a glyph, so they are what visibly jumps.
+    //
+    // Moving the row in whole device pixels fixes every card's sub-pixel phase
+    // for good: card k sits at `offset + k × period`, so once `offset` is an
+    // exact number of device pixels, the fractional part of each card's
+    // position never changes again and every redraw of it is identical to the
+    // last. The loop's wrap distance is rounded the same way, or it would shift
+    // all those phases by a fraction of a pixel once per lap.
+    //
+    // The quantisation this introduces is one device pixel — a third of a CSS
+    // pixel at 3x, half at 2x, two thirds at the 1.5x Windows commonly scales
+    // to. All are smaller than the row moves in a frame, so it still advances
+    // every frame, and all are far below what the eye can follow. Only a plain
+    // 1x screen is left alone: there a device pixel is a whole CSS pixel, and
+    // stepping by one of those at this speed is visible.
+    const dpr = window.devicePixelRatio || 1;
+    const step = dpr >= 1.5 ? 1 / dpr : 0;
+    const onGrid = (value: number) =>
+      step ? Math.round(value / step) * step : value;
 
     // One copy's width is the distance from a card to its own duplicate in the
     // next copy — read from layout so gap/size changes never need mirroring.
@@ -85,6 +112,7 @@ export default function HighlightsTrack() {
         first && twin
           ? twin.getBoundingClientRect().left - first.getBoundingClientRect().left
           : 0;
+      wrapWidth = onGrid(setWidth);
       drift =
         setWidth > 0 && !calm.matches
           ? setWidth / featuredStock.length / SECONDS_PER_CARD
@@ -93,8 +121,8 @@ export default function HighlightsTrack() {
 
     // The only write in the animation loop: no layout is read per frame.
     const apply = () => {
-      if (setWidth > 0) offset = ((offset % setWidth) + setWidth) % setWidth;
-      track.style.transform = `translate3d(${-offset}px, 0, 0)`;
+      if (wrapWidth > 0) offset = ((offset % wrapWidth) + wrapWidth) % wrapWidth;
+      track.style.transform = `translate3d(${-onGrid(offset)}px, 0, 0)`;
     };
 
     const tick = (time: number) => {
