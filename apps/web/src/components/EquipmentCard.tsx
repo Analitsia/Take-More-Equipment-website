@@ -26,21 +26,24 @@ export default function EquipmentCard({
   power,
   sold,
   variant = "carousel",
-}: Equipment & { variant?: "carousel" | "grid" }) {
+  decorative = false,
+}: Equipment & { variant?: "carousel" | "grid"; decorative?: boolean }) {
   const image = images[0];
   const saving = retailPrice
     ? Math.round(((retailPrice - price) / retailPrice) * 100)
     : null;
 
   const grid = variant === "grid";
-  // Carousel cards are viewport-relative on mobile so the next one peeks in and
-  // the card never runs under the screen edge.
+  // Carousel cards are viewport-relative on mobile so several are in play at
+  // once while the row drifts, and the card never runs under the screen edge.
+  // Snapping is desktop-only — on mobile it would fight the drift.
   const sizing = grid
     ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
-    : "w-[78vw] max-w-[400px] sm:w-[340px] md:w-[400px] h-[380px] sm:h-[440px] md:h-[520px] shrink-0 snap-center";
+    : "w-[62vw] max-w-[320px] sm:w-[272px] md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0 md:snap-center";
 
   return (
     <motion.div
+      data-card="stock"
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "-50px" }}
@@ -50,6 +53,8 @@ export default function EquipmentCard({
         href={`/stock/${slug}`}
         aria-label={`${brand} ${title}`}
         className="absolute inset-0 z-20"
+        tabIndex={decorative ? -1 : undefined}
+        aria-hidden={decorative || undefined}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -78,12 +83,12 @@ export default function EquipmentCard({
 
       <div
         className={`absolute z-10 flex flex-col ${
-          grid ? "bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5" : "bottom-5 left-5 right-5 md:bottom-6 md:left-6 md:right-6"
+          grid ? "bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5" : "bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6"
         }`}
       >
         <h3
           className={`font-medium tracking-tight ${
-            grid ? "text-xl sm:text-2xl mb-3" : "text-2xl md:text-3xl mb-3 md:mb-4"
+            grid ? "text-xl sm:text-2xl mb-3" : "text-xl sm:text-2xl md:text-3xl mb-2.5 md:mb-4"
           }`}
         >
           {title}
@@ -91,12 +96,12 @@ export default function EquipmentCard({
 
         <div
           className={`glass-panel bg-card/80 rounded-2xl flex flex-col border-none ${
-            grid ? "p-3.5 gap-2.5" : "p-4 gap-3"
+            grid ? "p-3.5 gap-2.5" : "p-3 gap-2 md:p-4 md:gap-3"
           }`}
         >
           <div
             className={`flex justify-between items-center gap-2 border-b border-white/5 ${
-              grid ? "pb-2.5" : "pb-3"
+              grid ? "pb-2.5" : "pb-2 md:pb-3"
             }`}
           >
             <div className="flex flex-col min-w-0">
@@ -113,7 +118,7 @@ export default function EquipmentCard({
             <div className="flex flex-col items-end min-w-0">
               <span
                 className={`font-medium tracking-tight whitespace-nowrap ${
-                  grid ? "text-base" : "text-lg"
+                  grid ? "text-base" : "text-base md:text-lg"
                 }`}
               >
                 {rands(price)}
@@ -127,7 +132,7 @@ export default function EquipmentCard({
           </div>
           <div
             className={`flex justify-between items-center font-light text-white/80 gap-1.5 ${
-              grid ? "text-[10px]" : "text-xs"
+              grid ? "text-[10px]" : "text-[10px] md:text-xs"
             }`}
           >
             <div className="flex items-center gap-1 min-w-0">

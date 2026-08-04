@@ -1,6 +1,5 @@
 import Subheading from "./Subheading";
-import EquipmentCard from "./EquipmentCard";
-import { featuredStock } from "@/data/equipment";
+import HighlightsTrack from "./HighlightsTrack";
 
 // Featured Stock Section — the template's FeaturedModels, rebuilt around items.
 export default function FeaturedStock() {
@@ -22,11 +21,7 @@ export default function FeaturedStock() {
         </a>
       </div>
 
-      <div className="flex gap-4 md:gap-6 overflow-x-auto hide-scrollbar px-6 md:px-12 pb-8 md:pb-12 snap-x snap-mandatory">
-        {featuredStock.map((item) => (
-          <EquipmentCard key={item.slug} {...item} />
-        ))}
-      </div>
+      <HighlightsTrack />
     </section>
   );
 }
