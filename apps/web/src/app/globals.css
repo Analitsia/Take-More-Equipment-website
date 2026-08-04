@@ -32,3 +32,39 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* A card riding the moving highlights row is composited as one small texture
+   of its own: photo, title and price panel rasterised once, together, and only
+   translated from then on.
+
+   Without this the whole row is a single layer, and three copies of eight
+   cards is 6 171px wide — 18 513 device pixels on a 3× phone, past the
+   16 384px a GPU texture can hold. The engine then has to rasterise the row in
+   pieces as they approach the viewport, and every freshly drawn piece lands on
+   a different sub-pixel phase, so its glyphs jump to new positions the instant
+   they are painted. That is the sudden dash of text at the sides of the
+   screen. Per-card layers are small, are rasterised once each, and their text
+   can never shift relative to the card it sits on. */
+.moving-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Those same cards drop the backdrop blur. `backdrop-filter` samples what is
+   behind an element in *screen* space, so it re-runs every frame the card
+   moves, and it puts the panel in a compositor surface of its own that is
+   positioned separately from the card — a second way for the price panel to
+   come loose from the photo behind it. A flat translucent surface reads the
+   same over a photo and costs nothing per frame. Static glass everywhere else
+   on the site is untouched. */
+.moving-card .glass-panel {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(18, 18, 18, 0.45);
+}
+
+/* The price block sits over the busiest part of the photo and carries the
+   smallest text, so it takes a heavier tint in place of the blur. */
+.moving-card .panel-solid {
+  background: rgba(18, 18, 18, 0.72);
+}

@@ -36,9 +36,11 @@ export default function EquipmentCard({
   const grid = variant === "grid";
   // Carousel cards are viewport-relative on mobile so several are in play at
   // once while the row drifts, and the card never runs under the screen edge.
+  // The mobile max-width has to be lifted again from sm up, or it would also
+  // cap the wider desktop card.
   const sizing = grid
     ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
-    : "w-[62vw] max-w-[320px] sm:w-[272px] md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
+    : "w-[62vw] max-w-[320px] sm:w-[272px] sm:max-w-none md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
 
   // Carousel cards get no entrance animation of their own: the row they sit in
   // is already moving, and a per-card opacity/scale tween on top of that reads
@@ -55,7 +57,9 @@ export default function EquipmentCard({
     <motion.div
       data-card="stock"
       {...enter}
-      className={`${sizing} relative rounded-[2rem] overflow-hidden group`}
+      className={`${sizing} relative rounded-[2rem] overflow-hidden group ${
+        grid ? "" : "moving-card"
+      }`}
     >
       <Link
         href={`/stock/${slug}`}
@@ -103,7 +107,7 @@ export default function EquipmentCard({
         </h3>
 
         <div
-          className={`glass-panel bg-card/80 rounded-2xl flex flex-col border-none ${
+          className={`glass-panel panel-solid bg-card/80 rounded-2xl flex flex-col border-none ${
             grid ? "p-3.5 gap-2.5" : "p-3 gap-2 md:p-4 md:gap-3"
           }`}
         >

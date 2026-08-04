@@ -71,11 +71,20 @@ export default function HighlightsTrack() {
 
     // One copy's width is the distance from a card to its own duplicate in the
     // next copy — read from layout so gap/size changes never need mirroring.
+    //
+    // It has to be read sub-pixel. `offsetLeft` rounds to whole pixels, and a
+    // card sized in `vw` rarely lands on one: on a 390px phone the true period
+    // is 2062.375px, so a rounded 2062 would shift the whole row 0.375px every
+    // time the loop wrapped, re-rasterising every glyph in it — a visible flick
+    // of all the text at once, once per lap.
     const measure = () => {
       const cards = track.querySelectorAll<HTMLElement>('[data-card="stock"]');
       const first = cards[0];
       const twin = cards[featuredStock.length];
-      setWidth = first && twin ? twin.offsetLeft - first.offsetLeft : 0;
+      setWidth =
+        first && twin
+          ? twin.getBoundingClientRect().left - first.getBoundingClientRect().left
+          : 0;
       drift =
         setWidth > 0 && !calm.matches
           ? setWidth / featuredStock.length / SECONDS_PER_CARD
