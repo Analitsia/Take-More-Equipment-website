@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { rands, type Equipment } from "@/data/equipment";
 
@@ -14,9 +15,10 @@ import { rands, type Equipment } from "@/data/equipment";
  * sizing classes differ — everything inside is shared.
  */
 export default function EquipmentCard({
+  slug,
   title,
   brand,
-  image,
+  images,
   price,
   retailPrice,
   grade,
@@ -25,6 +27,7 @@ export default function EquipmentCard({
   sold,
   variant = "carousel",
 }: Equipment & { variant?: "carousel" | "grid" }) {
+  const image = images[0];
   const saving = retailPrice
     ? Math.round(((retailPrice - price) / retailPrice) * 100)
     : null;
@@ -39,8 +42,13 @@ export default function EquipmentCard({
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "-50px" }}
-      className={`${sizing} relative rounded-[2rem] overflow-hidden group cursor-pointer`}
+      className={`${sizing} relative rounded-[2rem] overflow-hidden group`}
     >
+      <Link
+        href={`/stock/${slug}`}
+        aria-label={`${brand} ${title}`}
+        className="absolute inset-0 z-20"
+      />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image}

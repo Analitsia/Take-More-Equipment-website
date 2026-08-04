@@ -4,6 +4,10 @@
  * The shape deliberately mirrors the `items` table in docs/architecture.md, so
  * swapping this array for a Supabase query against the `public_items` view is a
  * one-file change. Brand names are invented; nothing here is real stock.
+ *
+ * Gallery images are placeholders: each unit gets its own primary photo plus
+ * two context shots reused across the category. Real intake photography
+ * replaces `images` per unit.
  */
 
 export const CATEGORIES = [
@@ -47,7 +51,14 @@ export type Equipment = {
   capacity: string;
   power: string;
   tags: Tag[];
-  image: string;
+  /** First entry is the card image. */
+  images: string[];
+  description: string;
+  /** What the workshop actually replaced — the proof behind the grade. */
+  workshopNotes: string[];
+  /** width × depth × height, in millimetres. */
+  dimensionsMm: [number, number, number];
+  weightKg: number;
   /** Sold units stay listed with a badge until a human unpublishes them. */
   sold?: boolean;
   /** Surfaced in the highlighted row above the catalogue. */
@@ -55,7 +66,17 @@ export type Equipment = {
 };
 
 const img = (id: string) =>
-  `https://images.unsplash.com/${id}?q=80&w=800&auto=format&fit=crop`;
+  `https://images.unsplash.com/${id}?q=80&w=1200&auto=format&fit=crop`;
+
+// Context shots, reused per category until real intake photography lands.
+const ctx = {
+  cooking: [img("photo-1627931085762-4017812f1773"), img("photo-1588416820614-f8d6ac6cea56")],
+  cookingAlt: [img("photo-1511224931379-b4e4324ea7fc"), img("photo-1696475091592-cd1cab5afdc2")],
+  cold: [img("photo-1784039534969-26e424548f3e"), img("photo-1708915965975-2a950db0e215")],
+  prep: [img("photo-1654096276021-bd2dd59cb4ab"), img("photo-1604414499020-f9ac575bc5ec")],
+  wash: [img("photo-1671656200343-d2a322492223"), img("photo-1589109807644-924edf14ee09")],
+  storage: [img("photo-1749478072094-d21cb929490c"), img("photo-1604414499020-f9ac575bc5ec")],
+};
 
 export const stock: Equipment[] = [
   // --- Cooking ---
@@ -70,7 +91,16 @@ export const stock: Equipment[] = [
     capacity: "6 × GN 1/1",
     power: "10.2 kW",
     tags: ["Electric", "Three-phase", "Heavy-duty"],
-    image: img("photo-1707255280298-e540809f4c01"),
+    images: [img("photo-1707255280298-e540809f4c01"), ...ctx.cooking],
+    description:
+      "A six-grid electric combi from a Sea Point hotel kitchen that closed its breakfast service. Convection, steam and combination modes all hold temperature within two degrees on our test cycle, and the core probe reads true. This is the single most useful machine in a small kitchen — it roasts, steams, bakes and regenerates from one footprint.",
+    workshopNotes: [
+      "Door gasket and hinge springs replaced",
+      "Steam generator descaled, element tested under load",
+      "New drain trap and fan seal",
+    ],
+    dimensionsMm: [935, 780, 1010],
+    weightKg: 118,
     featured: true,
   },
   {
@@ -84,7 +114,16 @@ export const stock: Equipment[] = [
     capacity: "6 burner",
     power: "34 MJ/h",
     tags: ["Gas", "Heavy-duty"],
-    image: img("flagged/photo-1570737258539-e5eef6f9b2ef"),
+    images: [img("flagged/photo-1570737258539-e5eef6f9b2ef"), ...ctx.cooking],
+    description:
+      "Six open burners over a full-width gas oven, on a heavy cast-iron frame that will outlive most of the kitchens it sits in. Every burner lights first time and holds a clean blue flame at low. The oven thermostat was recalibrated against a reference probe after we replaced it.",
+    workshopNotes: [
+      "All six burner heads stripped and ultrasonically cleaned",
+      "Oven thermostat and thermocouple replaced",
+      "New oven door seal, hinges adjusted",
+    ],
+    dimensionsMm: [1200, 700, 900],
+    weightKg: 165,
     featured: true,
   },
   {
@@ -98,7 +137,16 @@ export const stock: Equipment[] = [
     capacity: "2 × 60 L",
     power: "28 MJ/h",
     tags: ["Gas", "Heavy-duty"],
-    image: img("photo-1602533438197-c9c47ae4b258"),
+    images: [img("photo-1602533438197-c9c47ae4b258"), ...ctx.cookingAlt],
+    description:
+      "Two low-level high-output gas rings built for 60-litre pots — stock, soup, pasta water, anything you cannot lift onto a standard range. Grade B for cosmetic reasons: the front panel carries dents and the burner grates show heat colouring. Mechanically it is sound.",
+    workshopNotes: [
+      "Both burner assemblies rebuilt, new jets",
+      "Gas taps re-greased and pressure tested",
+      "Front panel dented — priced accordingly, not repaired",
+    ],
+    dimensionsMm: [800, 900, 600],
+    weightKg: 96,
     sold: true,
     featured: true,
   },
@@ -113,7 +161,16 @@ export const stock: Equipment[] = [
     capacity: "4 × 600 × 400",
     power: "3.1 kW",
     tags: ["Electric", "Countertop"],
-    image: img("photo-1583471800737-36d8e3a83ceb"),
+    images: [img("photo-1583471800737-36d8e3a83ceb"), ...ctx.cookingAlt],
+    description:
+      "A four-tray countertop convection oven on a single-phase plug — the practical answer for a coffee shop or deli with no three-phase supply. Bakes evenly front to back once preheated. Glass has light scratching and the enamel shows its age, hence Grade B.",
+    workshopNotes: [
+      "Fan motor bearings replaced",
+      "New door seal and internal lamp",
+      "Element resistance tested, within spec",
+    ],
+    dimensionsMm: [800, 700, 570],
+    weightKg: 48,
   },
   {
     slug: "kaldrix-4-pan-bain-marie",
@@ -126,7 +183,16 @@ export const stock: Equipment[] = [
     capacity: "4 × GN 1/2",
     power: "2.4 kW",
     tags: ["Electric", "Countertop"],
-    image: img("photo-1511224931379-b4e4324ea7fc"),
+    images: [img("photo-1511224931379-b4e4324ea7fc"), ...ctx.cooking],
+    description:
+      "A wet-well counter bain-marie holding four half-size pans at service temperature. Thermostat holds 70–85 °C without hot spots, and the well drains properly — the two things that go wrong on used units. Comes with four stainless pans and lids.",
+    workshopNotes: [
+      "Element and thermostat replaced",
+      "Drain tap reseated, new washer",
+      "Four GN 1/2 pans and lids included",
+    ],
+    dimensionsMm: [700, 500, 300],
+    weightKg: 22,
   },
 
   // --- Refrigeration ---
@@ -141,7 +207,16 @@ export const stock: Equipment[] = [
     capacity: "1 350 L",
     power: "0.9 kW",
     tags: ["Electric", "Glass door"],
-    image: img("photo-1762924352150-12b8c19bf4d6"),
+    images: [img("photo-1762924352150-12b8c19bf4d6"), ...ctx.cold],
+    description:
+      "Three glass doors, LED-lit, pulling down to 2 °C in under forty minutes from ambient on our test run. Self-closing doors all seal on a paper test. The obvious front-of-house fridge for a deli, bottle store or cafe that sells cold drinks by the door.",
+    workshopNotes: [
+      "New compressor start relay and capacitor",
+      "All three door gaskets replaced",
+      "Condenser coil stripped and cleaned, gas topped and leak-tested",
+    ],
+    dimensionsMm: [1850, 700, 2000],
+    weightKg: 245,
     featured: true,
   },
   {
@@ -155,7 +230,16 @@ export const stock: Equipment[] = [
     capacity: "280 L",
     power: "0.4 kW",
     tags: ["Electric", "Under-counter"],
-    image: img("photo-1784039534969-26e424548f3e"),
+    images: [img("photo-1784039534969-26e424548f3e"), ...ctx.cold],
+    description:
+      "A two-door stainless under-counter that slots into a standard 900 mm line. Holds 3 °C steadily with the door working. Grade B for scuffing along the left side panel, which disappears the moment it sits next to anything.",
+    workshopNotes: [
+      "Both door gaskets replaced",
+      "Thermostat replaced, calibrated against reference",
+      "New castors fitted",
+    ],
+    dimensionsMm: [1360, 700, 850],
+    weightKg: 88,
   },
 
   // --- Preparation ---
@@ -170,7 +254,16 @@ export const stock: Equipment[] = [
     capacity: "10 × GN 1/1",
     power: "2.1 kW",
     tags: ["Electric", "Mobile"],
-    image: img("photo-1682071308247-04c65c28bba5"),
+    images: [img("photo-1682071308247-04c65c28bba5"), ...ctx.prep],
+    description:
+      "A mobile ten-shelf holding cabinet for banqueting, functions or a busy pass. Humidity-controlled, so plated food holds without drying at the edges. Runs off a normal 15 A plug and wheels through a standard doorway.",
+    workshopNotes: [
+      "Heating element and fan replaced",
+      "New door gasket and latch",
+      "Two castors replaced, all four now lock",
+    ],
+    dimensionsMm: [700, 800, 1750],
+    weightKg: 105,
     featured: true,
   },
   {
@@ -184,7 +277,16 @@ export const stock: Equipment[] = [
     capacity: "20 L bowl",
     power: "1.1 kW",
     tags: ["Electric", "Countertop", "Heavy-duty"],
-    image: img("photo-1655923570951-fd93db1152e5"),
+    images: [img("photo-1655923570951-fd93db1152e5"), ...ctx.prep],
+    description:
+      "A three-speed planetary with a gear-driven head that will take stiff bread dough without complaining — the failure point on belt-driven machines. Bowl, hook, paddle and whisk all included. The safety guard interlock works, which matters for an inspection.",
+    workshopNotes: [
+      "Gearbox drained and refilled, no metal in the old oil",
+      "New drive belt and bowl-lift cable",
+      "Bowl, hook, paddle and whisk included",
+    ],
+    dimensionsMm: [520, 600, 800],
+    weightKg: 92,
   },
   {
     slug: "steelcraft-stainless-prep-counter",
@@ -197,7 +299,16 @@ export const stock: Equipment[] = [
     capacity: "1 800 mm",
     power: "Non-electric",
     tags: ["Under-counter"],
-    image: img("photo-1604414499020-f9ac575bc5ec"),
+    images: [img("photo-1604414499020-f9ac575bc5ec"), ...ctx.prep],
+    description:
+      "An 1 800 mm 304-stainless bench with an undershelf and adjustable feet. No dents in the top, which is unusual at this price — most second-hand benches have taken a knock somewhere. Levels properly on an uneven floor.",
+    workshopNotes: [
+      "Top polished, no dents or weld splits",
+      "New adjustable feet",
+      "Undershelf straightened",
+    ],
+    dimensionsMm: [1800, 700, 900],
+    weightKg: 44,
   },
 
   // --- Wash-Up ---
@@ -212,7 +323,16 @@ export const stock: Equipment[] = [
     capacity: "60 racks/h",
     power: "8.4 kW",
     tags: ["Electric", "Pass-through", "Three-phase"],
-    image: img("photo-1589109807644-924edf14ee09"),
+    images: [img("photo-1589109807644-924edf14ee09"), ...ctx.wash],
+    description:
+      "A hood-type pass-through running sixty racks an hour on a two-minute cycle, with a rinse boost that actually reaches 82 °C — check that figure on anything second-hand, because a machine that cannot hit it will not pass a health inspection. Wash and rinse arms are clear and spin freely.",
+    workshopNotes: [
+      "Wash and rinse arms stripped, all jets cleared",
+      "New wash pump seal and door curtains",
+      "Rinse boost element replaced, 82 °C verified",
+    ],
+    dimensionsMm: [740, 830, 1500],
+    weightKg: 128,
     featured: true,
   },
   {
@@ -226,7 +346,16 @@ export const stock: Equipment[] = [
     capacity: "30 racks/h",
     power: "2.8 kW",
     tags: ["Electric", "Under-counter"],
-    image: img("photo-1776775358799-85c61b5fbb9a"),
+    images: [img("photo-1776775358799-85c61b5fbb9a"), ...ctx.wash],
+    description:
+      "A bar glasswasher on a two-minute cycle with a built-in rinse-aid dosing pump. Single-phase, fits under a standard bar counter. Grade B: the front panel has been polished thin in one corner and the door spring is noisier than we would like.",
+    workshopNotes: [
+      "Drain pump replaced",
+      "New door spring, rinse-aid dosing pump serviced",
+      "Two glass racks included",
+    ],
+    dimensionsMm: [460, 530, 710],
+    weightKg: 34,
     sold: true,
   },
   {
@@ -240,7 +369,16 @@ export const stock: Equipment[] = [
     capacity: "2 × 500 mm",
     power: "Non-electric",
     tags: ["Under-counter"],
-    image: img("photo-1671656200343-d2a322492223"),
+    images: [img("photo-1671656200343-d2a322492223"), ...ctx.wash],
+    description:
+      "A two-bowl pot sink with a left-hand drainer and an undershelf, deep enough to submerge a 60-litre stock pot. Taps are included and were replaced in the workshop. Grade B for surface scratching across the drainer.",
+    workshopNotes: [
+      "New pillar taps and swan neck",
+      "Both waste kits replaced",
+      "Drainer scratched — cosmetic only",
+    ],
+    dimensionsMm: [1600, 700, 900],
+    weightKg: 52,
   },
 
   // --- Bakery ---
@@ -255,7 +393,16 @@ export const stock: Equipment[] = [
     capacity: "3 deck · 12 tray",
     power: "18 kW",
     tags: ["Electric", "Three-phase", "Heavy-duty"],
-    image: img("photo-1703607888337-aae6d77b3d83"),
+    images: [img("photo-1703607888337-aae6d77b3d83"), ...ctx.prep],
+    description:
+      "Three independently controlled stone decks with steam injection on each — the machine behind a proper crust. Came out of a bakery that moved to a bigger site. Each deck holds four 600 × 400 trays and reaches 280 °C. Grade B for cosmetics and one replaced deck light.",
+    workshopNotes: [
+      "Steam injection lines descaled on all three decks",
+      "Two deck thermostats replaced",
+      "Stone hearths intact, no cracks — checked cold and hot",
+    ],
+    dimensionsMm: [1300, 1100, 1800],
+    weightKg: 480,
     featured: true,
   },
 
@@ -271,7 +418,16 @@ export const stock: Equipment[] = [
     capacity: "15 tray",
     power: "Non-electric",
     tags: ["Mobile"],
-    image: img("photo-1563468304224-1fc761a1cbb5"),
+    images: [img("photo-1563468304224-1fc761a1cbb5"), ...ctx.storage],
+    description:
+      "A fifteen-runner mobile rack sized for 600 × 400 trays, which is what most bakery and prep trays actually are. Rolls straight, brakes hold on a slope, and it fits through a 800 mm doorway. The unglamorous piece every kitchen ends up needing three of.",
+    workshopNotes: [
+      "All four castors replaced, two braked",
+      "Frame squared and re-welded at one joint",
+      "Runners straightened",
+    ],
+    dimensionsMm: [460, 660, 1700],
+    weightKg: 28,
     featured: true,
   },
   {
@@ -285,11 +441,54 @@ export const stock: Equipment[] = [
     capacity: "2 400 mm",
     power: "Non-electric",
     tags: ["Under-counter"],
-    image: img("photo-1749478072094-d21cb929490c"),
+    images: [img("photo-1749478072094-d21cb929490c"), ...ctx.storage],
+    description:
+      "A 2 400 mm stainless wall shelf with a utensil rail and eight hooks, plus brackets. Grade C and priced like it — the shelf carries dents along the front edge and one bracket has been drilled twice. Structurally fine, cosmetically honest.",
+    workshopNotes: [
+      "Dents along front edge — not repaired, reflected in price",
+      "One bracket re-drilled by a previous owner",
+      "Eight hooks and fixings included",
+    ],
+    dimensionsMm: [2400, 350, 400],
+    weightKg: 16,
   },
 ];
 
 export const featuredStock = stock.filter((item) => item.featured);
+
+export const bySlug = (slug: string) => stock.find((item) => item.slug === slug);
+
+/**
+ * Related stock: same category first, then anything in a similar price bracket,
+ * so a page always fills its row even in a thin category.
+ */
+export function relatedTo(item: Equipment, limit = 3): Equipment[] {
+  const others = stock.filter((candidate) => candidate.slug !== item.slug);
+  const sameCategory = others.filter((c) => c.category === item.category);
+  const byPrice = others
+    .filter((c) => c.category !== item.category)
+    .sort(
+      (a, b) =>
+        Math.abs(a.price - item.price) - Math.abs(b.price - item.price)
+    );
+  return [...sameCategory, ...byPrice].slice(0, limit);
+}
+
+export const WARRANTY_MONTHS = 6;
+
+/** Light items go on a courier; anything heavy is delivered or collected. */
+export function deliveryFor(item: Equipment) {
+  return item.weightKg <= 30
+    ? {
+        headline: "Nationwide courier",
+        detail: "2–4 working days to most major centres, quoted on enquiry.",
+      }
+    : {
+        headline: "Delivered or collected",
+        detail:
+          "Cape Town delivery within 48 hours, quoted by distance. Or collect free from Montague Gardens.",
+      };
+}
 
 export const PRICE_BANDS = [
   { id: "under-5k", label: "Under R5 000", min: 0, max: 5000 },
@@ -315,3 +514,5 @@ export const countByCategory = (category: Category) =>
 /** R42 500 — SA convention is a thin space, but a normal space renders safer. */
 export const rands = (amount: number) =>
   `R${amount.toLocaleString("en-ZA").replace(/,/g, " ")}`;
+
+export const mm = (value: number) => `${value.toLocaleString("en-ZA")} mm`;
