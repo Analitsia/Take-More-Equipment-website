@@ -7,19 +7,19 @@ import { site, whatsappLink } from "@/data/site";
 // Closing CTA — Phase 1 sells by enquiry, so this is the primary conversion point.
 export default function CtaBand() {
   return (
-    <section className="py-12 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
+    <section className="py-12 md:py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
-        className="relative bg-card rounded-[2rem] border border-border p-8 md:p-16 overflow-hidden"
+        className="relative bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16 overflow-hidden"
       >
         <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/3 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="relative flex flex-col lg:flex-row justify-between lg:items-end gap-10">
           <div className="max-w-2xl">
             <Subheading text="Looking For Something Specific?" />
-            <h2 className="text-3xl md:text-5xl font-medium tracking-tight leading-tight mb-6">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-6">
               Most of our stock sells before it reaches this page.
             </h2>
             <p className="text-muted font-light text-sm leading-relaxed max-w-lg">

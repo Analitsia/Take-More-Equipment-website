@@ -74,7 +74,7 @@ export default async function ProductPage({
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar variant="solid" />
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-8 pb-24">
+      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-4 md:pt-8 pb-16 md:pb-24">
         <Breadcrumbs
           crumbs={[
             { label: "Home", href: "/" },
@@ -84,11 +84,11 @@ export default async function ProductPage({
           ]}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-16">
           <ProductGallery images={item.images} title={item.title} sold={item.sold} />
 
           <div className="flex flex-col">
-            <div className="flex items-center gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 flex-wrap">
               <span className="glass-panel px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase">
                 {item.brand}
               </span>
@@ -100,22 +100,22 @@ export default async function ProductPage({
               </span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-medium tracking-tighter leading-[1.1] mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tighter leading-[1.1] mb-6">
               {item.title}
             </h1>
 
-            <p className="text-muted font-light text-sm md:text-base leading-relaxed mb-8">
+            <p className="text-muted font-light text-sm md:text-base leading-relaxed mb-6 md:mb-8">
               {item.description}
             </p>
 
             {/* Price block */}
-            <div className="bg-card rounded-[2rem] border border-border p-6 md:p-8 mb-6">
+            <div className="bg-card rounded-[2rem] border border-border p-5 sm:p-6 md:p-8 mb-4 sm:mb-6">
               <div className="flex items-end justify-between gap-6 flex-wrap">
                 <div className="flex flex-col">
                   <span className="text-xs text-muted font-light mb-1">
                     {item.sold ? "Sold for" : "Our price"}
                   </span>
-                  <span className="text-4xl md:text-5xl font-light tracking-tighter">
+                  <span className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter">
                     {rands(item.price)}
                   </span>
                 </div>
@@ -198,10 +198,10 @@ export default async function ProductPage({
         </div>
 
         {/* Specs + workshop notes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 mt-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-16 mt-16 md:mt-24">
           <section>
             <Subheading text="Specification" />
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-8">
               The numbers
             </h2>
             <dl className="flex flex-col">
@@ -219,7 +219,7 @@ export default async function ProductPage({
 
           <section>
             <Subheading text="Workshop Report" />
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight mb-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-8">
               What we replaced
             </h2>
             <ul className="flex flex-col gap-4">
@@ -248,11 +248,11 @@ export default async function ProductPage({
 
         {/* Related */}
         {related.length > 0 && (
-          <section className="mt-24">
-            <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <section className="mt-16 md:mt-24">
+            <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
                 <Subheading text="Also On The Floor" />
-                <h2 className="text-3xl md:text-4xl font-medium tracking-tight">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">
                   You might also need
                 </h2>
               </div>
@@ -264,7 +264,7 @@ export default async function ProductPage({
                 <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {related.map((other) => (
                 <EquipmentCard key={other.slug} {...other} variant="grid" />
               ))}

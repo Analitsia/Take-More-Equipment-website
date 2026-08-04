@@ -50,7 +50,7 @@ export default async function PostPage({
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar variant="solid" />
 
-      <article className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-8 pb-24">
+      <article className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-4 md:pt-8 pb-16 md:pb-24">
         <Breadcrumbs
           crumbs={[
             { label: "Home", href: "/" },
@@ -59,7 +59,7 @@ export default async function PostPage({
           ]}
         />
 
-        <header className="max-w-3xl mb-12">
+        <header className="max-w-3xl mb-8 md:mb-12">
           <div className="flex items-center gap-3 mb-6 flex-wrap">
             <span className="px-4 py-1.5 rounded-full bg-accent text-background text-xs font-medium tracking-widest uppercase">
               {post.tag}
@@ -68,20 +68,20 @@ export default async function PostPage({
               {formatDate(post.date)} · {post.readingMinutes} min read
             </span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-medium tracking-tighter leading-[1.08] mb-8">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-medium tracking-tighter leading-[1.12] mb-6 md:mb-8">
             {post.title}
           </h1>
-          <p className="text-lg font-light text-white/80 leading-relaxed">
+          <p className="text-base md:text-lg font-light text-white/80 leading-relaxed">
             {post.excerpt}
           </p>
         </header>
 
-        <div className="rounded-[2rem] overflow-hidden border border-border mb-16">
+        <div className="rounded-[2rem] overflow-hidden border border-border mb-10 md:mb-16">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.image}
             alt={post.title}
-            className="w-full aspect-[21/9] object-cover"
+            className="w-full aspect-[3/2] sm:aspect-[21/9] object-cover"
           />
         </div>
 
@@ -113,9 +113,9 @@ export default async function PostPage({
         </div>
 
         {more.length > 0 && (
-          <section className="mt-24">
+          <section className="mt-16 md:mt-24">
             <Subheading text="Keep Reading" />
-            <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-12">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-12">
               More from the workshop
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

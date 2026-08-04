@@ -45,7 +45,7 @@ export default function SearchOverlay({
   }, [query]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-24 md:pt-32">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-16 sm:pt-24 md:pt-32">
       <div
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={onClose}
@@ -54,7 +54,7 @@ export default function SearchOverlay({
 
       <div className="relative w-full max-w-2xl">
         <div className="glass-panel bg-card/90 rounded-[2rem] overflow-hidden">
-          <div className="flex items-center gap-4 px-6 py-5">
+          <div className="flex items-center gap-3 sm:gap-4 px-5 sm:px-6 py-4 sm:py-5">
             <iconify-icon
               icon="solar:minimalistic-magnifer-linear"
               width="20"
@@ -65,8 +65,8 @@ export default function SearchOverlay({
               ref={inputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search stock — combi, fridge, gas, Aquastar…"
-              className="flex-1 bg-transparent text-lg font-light text-white placeholder:text-muted focus:outline-none"
+              placeholder="Search stock…"
+              className="flex-1 min-w-0 bg-transparent text-base sm:text-lg font-light text-white placeholder:text-muted focus:outline-none"
             />
             <button
               type="button"
@@ -86,9 +86,9 @@ export default function SearchOverlay({
                     key={item.slug}
                     href={`/stock/${item.slug}`}
                     onClick={onClose}
-                    className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.04] transition-colors group"
+                    className="flex items-center gap-3 sm:gap-4 px-5 sm:px-6 py-3.5 sm:py-4 hover:bg-white/[0.04] transition-colors group"
                   >
-                    <span className="w-14 h-14 rounded-xl overflow-hidden bg-border shrink-0">
+                    <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-border shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.images[0]}

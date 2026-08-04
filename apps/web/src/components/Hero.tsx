@@ -8,7 +8,7 @@ import { site, whatsappLink } from "@/data/site";
 // Hero Component
 export default function Hero() {
   return (
-    <div className="p-2 md:p-4 h-[95vh] md:h-[90vh]">
+    <div className="p-2 md:p-4 h-[85vh] min-h-[520px] md:h-[90vh]">
       <div className="relative w-full h-full rounded-[2rem] overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -22,7 +22,7 @@ export default function Hero() {
 
         <Navbar />
 
-        <div className="absolute top-24 md:top-32 inset-x-0 px-6 md:px-12 flex justify-between items-start text-xs font-light text-white/70 z-10">
+        <div className="absolute top-20 md:top-32 inset-x-0 px-5 sm:px-6 md:px-12 flex justify-between items-start text-xs font-light text-white/70 z-10">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
             {site.city}, {site.country}
           </motion.div>
@@ -47,7 +47,7 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        <div className="absolute bottom-0 inset-x-0 p-6 md:p-12 z-20 flex flex-col lg:flex-row justify-between lg:items-end gap-8">
+        <div className="absolute bottom-0 inset-x-0 p-5 sm:p-6 md:p-12 z-20 flex flex-col lg:flex-row justify-between lg:items-end gap-5 md:gap-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -55,7 +55,7 @@ export default function Hero() {
             className="max-w-2xl"
           >
             <Subheading text="Refurbished Catering Equipment" />
-            <h1 className="text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-4 md:mb-6">
               Restaurant-Grade Kit,
               <br />
               Half The Retail Price
@@ -66,7 +66,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-start sm:items-center gap-6 border-t lg:border-t-0 lg:border-l border-white/10 pt-6 lg:pt-0 lg:pl-12 w-full lg:w-auto"
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 border-t lg:border-t-0 lg:border-l border-white/10 pt-5 md:pt-6 lg:pt-0 lg:pl-12 w-full lg:w-auto"
           >
             <a
               href="#stock"

@@ -69,16 +69,33 @@ export default function Navbar({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          className="glass-panel rounded-full w-10 h-10 flex flex-col justify-center items-center space-y-1 cursor-pointer hover:bg-white/10 transition-colors"
-        >
-          <span className="w-4 h-[1px] bg-white rounded-full"></span>
-          <span className="w-4 h-[1px] bg-white rounded-full"></span>
-          <span className="w-4 h-[1px] bg-white rounded-full"></span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* The desktop nav panel carries its own search; on mobile it is hidden,
+              so search needs its own control next to the menu. */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search stock"
+            className="md:hidden glass-panel rounded-full w-10 h-10 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"
+          >
+            <iconify-icon
+              icon="solar:minimalistic-magnifer-linear"
+              width="17"
+              height="17"
+            ></iconify-icon>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            className="glass-panel rounded-full w-10 h-10 flex flex-col justify-center items-center space-y-1 cursor-pointer hover:bg-white/10 transition-colors"
+          >
+            <span className="w-4 h-[1px] bg-white rounded-full"></span>
+            <span className="w-4 h-[1px] bg-white rounded-full"></span>
+            <span className="w-4 h-[1px] bg-white rounded-full"></span>
+          </button>
+        </div>
       </motion.nav>
 
       {menuOpen && <MenuOverlay onClose={() => setMenuOpen(false)} />}

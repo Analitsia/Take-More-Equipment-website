@@ -77,7 +77,7 @@ export default function ConditionsPage() {
     >
       <ContentSection>
         <Subheading text="The Grades" />
-        <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-4">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-4">
           Three letters, cosmetics only
         </h2>
         <p className="text-muted font-light text-sm leading-relaxed max-w-2xl mb-12">
@@ -90,7 +90,7 @@ export default function ConditionsPage() {
           {GRADES.map((grade) => (
             <div
               key={grade}
-              className="bg-card rounded-[2rem] border border-border p-8 flex flex-col"
+              className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 flex flex-col"
             >
               <div className="flex items-baseline gap-3 mb-6">
                 <span className="text-5xl font-light tracking-tighter">{grade}</span>
@@ -119,14 +119,14 @@ export default function ConditionsPage() {
 
       <ContentSection>
         <Subheading text="The Workshop" />
-        <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-12">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-12">
           What happens before anything is listed
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {workshop.map((step, idx) => (
             <div key={step.title} className="border-t border-border pt-8 flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <span className="text-5xl font-light tracking-tighter text-white/15">
+                <span className="text-4xl sm:text-5xl font-light tracking-tighter text-white/15">
                   0{idx + 1}
                 </span>
                 <div className="w-12 h-12 rounded-2xl bg-card border border-border flex items-center justify-center text-accent">
@@ -141,11 +141,11 @@ export default function ConditionsPage() {
       </ContentSection>
 
       <ContentSection>
-        <div className="bg-card rounded-[2rem] border border-border p-8 md:p-16">
+        <div className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
             <div>
               <Subheading text="The Warranty" />
-              <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-6">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-6">
                 {WARRANTY_MONTHS} months, parts and labour, in writing.
               </h2>
               <p className="text-muted font-light text-sm leading-relaxed">

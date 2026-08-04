@@ -54,10 +54,10 @@ export default function AboutPage() {
           {stats.map((stat) => (
             <div key={stat.label} className="flex flex-col">
               <div className="flex items-end mb-2">
-                <span className="text-5xl md:text-6xl font-light tracking-tighter">
+                <span className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter">
                   {stat.number}
                 </span>
-                <span className="text-accent text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
+                <span className="text-accent text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
                   {stat.suffix}
                 </span>
               </div>
@@ -71,7 +71,7 @@ export default function AboutPage() {
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
           <div className="lg:w-1/2">
             <Subheading text="The Business" />
-            <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-8">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-8">
               A restaurant closes somewhere in the Cape every week.
             </h2>
             <div className="flex flex-col gap-6 text-muted font-light text-sm md:text-base leading-relaxed">
@@ -118,14 +118,14 @@ export default function AboutPage() {
 
       <ContentSection>
         <Subheading text="How We Work" />
-        <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-12">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-12">
           Three rules we do not bend
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {principles.map((principle) => (
             <div
               key={principle.title}
-              className="bg-card rounded-[2rem] p-8 md:p-10 border border-border hover:border-white/10 transition-colors group"
+              className="bg-card rounded-[2rem] p-6 sm:p-8 md:p-10 border border-border hover:border-white/10 transition-colors group"
             >
               <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mb-8 group-hover:scale-110 transition-transform">
                 <iconify-icon icon={principle.icon} width="24" height="24"></iconify-icon>
@@ -140,11 +140,11 @@ export default function AboutPage() {
       </ContentSection>
 
       <ContentSection>
-        <div className="bg-card rounded-[2rem] border border-border p-8 md:p-16">
+        <div className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div>
               <Subheading text="Find Us" />
-              <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-6">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-6">
                 Come and see it running.
               </h2>
               <p className="text-muted font-light text-sm leading-relaxed">

@@ -30,8 +30,8 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-[100] overflow-y-auto hide-scrollbar">
       <div className="absolute inset-0 bg-background/95 backdrop-blur-md" aria-hidden />
 
-      <div className="relative min-h-full w-full max-w-[1440px] mx-auto px-6 md:px-12 py-8">
-        <div className="flex items-center justify-between mb-16">
+      <div className="relative min-h-full w-full max-w-[1440px] mx-auto px-5 sm:px-6 md:px-12 py-6 md:py-8">
+        <div className="flex items-center justify-between mb-10 md:mb-16">
           <Link
             href="/"
             onClick={onClose}
@@ -49,7 +49,7 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-16 lg:gap-24 pb-16">
+        <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 pb-12 md:pb-16">
           <nav className="flex-1">
             <div className="flex items-center space-x-3 mb-8">
               <div className="w-5 h-1 rounded-full bg-accent"></div>
@@ -63,9 +63,9 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
                   <Link
                     href={link.href}
                     onClick={onClose}
-                    className="group flex items-baseline justify-between gap-6 py-5"
+                    className="group flex items-baseline justify-between gap-6 py-4 md:py-5"
                   >
-                    <span className="text-2xl md:text-4xl font-medium tracking-tighter group-hover:text-accent transition-colors">
+                    <span className="text-xl sm:text-2xl md:text-4xl font-medium tracking-tighter group-hover:text-accent transition-colors">
                       {link.label}
                     </span>
                     <span className="hidden sm:block text-xs font-light text-muted text-right shrink-0">

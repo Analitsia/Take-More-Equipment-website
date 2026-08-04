@@ -86,12 +86,17 @@ export default function FilterPanel({
   resultCount,
   activeCount,
   onClear,
+  open,
+  setOpen,
 }: {
   filters: Filters;
   setFilters: (next: Filters) => void;
   resultCount: number;
   activeCount: number;
   onClear: () => void;
+  /** Mobile only — the panel is always visible from `lg` up. */
+  open: boolean;
+  setOpen: (next: boolean) => void;
 }) {
   // Toggle a value in one of the array-valued filter groups.
   const toggle = <K extends "categories" | "grades" | "tags">(
@@ -107,24 +112,48 @@ export default function FilterPanel({
 
   return (
     <aside className="lg:w-72 shrink-0">
-      <div className="bg-card rounded-[2rem] border border-border p-6 md:p-8 lg:sticky lg:top-6">
-        <div className="flex items-center justify-between gap-3 pb-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-background border border-border flex items-center justify-center text-accent">
+      <div className="bg-card rounded-[2rem] border border-border p-5 sm:p-6 md:p-8 lg:sticky lg:top-6">
+        {/* On mobile this whole header is the toggle; from lg it is a static label. */}
+        <div
+          className={`flex items-center justify-between gap-3 ${
+            open ? "pb-5 border-b border-border" : ""
+          } lg:pb-6 lg:border-b lg:border-border`}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left lg:pointer-events-none"
+          >
+            <span className="w-9 h-9 rounded-xl bg-background border border-border flex items-center justify-center text-accent shrink-0">
               <iconify-icon icon="solar:filter-linear" width="16" height="16"></iconify-icon>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium tracking-tight">Filters</span>
+            </span>
+            <span className="flex flex-col min-w-0">
+              <span className="text-sm font-medium tracking-tight">
+                Filters
+                {activeCount > 0 && (
+                  <span className="text-accent"> · {activeCount}</span>
+                )}
+              </span>
               <span className="text-xs font-light text-muted">
                 {resultCount} {resultCount === 1 ? "unit" : "units"}
               </span>
-            </div>
-          </div>
+            </span>
+            <span className="ml-auto lg:hidden text-muted">
+              <iconify-icon
+                icon="solar:alt-arrow-down-linear"
+                width="18"
+                height="18"
+                className={open ? "rotate-180 inline-block" : "inline-block"}
+              ></iconify-icon>
+            </span>
+          </button>
+
           {activeCount > 0 && (
             <button
               type="button"
               onClick={onClear}
-              className="flex items-center gap-1.5 text-xs font-light text-muted hover:text-accent transition-colors"
+              className="hidden lg:flex items-center gap-1.5 text-xs font-light text-muted hover:text-accent transition-colors shrink-0"
             >
               <iconify-icon icon="solar:restart-linear" width="13" height="13"></iconify-icon>
               Clear
@@ -132,7 +161,7 @@ export default function FilterPanel({
           )}
         </div>
 
-        <div className="pt-6">
+        <div className={`${open ? "block pt-5" : "hidden"} lg:block lg:pt-6`}>
           <Group label="Category">
             {CATEGORIES.map((category) => (
               <Row
@@ -191,6 +220,27 @@ export default function FilterPanel({
               onClick={() => setFilters({ ...filters, hideSold: !filters.hideSold })}
             />
           </Group>
+
+          {/* Mobile close/clear — the sidebar equivalents live in the header. */}
+          <div className="flex items-center gap-3 mt-6 pt-6 border-t border-border lg:hidden">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex-1 bg-accent text-background rounded-2xl px-5 py-3 text-sm font-medium"
+            >
+              Show {resultCount} {resultCount === 1 ? "unit" : "units"}
+            </button>
+            {activeCount > 0 && (
+              <button
+                type="button"
+                onClick={onClear}
+                aria-label="Clear filters"
+                className="w-12 h-12 rounded-2xl border border-border flex items-center justify-center text-muted shrink-0"
+              >
+                <iconify-icon icon="solar:restart-linear" width="16" height="16"></iconify-icon>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </aside>

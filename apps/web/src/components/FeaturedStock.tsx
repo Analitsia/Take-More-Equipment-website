@@ -5,11 +5,11 @@ import { featuredStock } from "@/data/equipment";
 // Featured Stock Section — the template's FeaturedModels, rebuilt around items.
 export default function FeaturedStock() {
   return (
-    <section id="stock" className="py-24 overflow-hidden scroll-mt-24">
-      <div className="px-6 md:px-12 w-full max-w-[1440px] mx-auto mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <section id="stock" className="py-14 md:py-24 overflow-hidden scroll-mt-24">
+      <div className="px-6 md:px-12 w-full max-w-[1440px] mx-auto mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <Subheading text="In The Warehouse" />
-          <h2 className="text-3xl md:text-5xl font-medium tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight">
             This Week&apos;s Highlights
           </h2>
         </div>
@@ -22,7 +22,7 @@ export default function FeaturedStock() {
         </a>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto hide-scrollbar px-6 md:px-12 pb-12 snap-x snap-mandatory">
+      <div className="flex gap-4 md:gap-6 overflow-x-auto hide-scrollbar px-6 md:px-12 pb-8 md:pb-12 snap-x snap-mandatory">
         {featuredStock.map((item) => (
           <EquipmentCard key={item.slug} {...item} />
         ))}

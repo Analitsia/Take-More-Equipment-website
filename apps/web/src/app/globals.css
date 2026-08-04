@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 /* Ported verbatim from the source template's <style> block. */
+html {
+  /* Needed alongside the body rule — body-only clipping still lets the root
+     scroll horizontally when a child overflows. */
+  overflow-x: hidden;
+}
+
 body {
   background-color: #080805;
   color: #ffffff;

@@ -18,10 +18,10 @@ export default function Categories({
 }) {
   return (
     <section className="pt-12 pb-4 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
-      <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <Subheading text="Shop By Category" />
-          <h2 className="text-3xl md:text-5xl font-medium tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight">
             Everything Behind The Pass
           </h2>
         </div>
@@ -31,7 +31,7 @@ export default function Categories({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
         {CATEGORIES.map((category, idx) => {
           const active = selected.includes(category);
           return (
@@ -44,13 +44,13 @@ export default function Categories({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: (idx % 6) * 0.06 }}
-              className={`bg-card rounded-[2rem] p-6 border transition-colors group flex flex-col text-left ${
+              className={`bg-card rounded-3xl sm:rounded-[2rem] p-4 sm:p-6 border transition-colors group flex flex-col text-left ${
                 active ? "border-accent/60" : "border-border hover:border-white/10"
               }`}
             >
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start justify-between mb-4 sm:mb-6">
                 <div
-                  className={`w-12 h-12 rounded-2xl bg-background border flex items-center justify-center text-accent group-hover:scale-110 transition-transform ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-background border flex items-center justify-center text-accent group-hover:scale-110 transition-transform ${
                     active ? "border-accent/40" : "border-border"
                   }`}
                 >

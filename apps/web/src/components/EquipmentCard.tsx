@@ -33,9 +33,11 @@ export default function EquipmentCard({
     : null;
 
   const grid = variant === "grid";
+  // Carousel cards are viewport-relative on mobile so the next one peeks in and
+  // the card never runs under the screen edge.
   const sizing = grid
-    ? "w-full h-[440px]"
-    : "min-w-[320px] md:min-w-[400px] w-full md:w-[400px] h-[520px] shrink-0 snap-center";
+    ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
+    : "w-[78vw] max-w-[400px] sm:w-[340px] md:w-[400px] h-[380px] sm:h-[440px] md:h-[520px] shrink-0 snap-center";
 
   return (
     <motion.div
@@ -59,7 +61,7 @@ export default function EquipmentCard({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent"></div>
 
-      <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
+      <div className="absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-6 flex justify-between items-center z-10">
         <span className="glass-panel px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase">
           {brand}
         </span>
@@ -76,12 +78,12 @@ export default function EquipmentCard({
 
       <div
         className={`absolute z-10 flex flex-col ${
-          grid ? "bottom-5 left-5 right-5" : "bottom-6 left-6 right-6"
+          grid ? "bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5" : "bottom-5 left-5 right-5 md:bottom-6 md:left-6 md:right-6"
         }`}
       >
         <h3
           className={`font-medium tracking-tight ${
-            grid ? "text-2xl mb-3" : "text-3xl mb-4"
+            grid ? "text-xl sm:text-2xl mb-3" : "text-2xl md:text-3xl mb-3 md:mb-4"
           }`}
         >
           {title}

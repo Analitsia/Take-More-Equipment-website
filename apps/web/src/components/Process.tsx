@@ -31,11 +31,11 @@ export default function Process() {
   return (
     <section
       id="process"
-      className="py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative scroll-mt-24"
+      className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative scroll-mt-24"
     >
-      <div className="text-center mb-16 flex flex-col items-center">
+      <div className="text-center mb-10 md:mb-16 flex flex-col items-center">
         <Subheading text="How It Works" />
-        <h2 className="text-3xl md:text-5xl font-medium tracking-tight max-w-3xl leading-tight">
+        <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight max-w-3xl leading-tight">
           Why We Can Sell A R98 000 Combi For R42 500
         </h2>
       </div>
@@ -51,7 +51,7 @@ export default function Process() {
             className="border-t border-border pt-8 flex flex-col"
           >
             <div className="flex items-center justify-between mb-8">
-              <span className="text-5xl font-light tracking-tighter text-white/15">
+              <span className="text-4xl sm:text-5xl font-light tracking-tighter text-white/15">
                 0{idx + 1}
               </span>
               <div className="w-12 h-12 rounded-2xl bg-card border border-border flex items-center justify-center text-accent">

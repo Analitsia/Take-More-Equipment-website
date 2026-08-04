@@ -26,14 +26,14 @@ export default function PageShell({
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar variant="solid" />
 
-      <header className="w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-12 pb-16 md:pt-20 md:pb-24">
+      <header className="w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-6 pb-10 md:pt-20 md:pb-24">
         {crumbs.length > 0 && <Breadcrumbs crumbs={crumbs} />}
         <Subheading text={eyebrow} />
-        <h1 className="text-4xl md:text-6xl font-medium tracking-tighter leading-[1.1] max-w-4xl">
+        <h1 className="text-3xl sm:text-4xl md:text-6xl font-medium tracking-tighter leading-[1.15] max-w-4xl">
           {title}
         </h1>
         {intro && (
-          <p className="text-muted font-light text-base leading-relaxed max-w-2xl mt-8">
+          <p className="text-muted font-light text-sm md:text-base leading-relaxed max-w-2xl mt-6 md:mt-8">
             {intro}
           </p>
         )}
@@ -50,7 +50,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center flex-wrap gap-2 text-xs font-light text-muted mb-8"
+      className="flex items-center flex-wrap gap-2 text-xs font-light text-muted mb-6 md:mb-8"
     >
       {crumbs.map((crumb, idx) => (
         <span key={idx} className="flex items-center gap-2">

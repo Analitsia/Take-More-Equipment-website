@@ -82,7 +82,7 @@ export default function DeliveryPage() {
           {options.map((option) => (
             <div
               key={option.title}
-              className="bg-card rounded-[2rem] border border-border p-8 flex flex-col"
+              className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 flex flex-col"
             >
               <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mb-8">
                 <iconify-icon icon={option.icon} width="24" height="24"></iconify-icon>
@@ -119,7 +119,7 @@ export default function DeliveryPage() {
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
           <div className="lg:w-1/2">
             <Subheading text="Before You Buy" />
-            <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-6">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-6">
               Measure the door, not just the gap.
             </h2>
             <p className="text-muted font-light text-sm leading-relaxed mb-6">
@@ -152,7 +152,7 @@ export default function DeliveryPage() {
 
           <div className="lg:w-1/2">
             <Subheading text="Not Included" />
-            <h2 className="text-3xl md:text-4xl font-medium tracking-tight mb-8">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-8">
               What you will need someone else for
             </h2>
             <div className="flex flex-col">
@@ -172,9 +172,9 @@ export default function DeliveryPage() {
       </ContentSection>
 
       <ContentSection>
-        <div className="bg-card rounded-[2rem] border border-border p-8 md:p-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div>
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight mb-3">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-3">
               Collections and viewings
             </h2>
             <p className="text-muted font-light text-sm leading-relaxed">

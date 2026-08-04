@@ -22,6 +22,7 @@ export default function Catalogue({
   setFilters: (next: Filters) => void;
 }) {
   const [sort, setSort] = useState<SortId>("featured");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const results = useMemo(
     () => applySort(applyFilters(filters), sort),
@@ -30,11 +31,11 @@ export default function Catalogue({
   const activeCount = countActive(filters);
 
   return (
-    <section id="catalogue" className="py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto scroll-mt-6">
-      <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <section id="catalogue" className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto scroll-mt-6">
+      <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <Subheading text="The Catalogue" />
-          <h2 className="text-3xl md:text-5xl font-medium tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight">
             Every Unit On The Floor
           </h2>
         </div>
@@ -51,26 +52,29 @@ export default function Catalogue({
           resultCount={results.length}
           activeCount={activeCount}
           onClear={() => setFilters(emptyFilters)}
+          open={filtersOpen}
+          setOpen={setFiltersOpen}
         />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-4 pb-6 mb-6 border-b border-border">
-            <span className="text-sm font-light text-muted">
-              Showing <span className="text-white">{results.length}</span> of{" "}
-              {applyFilters(emptyFilters).length}
+          <div className="flex items-center justify-between gap-3 pb-5 mb-6 border-b border-border">
+            <span className="text-xs sm:text-sm font-light text-muted">
+              <span className="text-white">{results.length}</span>
+              <span className="hidden sm:inline"> of {applyFilters(emptyFilters).length}</span>
+              <span className="sm:hidden"> units</span>
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <iconify-icon
                 icon="solar:sort-vertical-linear"
                 width="16"
                 height="16"
-                className="text-muted"
+                className="text-muted shrink-0"
               ></iconify-icon>
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortId)}
                 aria-label="Sort stock"
-                className="bg-card border border-border rounded-xl px-3 py-2 text-sm font-light text-white/90 hover:border-white/20 focus:border-accent focus:outline-none transition-colors cursor-pointer"
+                className="bg-card border border-border rounded-xl px-3 py-2 text-xs sm:text-sm font-light text-white/90 hover:border-white/20 focus:border-accent focus:outline-none transition-colors cursor-pointer max-w-[190px]"
               >
                 {SORTS.map((option) => (
                   <option key={option.id} value={option.id} className="bg-card">
@@ -82,7 +86,7 @@ export default function Catalogue({
           </div>
 
           {results.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
               {results.map((item) => (
                 <EquipmentCard key={item.slug} {...item} variant="grid" />
               ))}

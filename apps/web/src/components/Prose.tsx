@@ -10,7 +10,7 @@ export function Prose({ blocks }: { blocks: Block[] }) {
             return (
               <h2
                 key={idx}
-                className="text-2xl md:text-3xl font-medium tracking-tight mt-8 first:mt-0"
+                className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mt-8 first:mt-0"
               >
                 {block.text}
               </h2>
@@ -61,7 +61,7 @@ export function ContentSection({
 }) {
   return (
     <section
-      className={`w-full max-w-[1440px] mx-auto px-6 md:px-12 pb-24 ${className}`}
+      className={`w-full max-w-[1440px] mx-auto px-6 md:px-12 pb-14 md:pb-24 ${className}`}
     >
       {children}
     </section>

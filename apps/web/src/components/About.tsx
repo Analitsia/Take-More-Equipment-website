@@ -13,7 +13,7 @@ export default function About() {
   ];
 
   return (
-    <section className="py-24 md:py-32 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
+    <section className="py-14 md:py-24 lg:py-32 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
       <div className="flex flex-col lg:flex-row justify-between gap-16 lg:gap-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -22,7 +22,7 @@ export default function About() {
           className="lg:w-1/2"
         >
           <Subheading text="About Us" />
-          <h2 className="text-3xl md:text-5xl font-medium tracking-tight leading-tight mb-8 max-w-2xl">
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-8 max-w-2xl">
             We buy the kitchens that close, and rebuild them for the kitchens that are
             opening.
           </h2>
@@ -54,10 +54,10 @@ export default function About() {
               className="flex flex-col"
             >
               <div className="flex items-end mb-2">
-                <span className="text-5xl md:text-6xl font-light tracking-tighter">
+                <span className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter">
                   {stat.number}
                 </span>
-                <span className="text-accent text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
+                <span className="text-accent text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
                   {stat.suffix}
                 </span>
               </div>
