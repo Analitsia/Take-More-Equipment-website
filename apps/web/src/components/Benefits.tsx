@@ -24,7 +24,7 @@ export default function Benefits() {
   ];
 
   return (
-    <section className="py-24 px-6 md:px-12 max-w-[1440px] mx-auto relative">
+    <section className="py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10"></div>
 
       <div className="text-center mb-16 flex flex-col items-center">

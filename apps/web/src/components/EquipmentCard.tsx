@@ -5,9 +5,13 @@ import { rands, type Equipment } from "@/data/equipment";
 
 /**
  * The stock card. Structurally identical to the template's CarCard — same
- * dimensions, same glass panel, same hover behaviour — with rental specs
- * swapped for the three things a buyer of used kitchen kit actually checks:
- * capacity, power draw, and condition grade.
+ * glass panel, same hover behaviour — with rental specs swapped for the three
+ * things a buyer of used kitchen kit actually checks: capacity, power draw,
+ * and condition grade.
+ *
+ * `carousel` keeps the template's fixed-width, snap-scrolling behaviour for the
+ * highlighted row. `grid` lets the card fill its grid column instead. Only the
+ * sizing classes differ — everything inside is shared.
  */
 export default function EquipmentCard({
   title,
@@ -19,17 +23,23 @@ export default function EquipmentCard({
   capacity,
   power,
   sold,
-}: Equipment) {
+  variant = "carousel",
+}: Equipment & { variant?: "carousel" | "grid" }) {
   const saving = retailPrice
     ? Math.round(((retailPrice - price) / retailPrice) * 100)
     : null;
+
+  const grid = variant === "grid";
+  const sizing = grid
+    ? "w-full h-[440px]"
+    : "min-w-[320px] md:min-w-[400px] w-full md:w-[400px] h-[520px] shrink-0 snap-center";
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "-50px" }}
-      className="min-w-[320px] md:min-w-[400px] w-full md:w-[400px] h-[520px] relative rounded-[2rem] overflow-hidden group cursor-pointer shrink-0 snap-center"
+      className={`${sizing} relative rounded-[2rem] overflow-hidden group cursor-pointer`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -56,43 +66,74 @@ export default function EquipmentCard({
         )}
       </div>
 
-      <div className="absolute bottom-6 left-6 right-6 z-10 flex flex-col">
-        <h3 className="text-3xl font-medium tracking-tight mb-4">{title}</h3>
+      <div
+        className={`absolute z-10 flex flex-col ${
+          grid ? "bottom-5 left-5 right-5" : "bottom-6 left-6 right-6"
+        }`}
+      >
+        <h3
+          className={`font-medium tracking-tight ${
+            grid ? "text-2xl mb-3" : "text-3xl mb-4"
+          }`}
+        >
+          {title}
+        </h3>
 
-        <div className="glass-panel bg-card/80 rounded-2xl p-4 flex flex-col gap-3 border-none">
-          <div className="flex justify-between items-center pb-3 border-b border-white/5">
-            <div className="flex flex-col">
-              <span className="text-xs text-muted font-light">
+        <div
+          className={`glass-panel bg-card/80 rounded-2xl flex flex-col border-none ${
+            grid ? "p-3.5 gap-2.5" : "p-4 gap-3"
+          }`}
+        >
+          <div
+            className={`flex justify-between items-center gap-2 border-b border-white/5 ${
+              grid ? "pb-2.5" : "pb-3"
+            }`}
+          >
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs text-muted font-light whitespace-nowrap">
                 {sold ? "Sold for" : "Our price"}
               </span>
               {retailPrice && (
-                <span className="text-[11px] text-muted font-light line-through">
-                  {rands(retailPrice)} new
+                <span className="text-[11px] text-muted font-light line-through whitespace-nowrap">
+                  {rands(retailPrice)}
+                  {grid ? "" : " new"}
                 </span>
               )}
             </div>
-            <div className="flex flex-col items-end">
-              <span className="text-lg font-medium tracking-tight">{rands(price)}</span>
+            <div className="flex flex-col items-end min-w-0">
+              <span
+                className={`font-medium tracking-tight whitespace-nowrap ${
+                  grid ? "text-base" : "text-lg"
+                }`}
+              >
+                {rands(price)}
+              </span>
               {saving !== null && (
-                <span className="text-[11px] text-accent font-light">Save {saving}%</span>
+                <span className="text-[11px] text-accent font-light whitespace-nowrap">
+                  Save {saving}%
+                </span>
               )}
             </div>
           </div>
-          <div className="flex justify-between items-center text-xs font-light text-white/80">
-            <div className="flex items-center gap-1.5">
-              <iconify-icon icon="solar:widget-linear" className="text-muted"></iconify-icon>
-              {capacity}
+          <div
+            className={`flex justify-between items-center font-light text-white/80 gap-1.5 ${
+              grid ? "text-[10px]" : "text-xs"
+            }`}
+          >
+            <div className="flex items-center gap-1 min-w-0">
+              <iconify-icon icon="solar:widget-linear" className="text-muted shrink-0"></iconify-icon>
+              <span className="truncate">{capacity}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <iconify-icon icon="solar:bolt-linear" className="text-muted"></iconify-icon>
-              {power}
+            <div className="flex items-center gap-1 min-w-0">
+              <iconify-icon icon="solar:bolt-linear" className="text-muted shrink-0"></iconify-icon>
+              <span className="truncate">{power}</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 shrink-0">
               <iconify-icon
                 icon="solar:verified-check-linear"
-                className="text-muted"
+                className="text-muted shrink-0"
               ></iconify-icon>
-              Grade {grade}
+              <span className="whitespace-nowrap">Grade {grade}</span>
             </div>
           </div>
         </div>

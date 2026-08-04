@@ -31,7 +31,7 @@ export default function Process() {
   return (
     <section
       id="process"
-      className="py-24 px-6 md:px-12 max-w-[1440px] mx-auto relative scroll-mt-24"
+      className="py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative scroll-mt-24"
     >
       <div className="text-center mb-16 flex flex-col items-center">
         <Subheading text="How It Works" />

@@ -7,7 +7,7 @@ import { site, whatsappLink } from "@/data/site";
 // Closing CTA — Phase 1 sells by enquiry, so this is the primary conversion point.
 export default function CtaBand() {
   return (
-    <section className="py-12 md:py-24 px-6 md:px-12 max-w-[1440px] mx-auto">
+    <section className="py-12 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}

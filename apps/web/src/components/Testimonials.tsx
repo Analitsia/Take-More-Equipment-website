@@ -54,7 +54,7 @@ export default function Testimonials() {
   ];
 
   return (
-    <section className="py-24 px-6 md:px-12 max-w-[1440px] mx-auto relative overflow-hidden">
+    <section className="py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative overflow-hidden">
       <div className="flex flex-col items-center text-center mb-16 relative z-10">
         <Subheading text="Testimonials" />
         <h2 className="text-3xl md:text-5xl font-medium tracking-tight">

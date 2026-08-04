@@ -13,7 +13,7 @@ export default function About() {
   ];
 
   return (
-    <section className="py-24 md:py-32 px-6 md:px-12 max-w-[1440px] mx-auto">
+    <section className="py-24 md:py-32 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
       <div className="flex flex-col lg:flex-row justify-between gap-16 lg:gap-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
