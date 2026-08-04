@@ -42,15 +42,10 @@ export default function EquipmentCard({
     ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
     : "w-[62vw] max-w-[320px] sm:w-[272px] sm:max-w-none md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
 
-  // Nothing on a travelling card may sit inside its own clip. `truncate` is
-  // `overflow: hidden`, and a clip on a card that is being re-rasterised at the
-  // edge of the screen gets snapped to whole device pixels, so the text inside
-  // it lands somewhere slightly different each time the card is redrawn — the
-  // label appears to dash sideways. The one spec label with no clip, "Grade A",
-  // was also the one that never moved. So carousel labels are all sized to
-  // their own content, like that one, and the row wraps to a second line on the
-  // narrowest phones instead of ellipsising. Static grid cards keep truncation:
-  // they never move, and their columns are tighter.
+  // Carousel labels are sized to their own content and wrap to a second line on
+  // the narrowest phones, rather than ellipsising. Static grid cards keep
+  // truncation: their columns are tighter, and a clipped label there can't cost
+  // anything because the card never moves.
   const specItem = grid
     ? "flex items-center gap-1 min-w-0"
     : "flex items-center gap-1 shrink-0";

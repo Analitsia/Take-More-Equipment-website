@@ -39,18 +39,16 @@ body {
 
    Without this the whole row is a single layer, and three copies of eight
    cards is 6 171px wide — 18 513 device pixels on a 3× phone, past the
-   16 384px a GPU texture can hold. The engine then has to rasterise the row in
-   pieces as they approach the viewport, and every freshly drawn piece lands on
-   a different sub-pixel phase, so its glyphs jump to new positions the instant
-   they are painted. That is the sudden dash of text at the sides of the
-   screen. Per-card layers are small, are rasterised once each, and their text
-   can never shift relative to the card it sits on. */
+   16 384px a GPU texture can hold, so the engine has to rasterise the row in
+   pieces as they approach the viewport. Per-card layers are small enough to
+   each be drawn once.
+
+   This keeps the textures manageable; what keeps the text still is that the
+   row's drift is a compositor animation (see HighlightsTrack), so none of it
+   is ever re-painted while it moves. */
 .moving-card {
   transform: translateZ(0);
   backface-visibility: hidden;
-  /* Declares the card as moving content, so the engine keeps it rasterised
-     instead of redrawing it as its visible region changes at the screen edge —
-     the redraws are what let things inside the card shift by a pixel. */
   will-change: transform;
 }
 
