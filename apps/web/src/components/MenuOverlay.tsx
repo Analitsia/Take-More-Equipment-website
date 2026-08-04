@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import useScrollLock from "@/hooks/useScrollLock";
 import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
 import { site, whatsappLink } from "@/data/site";
 
@@ -14,21 +15,27 @@ export const navLinks = [
 ];
 
 export default function MenuOverlay({ onClose }: { onClose: () => void }) {
+  useScrollLock();
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto hide-scrollbar">
-      <div className="absolute inset-0 bg-background/95 backdrop-blur-md" aria-hidden />
+    <div
+      className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain hide-scrollbar"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site menu"
+    >
+      {/* Fixed, not absolute: an absolute backdrop is laid out inside this
+          scrolling box, so it scrolled away and left the page showing through
+          below the first screenful. */}
+      <div className="fixed inset-0 bg-background/95 backdrop-blur-md" aria-hidden />
 
       <div className="relative min-h-full w-full max-w-[1440px] mx-auto px-5 sm:px-6 md:px-12 py-6 md:py-8">
         <div className="flex items-center justify-between mb-10 md:mb-16">

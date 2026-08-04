@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import useScrollLock from "@/hooks/useScrollLock";
 import { rands, stock } from "@/data/equipment";
 
 /**
@@ -18,17 +19,15 @@ export default function SearchOverlay({
   const [query, setQuery] = useState(initialQuery);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useScrollLock();
+
   useEffect(() => {
     inputRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const results = useMemo(() => {
@@ -45,9 +44,14 @@ export default function SearchOverlay({
   }, [query]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-16 sm:pt-24 md:pt-32">
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-16 sm:pt-24 md:pt-32 overscroll-contain"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search stock"
+    >
       <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
