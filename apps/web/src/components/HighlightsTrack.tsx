@@ -5,195 +5,291 @@ import EquipmentCard from "./EquipmentCard";
 import { featuredStock } from "@/data/equipment";
 
 /**
- * The highlights row.
+ * The highlights row — a continuously drifting carousel on every screen size.
  *
- * Desktop keeps the template's behaviour exactly: one set of cards, snap
- * scrolling, no motion of its own. On phones the row drifts sideways on its
- * own like a slow carousel, because a static row only ever shows one card and
- * nothing tells the visitor there are seven more behind it.
+ * The row moves by animating one `transform: translate3d()` on the track, not
+ * by writing `scrollLeft` on a native scroller. That matters for two reasons:
  *
- * The drift is driven by the element's own `scrollLeft` rather than a CSS
- * transform, so a swipe is still a plain native scroll — momentum, rubber
- * banding and all. Three copies of the set are rendered on mobile and the
- * scroll position is wrapped by one set width, which makes the loop seamless
- * and leaves a full set of runway in both directions while a finger is down.
+ * 1. Scroll offsets are quantised to whole pixels. At a slow drift the row
+ *    only advances a fraction of a pixel per frame, so a scroll-driven version
+ *    sits still for a few frames and then jumps a pixel — the "one pixel at a
+ *    time" stutter. A transform carries sub-pixel values straight to the
+ *    compositor, so the same speed renders as continuous motion.
+ * 2. Scrolling re-rasterises the row on the main thread every frame, and the
+ *    cards' `backdrop-filter` panels resample their backdrop a frame late.
+ *    That is what made the price panel and title look like they were sliding
+ *    around inside the card. Under a single transform the image, the text and
+ *    the glass panel are one composited unit — nothing can lag behind
+ *    anything else.
+ *
+ * Dragging (touch or mouse) and horizontal wheel/trackpad input push the row
+ * directly, and the extra speed decays exponentially back to the idle drift,
+ * so a swipe accelerates the carousel and it settles by itself.
  */
 
-/** Pixels per second the row drifts when nobody is touching it. */
-const DRIFT_SPEED = 26;
-/** Quiet time after the last touch/scroll before the drift picks back up. */
-const RESUME_DELAY = 900;
-/** Copy 0 is the real row; 1 and 2 are the mobile-only loop padding. */
+/** Seconds a card takes to travel its own width — keeps the pace even across breakpoints. */
+const SECONDS_PER_CARD = 9;
+/** Time constant for a fling easing back down to the idle drift. */
+const EASE_BACK = 0.65;
+/** Speed ceiling, px/s, so a hard flick stays readable. */
+const MAX_SPEED = 3000;
+/** Past this much movement a gesture is a drag, not a tap on a card. */
+const DRAG_SLOP = 8;
+/** Copy 0 is the real row; the rest are the loop's padding. */
 const COPIES = [0, 1, 2];
 
+const clamp = (value: number, limit: number) =>
+  Math.max(-limit, Math.min(limit, value));
+
 export default function HighlightsTrack() {
+  const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const viewport = viewportRef.current;
     const track = trackRef.current;
-    if (!track) return;
+    if (!viewport || !track) return;
 
-    const isMobile = window.matchMedia("(max-width: 767px)");
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+    let setWidth = 0; // width of one copy of the set, gap included
+    let offset = 0; // px the track is shifted left by
+    let velocity = 0; // px/s, eases back to `drift`
+    let drift = 0; // px/s the row moves when left alone
     let frame = 0;
     let lastTime = 0;
-    let pos = 0; // our own sub-pixel scroll position; scrollLeft may round
-    let setWidth = 0;
-    let userActive = false; // finger down, or momentum still running
     let onScreen = true;
-    let resumeTimer: ReturnType<typeof setTimeout> | undefined;
+    let held = false; // paused for a drag or for keyboard focus
 
-    const cards = () =>
-      Array.from(track.querySelectorAll<HTMLElement>('[data-card="stock"]'));
+    let dragging = false;
+    let dragPointer = -1;
+    let lastX = 0;
+    let startX = 0;
+    let travelled = 0; // furthest the pointer got from where it went down
+    let samples: { time: number; x: number }[] = [];
+    let swallowClick = false;
 
-    // One set width = the gap between a card and its copy in the next set.
-    // Measured from the DOM so gap/padding changes never need mirroring here.
+    // One copy's width is the distance from a card to its own duplicate in the
+    // next copy — read from layout so gap/size changes never need mirroring.
     const measure = () => {
-      const all = cards();
-      const first = all[0];
-      const second = all[featuredStock.length];
-      setWidth = first && second ? second.offsetLeft - first.offsetLeft : 0;
+      const cards = track.querySelectorAll<HTMLElement>('[data-card="stock"]');
+      const first = cards[0];
+      const twin = cards[featuredStock.length];
+      setWidth = first && twin ? twin.offsetLeft - first.offsetLeft : 0;
+      drift =
+        setWidth > 0 && !calm.matches
+          ? setWidth / featuredStock.length / SECONDS_PER_CARD
+          : 0;
     };
 
-    // Fold a position back into the middle copy — visually identical content,
-    // but with a full set of scrolling room left on either side.
-    const wrap = (value: number) => {
-      if (setWidth <= 0) return value;
-      return setWidth + (((value - setWidth) % setWidth) + setWidth) % setWidth;
+    // The only write in the animation loop: no layout is read per frame.
+    const apply = () => {
+      if (setWidth > 0) offset = ((offset % setWidth) + setWidth) % setWidth;
+      track.style.transform = `translate3d(${-offset}px, 0, 0)`;
     };
 
     const tick = (time: number) => {
       frame = requestAnimationFrame(tick);
       const delta = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 0;
       lastTime = time;
-      if (userActive || setWidth <= 0) return;
-      pos = wrap(pos + DRIFT_SPEED * delta);
-      track.scrollLeft = pos;
+      if (held || delta <= 0) return;
+      // A flick decays smoothly into the idle drift instead of stopping dead.
+      velocity = drift + (velocity - drift) * Math.exp(-delta / EASE_BACK);
+      offset += velocity * delta;
+      apply();
     };
 
     const stop = () => {
-      cancelAnimationFrame(frame);
+      if (frame) cancelAnimationFrame(frame);
       frame = 0;
       lastTime = 0;
     };
 
     const start = () => {
-      if (frame || !isMobile.matches || reduced.matches || !onScreen) return;
-      measure();
-      if (setWidth <= 0) return;
-      pos = wrap(track.scrollLeft || setWidth);
-      track.scrollLeft = pos;
+      if (frame || !onScreen) return;
+      lastTime = 0;
       frame = requestAnimationFrame(tick);
     };
 
-    // A swipe takes over completely; the drift resumes once the scroll (and
-    // its momentum tail) has been quiet for a moment.
-    const resumeSoon = () => {
-      clearTimeout(resumeTimer);
-      resumeTimer = setTimeout(() => {
-        userActive = false;
-        lastTime = 0;
-        measure();
-        pos = wrap(track.scrollLeft);
-        track.scrollLeft = pos;
-      }, RESUME_DELAY);
+    // ---- drag -------------------------------------------------------------
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!dragging || event.pointerId !== dragPointer) return;
+      const dx = event.clientX - lastX;
+      lastX = event.clientX;
+      travelled = Math.max(travelled, Math.abs(event.clientX - startX));
+      offset -= dx;
+      apply();
+      samples.push({ time: event.timeStamp, x: event.clientX });
+      if (samples.length > 10) samples.shift();
     };
 
-    const onUserStart = () => {
-      userActive = true;
-      clearTimeout(resumeTimer);
+    const endDrag = (event: PointerEvent, fling: boolean) => {
+      if (!dragging || event.pointerId !== dragPointer) return;
+      dragging = false;
+      dragPointer = -1;
+      held = false;
+      lastTime = 0;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+
+      // Fling speed comes from the last moments of the gesture only, so
+      // letting go after holding still hands back a still row, not the speed
+      // of a stroke that happened half a second earlier.
+      const recent = samples.filter((s) => event.timeStamp - s.time < 140);
+      const first = recent[0];
+      const last = recent[recent.length - 1];
+      const span = recent.length > 1 ? last.time - first.time : 0;
+      velocity =
+        fling && span > 8
+          ? clamp((-(last.x - first.x) / span) * 1000, MAX_SPEED)
+          : drift;
+      samples = [];
+      if (travelled > DRAG_SLOP) swallowClick = true;
     };
 
-    const onUserEnd = () => {
-      if (userActive) resumeSoon();
+    const onPointerUp = (event: PointerEvent) => endDrag(event, true);
+    const onPointerCancel = (event: PointerEvent) => endDrag(event, false);
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      dragging = true;
+      dragPointer = event.pointerId;
+      held = true;
+      lastX = event.clientX;
+      startX = event.clientX;
+      travelled = 0;
+      velocity = 0;
+      // A drag that never produced a click (pointer released off the row, or a
+      // touch fling) must not leave the suppression armed for the next tap.
+      swallowClick = false;
+      samples = [{ time: event.timeStamp, x: event.clientX }];
+      // Listening on window (rather than capturing the pointer) keeps the
+      // click on the card's link intact for a tap that never became a drag.
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerCancel);
     };
 
-    const onScroll = () => {
-      // Only meaningful while the user drives — otherwise this fires for our
-      // own scrollLeft writes on every frame.
-      if (userActive) resumeSoon();
+    const onClick = (event: MouseEvent) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      event.preventDefault();
+      event.stopPropagation();
     };
 
-    track.addEventListener("pointerdown", onUserStart);
-    track.addEventListener("touchstart", onUserStart, { passive: true });
-    track.addEventListener("wheel", onUserStart, { passive: true });
-    track.addEventListener("pointerup", onUserEnd);
-    track.addEventListener("pointercancel", onUserEnd);
-    track.addEventListener("touchend", onUserEnd, { passive: true });
-    track.addEventListener("touchcancel", onUserEnd, { passive: true });
-    track.addEventListener("scroll", onScroll, { passive: true });
+    const onDragStart = (event: Event) => event.preventDefault();
 
-    // Don't burn frames on a row nobody can see.
+    // ---- wheel / trackpad -------------------------------------------------
+
+    const onWheel = (event: WheelEvent) => {
+      // Vertical intent belongs to the page.
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      offset += event.deltaX;
+      velocity = clamp(event.deltaX * 18, MAX_SPEED);
+      apply();
+    };
+
+    // ---- keyboard ---------------------------------------------------------
+
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target || !target.matches(":focus-visible")) return;
+      held = true; // hold still while a card is being read
+      const card = target.closest<HTMLElement>('[data-card="stock"]');
+      if (!card) return;
+      const box = viewport.getBoundingClientRect();
+      const rect = card.getBoundingClientRect();
+      if (rect.left < box.left) offset -= box.left - rect.left + 24;
+      else if (rect.right > box.right) offset += rect.right - box.right + 24;
+      apply();
+    };
+
+    const onFocusOut = () => {
+      if (!dragging) held = false;
+    };
+
+    // ---- lifecycle --------------------------------------------------------
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         onScreen = entry.isIntersecting;
         if (onScreen) start();
-        else stop();
+        else stop(); // no frames burnt on a row nobody can see
       },
       { threshold: 0 },
     );
-    observer.observe(track);
+    observer.observe(viewport);
 
     const onResize = () => {
       measure();
-      if (!userActive && setWidth > 0) {
-        pos = wrap(track.scrollLeft);
-        track.scrollLeft = pos;
-      }
+      apply();
     };
-    window.addEventListener("resize", onResize);
 
-    const onModeChange = () => {
-      stop();
-      if (isMobile.matches && !reduced.matches) start();
-      else track.scrollLeft = 0; // back to the plain desktop row
-    };
-    isMobile.addEventListener("change", onModeChange);
-    reduced.addEventListener("change", onModeChange);
+    const resizeObserver = new ResizeObserver(onResize);
+    resizeObserver.observe(viewport);
 
+    viewport.addEventListener("pointerdown", onPointerDown);
+    viewport.addEventListener("click", onClick, true);
+    viewport.addEventListener("dragstart", onDragStart);
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    viewport.addEventListener("focusin", onFocusIn);
+    viewport.addEventListener("focusout", onFocusOut);
+    calm.addEventListener("change", measure);
+
+    measure();
+    apply();
     start();
 
     return () => {
       stop();
-      clearTimeout(resumeTimer);
       observer.disconnect();
-      window.removeEventListener("resize", onResize);
-      isMobile.removeEventListener("change", onModeChange);
-      reduced.removeEventListener("change", onModeChange);
-      track.removeEventListener("pointerdown", onUserStart);
-      track.removeEventListener("touchstart", onUserStart);
-      track.removeEventListener("wheel", onUserStart);
-      track.removeEventListener("pointerup", onUserEnd);
-      track.removeEventListener("pointercancel", onUserEnd);
-      track.removeEventListener("touchend", onUserEnd);
-      track.removeEventListener("touchcancel", onUserEnd);
-      track.removeEventListener("scroll", onScroll);
+      resizeObserver.disconnect();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      viewport.removeEventListener("pointerdown", onPointerDown);
+      viewport.removeEventListener("click", onClick, true);
+      viewport.removeEventListener("dragstart", onDragStart);
+      viewport.removeEventListener("wheel", onWheel);
+      viewport.removeEventListener("focusin", onFocusIn);
+      viewport.removeEventListener("focusout", onFocusOut);
+      calm.removeEventListener("change", measure);
     };
   }, []);
 
   return (
     <div
-      ref={trackRef}
-      className="flex gap-4 md:gap-6 overflow-x-auto hide-scrollbar px-6 md:px-12 pb-8 md:pb-12 md:snap-x md:snap-mandatory"
+      ref={viewportRef}
+      // `touch-pan-y` leaves vertical page scrolling to the browser and gives
+      // horizontal gestures to the carousel.
+      className="overflow-hidden pb-8 md:pb-12 touch-pan-y select-none cursor-grab active:cursor-grabbing"
     >
-      {COPIES.map((copy) =>
-        copy === 0 ? (
-          <Fragment key={copy}>
-            {featuredStock.map((item) => (
-              <EquipmentCard key={item.slug} {...item} />
-            ))}
-          </Fragment>
-        ) : (
-          // `contents` keeps the cards as direct flex items; `md:hidden` drops
-          // the whole copy on desktop, where the row doesn't loop.
-          <div key={copy} className="contents md:hidden" aria-hidden="true">
-            {featuredStock.map((item) => (
-              <EquipmentCard key={item.slug} {...item} decorative />
-            ))}
-          </div>
-        ),
-      )}
+      <div
+        ref={trackRef}
+        className="flex gap-4 md:gap-6 w-max will-change-transform"
+      >
+        {COPIES.map((copy) =>
+          copy === 0 ? (
+            <Fragment key={copy}>
+              {featuredStock.map((item) => (
+                <EquipmentCard key={item.slug} {...item} />
+              ))}
+            </Fragment>
+          ) : (
+            // Duplicates make the loop seamless; they are decoration only, so
+            // they stay out of the accessibility tree and the tab order.
+            // `contents` keeps the cards themselves as the flex items.
+            <div key={copy} className="contents" aria-hidden="true">
+              {featuredStock.map((item) => (
+                <EquipmentCard key={item.slug} {...item} decorative />
+              ))}
+            </div>
+          ),
+        )}
+      </div>
     </div>
   );
 }

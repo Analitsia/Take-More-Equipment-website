@@ -36,17 +36,25 @@ export default function EquipmentCard({
   const grid = variant === "grid";
   // Carousel cards are viewport-relative on mobile so several are in play at
   // once while the row drifts, and the card never runs under the screen edge.
-  // Snapping is desktop-only — on mobile it would fight the drift.
   const sizing = grid
     ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
-    : "w-[62vw] max-w-[320px] sm:w-[272px] md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0 md:snap-center";
+    : "w-[62vw] max-w-[320px] sm:w-[272px] md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
+
+  // Carousel cards get no entrance animation of their own: the row they sit in
+  // is already moving, and a per-card opacity/scale tween on top of that reads
+  // as the card lagging behind its neighbours. Grid cards still fade in.
+  const enter = grid
+    ? {
+        initial: { opacity: 0, scale: 0.95 },
+        whileInView: { opacity: 1, scale: 1 },
+        viewport: { once: true, margin: "-50px" },
+      }
+    : {};
 
   return (
     <motion.div
       data-card="stock"
-      initial={{ opacity: 0, scale: 0.95 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-50px" }}
+      {...enter}
       className={`${sizing} relative rounded-[2rem] overflow-hidden group`}
     >
       <Link
