@@ -45,4 +45,10 @@ git push -u origin feature/real-stock-photos
 
 Merge to `main` when the preview looks right.
 
-<!-- deploy check -->
+### Vercel project settings
+
+The Vercel project's **Root Directory must be `apps/web`**. This is a monorepo;
+with the root directory left at `.`, the build succeeds but Vercel looks for
+`.next/routes-manifest.json` at the repo root and the deploy fails. When
+`apps/ops` is added it gets its own Vercel project with root directory
+`apps/ops`, so the two apps deploy independently.
