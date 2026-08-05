@@ -29,6 +29,15 @@ import { featuredStock } from "@/data/equipment";
  * seeks its clock, a fling raises `playbackRate` and decays back to 1, so the
  * row is only ever one transform and there is never a second source of truth
  * for where it sits.
+ *
+ * A gesture does have to hold the animation still, though, and a held animation
+ * is a static transform the browser may redraw — so gestures move the row in
+ * whole device pixels, which keeps every card's sub-pixel phase fixed and the
+ * existing raster valid. Without that, dragging brought the dashing straight
+ * back on any screen whose ratio isn't a whole number: measured at 2.625x,
+ * every one of 45 drag steps failed to be a pure translation, against four
+ * after — and those four are the frames where a gesture starts or a new card
+ * arrives on screen.
  */
 
 /** Seconds a card takes to travel its own width — keeps the pace even across breakpoints. */
@@ -66,26 +75,51 @@ export default function HighlightsTrack() {
 
     let dragging = false;
     let dragPointer = -1;
-    let lastX = 0;
     let startX = 0;
     let travelled = 0; // furthest the pointer got from where it went down
     let samples: { time: number; x: number }[] = [];
     let swallowClick = false;
 
+    let baseTime = 0; // clock when the gesture started
+    let dragRaw = 0; // unrounded pointer travel since then
+    let grid = 1; // device pixels per CSS pixel, read per gesture
+
     const clock = () => Number(drift?.currentTime ?? 0);
 
-    // The clock is kept inside the second lap. Every lap looks the same, so the
-    // choice is free, and it leaves a full lap of headroom below zero — where an
-    // animation stops rather than looping — for a backwards fling to run into.
-    const lap = (time: number) =>
-      duration > 0
-        ? (((time - duration) % duration) + duration) % duration + duration
-        : time;
+    // While a gesture drives the row, the animation is paused — the transform is
+    // static, so the browser is free to redraw it, and redrawing rounds every
+    // text box to the pixel grid independently. That is the same repaint that
+    // made the idle row dash, and moving the row a fraction of a pixel at a time
+    // brings it straight back.
+    //
+    // So a gesture moves the row in whole *device* pixels. Every card's
+    // sub-pixel phase is then fixed for the whole gesture, the existing raster
+    // stays valid, and the compositor just slides it. The granularity is one
+    // device pixel — a third of a CSS pixel on a 3x phone — against content that
+    // is tracking a finger, so it cannot be seen.
+    //
+    // Whole *CSS* pixels would not do: a phone at 2.625x turns each one into
+    // 2.625 device pixels, which is exactly the case that dashes worst.
+    // `devicePixelRatio` is read per gesture rather than cached, so page zoom
+    // between gestures can't leave the row rounding to a stale grid.
+    const onGrid = (px: number) => Math.round(px * grid) / grid;
 
     /** Move the row `px` to the left, by advancing the animation's own clock. */
     const seek = (px: number) => {
       if (!drift || !pxPerMs) return;
-      drift.currentTime = lap(clock() + px / pxPerMs);
+      drift.currentTime = clock() + px / pxPerMs;
+    };
+
+    // The clock only ever needs to be kept clear of zero, where an animation
+    // stops instead of looping. Rebasing by whole laps leaves the transform
+    // exactly where it was — same progress, same position, same phase — so this
+    // is free to do, and doing it only when a gesture starts keeps every seek
+    // during the gesture a pure translation.
+    const refloat = () => {
+      if (!drift || duration <= 0) return;
+      const t = clock();
+      if (t > duration * 64 && t < duration * 4096) return;
+      drift.currentTime = duration * 1024 + (((t % duration) + duration) % duration);
     };
 
     const idle = () => {
@@ -129,8 +163,9 @@ export default function HighlightsTrack() {
         ],
         { duration, iterations: Infinity, easing: "linear" },
       );
-      drift.currentTime = lap(progress * duration);
+      drift.currentTime = progress * duration;
       drift.playbackRate = rate;
+      refloat();
       idle();
     };
 
@@ -140,9 +175,9 @@ export default function HighlightsTrack() {
     const settle = () => {
       settleTimer = 0;
       if (!drift) return;
-      // A backwards fling runs the clock down, and an animation stops at zero
-      // rather than looping past it. Re-lapping keeps a full lap in hand.
-      if (duration > 0) drift.currentTime = lap(clock());
+      // Only `playbackRate` is touched here. Writing `currentTime` as well would
+      // re-seek a running compositor animation seventeen times per fling, and
+      // each seek is a chance to hand the row back to the main thread mid-flight.
       const extra = drift.playbackRate - 1;
       if (Math.abs(extra) < 0.06) {
         drift.playbackRate = 1;
@@ -161,10 +196,12 @@ export default function HighlightsTrack() {
 
     const onPointerMove = (event: PointerEvent) => {
       if (!dragging || event.pointerId !== dragPointer) return;
-      const dx = event.clientX - lastX;
-      lastX = event.clientX;
-      travelled = Math.max(travelled, Math.abs(event.clientX - startX));
-      seek(-dx);
+      dragRaw = startX - event.clientX;
+      travelled = Math.max(travelled, Math.abs(dragRaw));
+      // Rounded against where the gesture began, not step by step, so rounding
+      // can never accumulate into a drift away from the finger.
+      if (drift && pxPerMs)
+        drift.currentTime = baseTime + onGrid(dragRaw) / pxPerMs;
       samples.push({ time: event.timeStamp, x: event.clientX });
       if (samples.length > 10) samples.shift();
     };
@@ -203,12 +240,15 @@ export default function HighlightsTrack() {
       dragging = true;
       dragPointer = event.pointerId;
       held = true;
-      lastX = event.clientX;
       startX = event.clientX;
+      dragRaw = 0;
       travelled = 0;
+      grid = window.devicePixelRatio || 1;
       stopSettle();
       if (drift) drift.playbackRate = 1;
-      idle();
+      idle(); // stop the clock before reading where the gesture starts from
+      refloat();
+      baseTime = clock();
       // A drag that never produced a click (pointer released off the row, or a
       // touch fling) must not leave the suppression armed for the next tap.
       swallowClick = false;
@@ -235,8 +275,13 @@ export default function HighlightsTrack() {
       // Vertical intent belongs to the page.
       if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
       event.preventDefault();
-      seek(event.deltaX);
-      if (drift && pxPerMs && !held) {
+      if (held) return;
+      // A trackpad reports fractional deltas, so these are rounded to the device
+      // grid too — each push is a whole number of device pixels, and the row's
+      // phase survives the gesture just as it does under a finger.
+      grid = window.devicePixelRatio || 1;
+      seek(onGrid(event.deltaX));
+      if (drift && pxPerMs) {
         stopSettle();
         drift.playbackRate = clamp((event.deltaX * 18) / 1000 / pxPerMs, MAX_RATE) || 1;
         settle();
@@ -254,8 +299,11 @@ export default function HighlightsTrack() {
       if (!card) return;
       const box = viewport.getBoundingClientRect();
       const rect = card.getBoundingClientRect();
-      if (rect.left < box.left) seek(rect.left - box.left - 24);
-      else if (rect.right > box.right) seek(rect.right - box.right + 24);
+      // Also on the grid: the row is about to sit still under a reader, and a
+      // half-pixel landing would redraw every label on the way in.
+      grid = window.devicePixelRatio || 1;
+      if (rect.left < box.left) seek(onGrid(rect.left - box.left - 24));
+      else if (rect.right > box.right) seek(onGrid(rect.right - box.right + 24));
     };
 
     const onFocusOut = () => {
