@@ -7,19 +7,19 @@ import Subheading from "./Subheading";
 export default function Benefits() {
   const features = [
     {
-      icon: "solar:tuning-2-linear",
-      title: "Rebuilt, Not Just Wiped Down",
-      copy: "Worn parts get replaced before a unit is ever listed, and we photograph what we swapped. You buy knowing exactly what was wrong with it and what we did about it.",
+      icon: "solar:tag-price-linear",
+      title: "40–60% Below New",
+      copy: "The same brands that get specced into new fit-outs, at a number you can actually sign off. The budget that buys one new combi oven kits out most of a working line here.",
     },
     {
-      icon: "solar:tag-price-linear",
-      title: "40–60% Off Retail",
-      copy: "The same brands specced into new kitchens, at auction-basis pricing. The budget that buys one new combi oven kits out most of a working line here.",
+      icon: "solar:tuning-2-linear",
+      title: "Rebuilt, Not Just Wiped Down",
+      copy: "Worn parts are replaced before a unit is ever priced, and the parts list is published on the listing. You know exactly what was replaced and what it was tested at.",
     },
     {
       icon: "solar:shield-check-linear",
       title: "6-Month Written Warranty",
-      copy: "Parts and labour, in writing. If it fails inside six months we collect it, repair it and bring it back at our cost. Second-hand should not mean unprotected.",
+      copy: "If it fails inside six months we collect it, repair it and bring it back — at our cost, parts and labour. On your invoice in writing, not promised at the door.",
     },
   ];
 
@@ -32,7 +32,7 @@ export default function Benefits() {
       <div className="text-center mb-10 md:mb-16 flex flex-col items-center">
         <Subheading text="Why Take More" />
         <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight max-w-2xl leading-tight">
-          Second-Hand Price. First-Service Condition.
+          Half The Price. None Of The Guesswork.
         </h2>
       </div>
 

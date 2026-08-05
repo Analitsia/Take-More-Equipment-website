@@ -7,7 +7,7 @@ import { formatDate, posts } from "@/data/posts";
 export const metadata: Metadata = {
   title: "Journal — Take More",
   description:
-    "Buying guides and notes from the workshop: what used equipment should cost, what we check at auction, and how we grade condition.",
+    "Buying guides and notes from the workshop: what equipment should actually cost, what to check before you pay, and how we grade and warranty condition.",
 };
 
 export default function BlogIndexPage() {
@@ -16,8 +16,8 @@ export default function BlogIndexPage() {
   return (
     <PageShell
       eyebrow="Journal"
-      title={<>What we learn buying kitchens for a living.</>}
-      intro="Pricing guides, auction notes and the reasoning behind how we grade and warranty equipment. Written for people spending their own money on a kitchen."
+      title={<>What we learn rebuilding kitchens for a living.</>}
+      intro="Real prices, what to check before you pay for any machine, and the reasoning behind how we grade and warranty equipment. Written for people spending their own money on a kitchen."
       crumbs={[{ label: "Home", href: "/" }, { label: "Journal" }]}
     >
       <ContentSection>

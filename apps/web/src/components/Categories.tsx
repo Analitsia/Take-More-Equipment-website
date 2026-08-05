@@ -26,8 +26,8 @@ export default function Categories({
           </h2>
         </div>
         <p className="text-muted font-light text-sm leading-relaxed max-w-sm">
-          Stock rotates weekly. If a category is thin this week, tell us what you need and
-          we will watch for it at the next auction.
+          Every unit priced on the card, no enquiry needed to see a number. Stock rotates
+          weekly — if a category is thin, tell us what you need and we will find it.
         </p>
       </div>
 

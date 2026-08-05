@@ -23,8 +23,9 @@ export default function CtaBand() {
               Most of our stock sells before it reaches this page.
             </h2>
             <p className="text-muted font-light text-sm leading-relaxed max-w-lg">
-              Tell us the machine and your budget. If we do not have it this week, we watch
-              for it at the next auction and send you photos before it is listed publicly.
+              Tell us the machine and the number you have to hit. If it is not on the floor
+              this week, we will find it, rebuild it, and send you photos and a price
+              before it goes anywhere near this page.
             </p>
           </div>
 

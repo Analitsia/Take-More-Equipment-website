@@ -14,7 +14,7 @@ export default function Testimonials() {
     {
       name: "Sipho Ndlovu",
       loc: "Salt River",
-      text: "They sent me photos of the replaced element before I paid a cent. No second-hand dealer has ever done that for me.",
+      text: "They sent me photos of the replaced element before I paid a cent. No dealer has ever done that for me, new or otherwise.",
     },
     {
       name: "Marco da Silva",

@@ -34,9 +34,9 @@ export default function Hero() {
             transition={{ delay: 0.6 }}
             className="text-right max-w-[200px] hidden md:block"
           >
-            Auction-bought.
+            Rebuilt in our workshop.
             <br />
-            Workshop-rebuilt.
+            Warrantied for six months.
           </motion.div>
           <motion.div
             initial={{ opacity: 0 }}
@@ -44,8 +44,8 @@ export default function Hero() {
             transition={{ delay: 0.7 }}
             className="text-right max-w-[250px] hidden lg:block"
           >
-            Every machine is stripped, serviced and load-tested before it earns a place on
-            this page.
+            Every machine is stripped, rebuilt and run under load before it earns a price
+            on this page.
           </motion.div>
         </div>
 
@@ -56,12 +56,17 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="max-w-2xl"
           >
-            <Subheading text="Refurbished Catering Equipment" />
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-4 md:mb-6">
+            <Subheading text="Commercial Catering Equipment · Cape Town" />
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-4 md:mb-5">
               Restaurant-Grade Kit,
               <br />
               Half The Retail Price
             </h1>
+            <p className="text-sm md:text-base font-light text-white/70 leading-relaxed max-w-lg mb-1">
+              Rebuilt in our own workshop, tested under load, priced on the page and
+              covered for six months. Standing on our floor today — not eight weeks away
+              on a ship.
+            </p>
           </motion.div>
 
           <motion.div

@@ -120,8 +120,8 @@ export default function SearchOverlay({
                 ))
               ) : (
                 <p className="px-6 py-8 text-sm font-light text-muted text-center">
-                  Nothing in stock matches “{query.trim()}”. Tell us what you need and we
-                  will watch for it at the next auction.
+                  Nothing on the floor matches “{query.trim()}”. Tell us what you need and
+                  we will find it and rebuild it for you.
                 </p>
               )}
             </div>

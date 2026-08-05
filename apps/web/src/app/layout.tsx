@@ -15,11 +15,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(`https://${site.domain}`),
   title: "Take More — Refurbished Catering Equipment, Cape Town",
   description:
-    "Commercial catering equipment bought at auction, rebuilt in our Cape Town workshop and sold at 40–60% off retail. Every unit tested, graded and covered by a 6-month warranty.",
+    "Commercial catering equipment rebuilt in our Cape Town workshop and priced 40–60% below new. Every unit load-tested, graded, photographed and covered by a written 6-month parts-and-labour warranty.",
   openGraph: {
     title: "Take More — Refurbished Catering Equipment, Cape Town",
     description:
-      "Restaurant-grade kit at half the retail price. Stripped, serviced, load-tested and warrantied.",
+      "Restaurant-grade kit at half the retail price. Rebuilt, load-tested, priced on the page and warrantied for six months.",
     locale: "en_ZA",
     type: "website",
   },

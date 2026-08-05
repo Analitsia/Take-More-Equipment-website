@@ -71,8 +71,8 @@ export default function ConditionsPage() {
   return (
     <PageShell
       eyebrow="Condition & Warranty"
-      title={<>Used should never mean unknown.</>}
-      intro="Most dealers grade their stock and never publish the rules. Ours are below, along with exactly what we replace before anything is listed and what the warranty actually covers."
+      title={<>A lower price should not mean a bigger gamble.</>}
+      intro="Most dealers grade their stock and never publish the rules, which is convenient for them and useless for you. Ours are below, along with exactly what we replace before anything gets a price, and precisely what the six-month warranty pays for."
       crumbs={[{ label: "Home", href: "/" }, { label: "Condition & Warranty" }]}
     >
       <ContentSection>
@@ -151,7 +151,9 @@ export default function ConditionsPage() {
               <p className="text-muted font-light text-sm leading-relaxed">
                 If a unit fails within {WARRANTY_MONTHS} months of collection or delivery,
                 we collect it, repair it and return it at our cost. You get the warranty
-                document with your invoice — not a verbal promise at the door.
+                document with your invoice — not a verbal promise at the door. A private
+                sale gives you none of this, and that difference is the entire reason to
+                buy a machine that has been through a workshop.
               </p>
             </div>
 

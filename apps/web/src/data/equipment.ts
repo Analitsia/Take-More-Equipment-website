@@ -93,7 +93,7 @@ export const stock: Equipment[] = [
     tags: ["Electric", "Three-phase", "Heavy-duty"],
     images: [img("photo-1707255280298-e540809f4c01"), ...ctx.cooking],
     description:
-      "A six-grid electric combi from a Sea Point hotel kitchen that closed its breakfast service. Convection, steam and combination modes all hold temperature within two degrees on our test cycle, and the core probe reads true. This is the single most useful machine in a small kitchen — it roasts, steams, bakes and regenerates from one footprint.",
+      "A six-grid electric combi rebuilt to hold a full breakfast and dinner service. Convection, steam and combination modes all hold temperature within two degrees on our test cycle, and the core probe reads true. This is the single most useful machine in a small kitchen — it roasts, steams, bakes and regenerates from one footprint.",
     workshopNotes: [
       "Door gasket and hinge springs replaced",
       "Steam generator descaled, element tested under load",
@@ -395,7 +395,7 @@ export const stock: Equipment[] = [
     tags: ["Electric", "Three-phase", "Heavy-duty"],
     images: [img("photo-1703607888337-aae6d77b3d83"), ...ctx.prep],
     description:
-      "Three independently controlled stone decks with steam injection on each — the machine behind a proper crust. Came out of a bakery that moved to a bigger site. Each deck holds four 600 × 400 trays and reaches 280 °C. Grade B for cosmetics and one replaced deck light.",
+      "Three independently controlled stone decks with steam injection on each — the machine behind a proper crust. Each deck holds four 600 × 400 trays and reaches 280 °C on our test run. Grade B for cosmetics and one replaced deck light.",
     workshopNotes: [
       "Steam injection lines descaled on all three decks",
       "Two deck thermostats replaced",

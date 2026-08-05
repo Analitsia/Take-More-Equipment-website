@@ -8,11 +8,11 @@ import { site, whatsappLink } from "@/data/site";
 export const metadata: Metadata = {
   title: "About Us — Take More Catering Equipment, Cape Town",
   description:
-    "We buy commercial catering equipment at auction across the Western Cape, rebuild it in our Montague Gardens workshop, and sell it at 40–60% off retail.",
+    "A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it 40–60% below new.",
 };
 
 const stats = [
-  { number: "600", suffix: "+", label: "Machines Restored" },
+  { number: "600", suffix: "+", label: "Machines Rebuilt" },
   { number: "50", suffix: "%", label: "Average Saving vs New" },
   { number: "6", suffix: "Mo", label: "Workshop Warranty" },
   { number: "48", suffix: "H", label: "Cape Town Delivery" },
@@ -27,12 +27,12 @@ const principles = [
   {
     icon: "solar:tuning-2-linear",
     title: "Replace, don't polish",
-    copy: "The cheap way to sell used equipment is to clean it and move it on fast. We replace the worn parts first, which is slower and is the whole point.",
+    copy: "The cheap way to sell a machine is to clean it and move it on fast. We replace the worn parts first, which costs us more and is the whole point.",
   },
   {
     icon: "solar:bill-list-linear",
     title: "Put it in writing",
-    copy: "Grades, workshop reports and warranty terms are published, not negotiated at the door. If we will not write it down, we will not claim it.",
+    copy: "Prices, grades, workshop reports and warranty terms are published, not negotiated at the door. If we will not write it down, we will not claim it.",
   },
 ];
 
@@ -40,13 +40,8 @@ export default function AboutPage() {
   return (
     <PageShell
       eyebrow="About Us"
-      title={
-        <>
-          We buy the kitchens that close, and rebuild them for the kitchens that are
-          opening.
-        </>
-      }
-      intro="Take More Catering Equipment is a refurbisher in Montague Gardens, Cape Town. We buy commercial kitchen equipment at auction across the Western Cape, strip and rebuild it in our own workshop, and sell each unit as the one-of-one machine it is."
+      title={<>The kitchen you wanted, at the number you actually budgeted.</>}
+      intro="Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it 40–60% below new, and stand behind every unit in writing for six months."
       crumbs={[{ label: "Home", href: "/" }, { label: "About Us" }]}
     >
       <ContentSection>
@@ -70,32 +65,34 @@ export default function AboutPage() {
       <ContentSection>
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
           <div className="lg:w-1/2">
-            <Subheading text="The Business" />
+            <Subheading text="The Problem" />
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-8">
-              A restaurant closes somewhere in the Cape every week.
+              Most kitchens are not built to the menu. They are built to the quote.
             </h2>
             <div className="flex flex-col gap-6 text-muted font-light text-sm md:text-base leading-relaxed">
               <p>
-                When it does, the kitchen goes to auction. Equipment that cost hundreds of
-                thousands of rands gets sold in a morning, as-is, to whoever is in the
-                room. Most of it is perfectly good. Some of it is three services from a
-                failure that nobody will notice until it happens.
+                A working line for a 60-seat restaurant quotes at around R380 000 new,
+                before extraction, gas certification or an electrician. So the menu gets
+                cut to fit the machines that survived the budget, or the whole thing goes
+                on finance that takes three years to clear.
               </p>
               <p>
-                Telling those two apart is the entire business. We are in the room, we
-                know what to look at in the fifteen minutes a viewing gives you, and we
-                buy on the assumption that one machine in ten will turn out to be scrap.
+                The usual escape is a private sale. You drive across town to a unit with no
+                power connected, the seller tells you it was working when it came out, and
+                the moment you load it there is nobody to call. It is cheap right up until
+                a compressor goes on a Friday and takes a weekend of stock with it.
               </p>
               <p>
-                Everything we buy goes to Montague Gardens, gets stripped, gets a parts
-                list, and gets photographed before any work starts. That first set of
-                photos is what lets us tell a buyer honestly what was wrong with a machine
-                when it arrived and what we did about it.
+                We built this business to remove that choice. Every machine is stripped,
+                given a parts list and photographed before any work starts. Worn parts are
+                replaced, not cleaned. Then it runs a full cycle under load, gets graded
+                for looks, and only then gets a price.
               </p>
               <p>
-                The result is that a kitchen opening on a real budget can buy the same
-                German and Italian equipment that gets specced into new fit-outs, at
-                roughly half the price, with a warranty behind it.
+                The result is that a kitchen opening on a real budget runs the same German
+                and Italian equipment that gets specced into new fit-outs, at roughly half
+                the price, with six months of warranty behind it — and it is standing on
+                our floor now, not eight weeks out on a ship.
               </p>
             </div>
           </div>

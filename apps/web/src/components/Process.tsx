@@ -7,24 +7,24 @@ import Subheading from "./Subheading";
 export default function Process() {
   const steps = [
     {
-      icon: "solar:hand-money-linear",
-      title: "We buy at auction",
-      copy: "Restaurants close every week in the Western Cape. We are in the room when their kitchens go under the hammer, paying cash and buying whole lines at a time.",
+      icon: "solar:tag-price-linear",
+      title: "You pay for the machine",
+      copy: "Most of a new price is freight, import duty, distributor margin and a showroom floor. None of that is the machine. We run a workshop instead of a showroom, so that is what you pay for.",
     },
     {
       icon: "solar:settings-linear",
       title: "We rebuild it",
-      copy: "Seals, elements, thermostats, bearings, castors — anything worn gets replaced in our workshop. Not wiped down and resold. Rebuilt.",
+      copy: "Seals, elements, thermostats, bearings, castors — anything worn gets replaced on the bench. Not wiped down and resold. Rebuilt, with the parts list published on the listing.",
     },
     {
       icon: "solar:checklist-minimalistic-linear",
       title: "We test and grade it",
-      copy: "Every unit runs a full service cycle under load, then gets an honest A, B or C grade and photographed as-is. Scratches included.",
+      copy: "Every unit runs a full service cycle under load before it gets a price, then an honest A, B or C for looks only, photographed as-is. Scratches included.",
     },
     {
       icon: "solar:delivery-linear",
-      title: "You collect or we deliver",
-      copy: "Collect from Montague Gardens, or we quote delivery and place it in your kitchen. Small items ship nationwide by courier.",
+      title: "You see it run, then it ships",
+      copy: "Watch it complete a cycle in Montague Gardens before you pay, or we deliver, place and level it in your kitchen within 48 hours.",
     },
   ];
 
@@ -38,6 +38,14 @@ export default function Process() {
         <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight max-w-3xl leading-tight">
           Why We Can Sell A R98 000 Combi For R42 500
         </h2>
+        {/* The three-way frame: the two alternatives a buyer is actually weighing,
+            and why the third one is the only one that gives them both halves. */}
+        <p className="text-muted font-light text-sm leading-relaxed max-w-2xl mt-5 md:mt-6">
+          There are two normal ways to equip a kitchen. Pay retail for new and spend your
+          whole budget on three machines. Or gamble on a private sale and hope it lasts
+          past opening week. We are the third: the price of the second, with the machine
+          rebuilt, tested and guaranteed like the first.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -8,10 +8,10 @@ import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
 import { site, whatsappLink } from "@/data/site";
 
 export const navLinks = [
-  { href: "/#catalogue", label: "Stock", blurb: "Every unit on the floor" },
+  { href: "/#catalogue", label: "Stock", blurb: "Every unit priced on the card" },
   { href: "/conditions", label: "Condition & Warranty", blurb: "What A, B and C mean" },
   { href: "/delivery", label: "Delivery & Collection", blurb: "Lead times and costs" },
-  { href: "/about", label: "About Us", blurb: "How we got here" },
+  { href: "/about", label: "About Us", blurb: "Why we cost half of new" },
   { href: "/blog", label: "Journal", blurb: "Buying guides and notes" },
 ];
 

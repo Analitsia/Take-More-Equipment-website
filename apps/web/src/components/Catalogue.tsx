@@ -40,8 +40,9 @@ export default function Catalogue({
           </h2>
         </div>
         <p className="text-muted font-light text-sm leading-relaxed max-w-sm">
-          One of each, priced individually. When a unit sells it stays listed with its
-          price, so you can see what things actually go for.
+          One of each, every price on the card against what the same machine costs new.
+          Sold units stay listed at what they went for, so you can see the real numbers
+          before you spend anything.
         </p>
       </div>
 
@@ -104,8 +105,8 @@ export default function Catalogue({
                 Nothing matches that combination
               </h3>
               <p className="text-muted font-light text-sm leading-relaxed max-w-sm mb-6">
-                Stock rotates weekly and most of it never reaches this page. Clear the
-                filters, or tell us what you are after and we will watch for it.
+                Stock rotates weekly and the best units go fast. Clear the filters, or tell
+                us what you are after and we will find it for you.
               </p>
               <button
                 type="button"

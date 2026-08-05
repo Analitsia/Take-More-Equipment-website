@@ -6,7 +6,7 @@ import Subheading from "./Subheading";
 // About Section
 export default function About() {
   const stats = [
-    { number: "600", suffix: "+", label: "Machines Restored" },
+    { number: "600", suffix: "+", label: "Machines Rebuilt" },
     { number: "50", suffix: "%", label: "Average Saving vs New" },
     { number: "6", suffix: "Mo", label: "Workshop Warranty" },
     { number: "48", suffix: "H", label: "Cape Town Delivery" },
@@ -23,14 +23,13 @@ export default function About() {
         >
           <Subheading text="About Us" />
           <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-8 max-w-2xl">
-            We buy the kitchens that close, and rebuild them for the kitchens that are
-            opening.
+            The kitchen you wanted, at the number you actually budgeted.
           </h2>
           <div className="flex items-center space-x-6 border-b border-white/10 pb-8 max-w-md">
             <p className="text-muted font-light text-sm leading-relaxed">
-              Every unit lands in our Montague Gardens workshop, gets stripped, serviced and
-              load-tested, then photographed as the one-of-one machine it is. What you see
-              listed is exactly what is standing on our floor.
+              Every unit is stripped, rebuilt and load-tested in our Montague Gardens
+              workshop, then photographed as the one-of-one machine it is. What you see
+              listed is exactly what is standing on our floor, at the price on the card.
             </p>
           </div>
           <a href="#process" className="inline-flex items-center space-x-4 mt-8 group">

@@ -175,7 +175,8 @@ export default async function ProductPage({
 
               {!item.sold && (
                 <p className="text-xs font-light text-muted mt-5">
-                  One of one — when it goes, it goes. We hold a unit for 24 hours on a
+                  Come and watch it run in Montague Gardens before you pay a cent. One of
+                  one — when it goes, it goes, and we hold a unit for 24 hours on a
                   deposit.
                 </p>
               )}
