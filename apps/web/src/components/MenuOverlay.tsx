@@ -61,9 +61,9 @@ export default function MenuOverlay({
             <img
               src="/takemore-wordmark.svg"
               alt="Take More Equipment"
-              width={1418}
-              height={195}
-              className="h-4 sm:h-5 lg:h-[26.4px] w-auto max-w-[52vw] object-contain object-left"
+              width={988}
+              height={442}
+              className="h-8 sm:h-9 w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
           <button

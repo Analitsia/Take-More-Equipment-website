@@ -42,20 +42,20 @@ export default function Navbar({
           <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
             {/* SVG, not a raster crop — vector paths straight from the brand file,
                 so it stays crisp at any size instead of softening like a scaled
-                PNG. object-contain plus max-width is still the guard against a
-                phone narrow enough that the natural width would reach the search
-                and menu buttons. lg:h-[26.4px] is h-6 (24px) at +10% — desktop
-                only, mobile/tablet sizing is unchanged. Horizontal alignment
-                with the hero's "Cape Town" line comes from Hero.tsx sharing
-                this same max-w-[1440px] container past lg, not from any
-                per-element offset here — see the note there. */}
+                PNG. Two-line lockup (~2.24:1) rather than the old single-line
+                wordmark (~7.3:1), so it's sized by a taller height than the old
+                mark used — at the old single-line height these two stacked
+                lines would read as a sliver. max-w-[52vw]+object-contain is
+                inert at this width/height ratio (never gets close to 52vw) but
+                left in as a harmless guard against a phone narrow enough to
+                reach the search/menu buttons. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/takemore-wordmark.svg"
               alt="Take More Equipment"
-              width={1418}
-              height={195}
-              className="h-4 sm:h-5 lg:h-[26.4px] w-auto max-w-[52vw] object-contain object-left"
+              width={988}
+              height={442}
+              className="h-8 sm:h-9 w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
 
