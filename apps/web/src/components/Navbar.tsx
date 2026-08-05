@@ -56,17 +56,22 @@ export default function Navbar({
                 PNG. Two-line lockup (~2.24:1) rather than the old single-line
                 wordmark (~7.3:1), so it's sized by a taller height than the old
                 mark used — at the old single-line height these two stacked
-                lines would read as a sliver. max-w-[52vw]+object-contain is
-                inert at this width/height ratio (never gets close to 52vw) but
-                left in as a harmless guard against a phone narrow enough to
-                reach the search/menu buttons. */}
+                lines would read as a sliver. h-10/sm:h-[45px] is the previous
+                h-8/sm:h-9 at +25% exactly (32→40, 36→45). Sizing by height with
+                w-auto grows the box to the right, not the left, and the start
+                position comes from OVERLAY_LOGO_FRAME_INSET on the Link above —
+                neither changes here, so the left edge doesn't move.
+                max-w-[52vw]+object-contain is inert at this width/height ratio
+                (never gets close to 52vw) but left in as a harmless guard
+                against a phone narrow enough to reach the search/menu
+                buttons. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/takemore-wordmark.svg"
               alt="Take More Equipment"
               width={988}
               height={442}
-              className="h-8 sm:h-9 w-auto max-w-[52vw] object-contain object-left"
+              className="h-10 sm:h-[45px] w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
 

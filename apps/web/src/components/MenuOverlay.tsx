@@ -70,7 +70,7 @@ export default function MenuOverlay({
               alt="Take More Equipment"
               width={988}
               height={442}
-              className="h-8 sm:h-9 w-auto max-w-[52vw] object-contain object-left"
+              className="h-10 sm:h-[45px] w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
           <button
