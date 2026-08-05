@@ -39,8 +39,15 @@ export default function Navbar({
         className={`${position} ${HEADER_TOP[variant]}`}
       >
         <div className={HEADER_ROW}>
-          <Link href="/" className="flex items-center space-x-2 cursor-pointer">
-            <span className="tracking-tighter font-medium text-lg uppercase">Take More</span>
+          <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/tme-wordmark.png"
+              alt="Take More Equipment"
+              width={396}
+              height={120}
+              className="h-5 md:h-6 w-auto"
+            />
           </Link>
 
           <div className="hidden md:flex glass-panel rounded-full px-6 py-2.5 items-center space-x-12">

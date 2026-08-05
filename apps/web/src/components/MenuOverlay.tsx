@@ -52,9 +52,17 @@ export default function MenuOverlay({
           <Link
             href="/"
             onClick={onClose}
-            className="tracking-tighter font-medium text-lg uppercase"
+            aria-label="Take More Equipment — home"
+            className="flex items-center"
           >
-            Take More
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/tme-wordmark.png"
+              alt="Take More Equipment"
+              width={396}
+              height={120}
+              className="h-5 md:h-6 w-auto"
+            />
           </Link>
           <button
             type="button"

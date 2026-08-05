@@ -75,13 +75,18 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 border-t lg:border-t-0 lg:border-l border-white/10 pt-5 md:pt-6 lg:pt-0 lg:pl-12 w-full lg:w-auto"
           >
+            {/* Solar has no Instagram glyph, so this one icon comes from mdi —
+                the only break from the set, and only because the mark has to be
+                the recognisable one. */}
             <a
-              href="#stock"
+              href="https://www.instagram.com/takemoreequipment/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="group flex items-center space-x-3 text-lg font-light hover:text-accent transition-colors w-full sm:w-auto justify-between"
             >
-              <span>Browse Stock</span>
+              <span>Instagram</span>
               <div className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center group-hover:border-accent transition-colors">
-                <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
+                <iconify-icon icon="mdi:instagram" width="16" height="16"></iconify-icon>
               </div>
             </a>
             <div className="hidden sm:block w-[1px] h-8 bg-white/10"></div>
