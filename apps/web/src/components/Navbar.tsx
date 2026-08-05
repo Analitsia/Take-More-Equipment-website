@@ -59,7 +59,15 @@ export default function Navbar({
             />
           </Link>
 
-          <div className="hidden md:flex glass-panel rounded-full px-6 py-2.5 items-center space-x-12">
+          {/* justify-between only guarantees the *first* and *last* flex
+              children sit at the row's true edges — a middle child's position
+              still depends on how wide its siblings are, so on this row
+              (logo width varies, hamburger group is fixed) the pill drifted
+              off the row's actual center. Taking it out of flex flow and
+              centering it directly against the row itself (headerRow() marks
+              the row `relative` for exactly this) makes its position not
+              depend on either sibling's width at all. */}
+          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 glass-panel rounded-full px-6 py-2.5 items-center space-x-12">
             <Link
               href="/#catalogue"
               className="flex items-center space-x-2 cursor-pointer hover:text-white/70 transition-colors text-sm font-light"

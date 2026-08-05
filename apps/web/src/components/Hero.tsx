@@ -33,11 +33,20 @@ export default function Hero() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
             {site.city}, {site.country}
           </motion.div>
+          {/* Right-aligned text stacks unevenly when the lines are different
+              lengths — the shorter line's left edge trails the longer one's,
+              reading as a staggered cascade rather than a block. text-center
+              fixes that on its own. Position is a separate problem: as the
+              middle child of a 3-item justify-between row this only ever
+              landed wherever the "Cape Town" text and the third block's
+              widths left it, not at the row's actual center — same fix as
+              the navbar pill above, taken out of flex flow and centered
+              against the row itself. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="text-right max-w-[200px] hidden md:block"
+            className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 text-center max-w-[200px]"
           >
             Rebuilt in our workshop.
             <br />
@@ -47,7 +56,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.7 }}
-            className="text-right max-w-[250px] hidden lg:block"
+            className="text-center max-w-[250px] hidden lg:block"
           >
             Every machine is stripped, rebuilt and run under load before it earns a price
             on this page.

@@ -12,8 +12,12 @@
  * button it holds. Left to size themselves, the two rows disagree from md up,
  * where the navbar also carries the desktop glass pill (46px) and the overlay
  * carries only the 40px close button — a 3px vertical jump.
+ *
+ * `relative` makes the row a positioning root for the navbar's centered pill
+ * (see Navbar.tsx) — inert here, since nothing in the menu overlay's own row
+ * needs it, but the two rows still have to share one geometry.
  */
-const HEADER_ROW_BASE = "w-full px-6 md:px-12 h-10 flex items-center justify-between";
+const HEADER_ROW_BASE = "relative w-full px-6 md:px-12 h-10 flex items-center justify-between";
 
 /**
  * `solid` (inner pages) caps and centers at 1440px, matching every section on
