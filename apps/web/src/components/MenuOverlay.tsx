@@ -55,13 +55,15 @@ export default function MenuOverlay({
             aria-label="Take More Equipment — home"
             className="flex items-center"
           >
+            {/* Matches the navbar's logo box exactly — see headerLayout: any
+                disagreement reads as the mark jumping when the menu opens. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/tme-wordmark.png"
+              src="/takemore-wordmark.png"
               alt="Take More Equipment"
-              width={396}
+              width={1466}
               height={120}
-              className="h-5 md:h-6 w-auto"
+              className="h-4 sm:h-5 lg:h-6 w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
           <button
