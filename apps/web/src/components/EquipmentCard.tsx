@@ -38,8 +38,13 @@ export default function EquipmentCard({
   // once while the row drifts, and the card never runs under the screen edge.
   // The mobile max-width has to be lifted again from sm up, or it would also
   // cap the wider desktop card.
+  //
+  // Grid cards sit two to a row from the narrowest phone up, so below sm the
+  // card is only ~160px wide. Everything inside it — insets, type scale, the
+  // spec row — is tuned for that column and lifted back to the roomy sizes at
+  // sm, where the same two columns are twice as wide.
   const sizing = grid
-    ? "w-full h-[340px] sm:h-[400px] xl:h-[440px]"
+    ? "w-full h-[250px] sm:h-[400px] xl:h-[440px]"
     : "w-[62vw] max-w-[320px] sm:w-[272px] sm:max-w-none md:w-[400px] h-[304px] sm:h-[352px] md:h-[520px] shrink-0";
 
   // Carousel labels are sized to their own content and wrap to a second line on
@@ -50,6 +55,12 @@ export default function EquipmentCard({
     ? "flex items-center gap-1 min-w-0"
     : "flex items-center gap-1 shrink-0";
   const specText = grid ? "truncate" : "whitespace-nowrap";
+
+  // Two specs are all that fit beside each other in a half-width mobile column,
+  // so power draw drops out there and capacity and grade — the two a buyer
+  // scans a list by — stay. Power is back from sm up, and on the unit's own
+  // page either way.
+  const specPower = grid ? `${specItem} hidden sm:flex` : specItem;
 
   // Carousel cards get no entrance animation of their own: the row they sit in
   // is already moving, and a per-card opacity/scale tween on top of that reads
@@ -87,16 +98,41 @@ export default function EquipmentCard({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent"></div>
 
-      <div className="absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-6 flex justify-between items-center z-10">
-        <span className="glass-panel px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase">
+      <div
+        className={`absolute flex justify-between items-center gap-2 z-10 ${
+          grid
+            ? "top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4"
+            : "top-4 left-4 right-4 md:top-6 md:left-6 md:right-6"
+        }`}
+      >
+        <span
+          className={`glass-panel rounded-full font-medium uppercase truncate ${
+            grid
+              ? "px-2.5 py-1 text-[9px] tracking-wider sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-widest"
+              : "px-4 py-1.5 text-xs tracking-widest"
+          }`}
+        >
           {brand}
         </span>
         {sold ? (
-          <span className="px-4 py-1.5 rounded-full bg-accent text-background text-xs font-medium tracking-widest uppercase">
+          <span
+            className={`rounded-full bg-accent text-background font-medium tracking-widest uppercase shrink-0 ${
+              grid
+                ? "px-2.5 py-1 text-[9px] sm:px-4 sm:py-1.5 sm:text-xs"
+                : "px-4 py-1.5 text-xs"
+            }`}
+          >
             Sold
           </span>
         ) : (
-          <div className="w-8 h-8 rounded-full glass-panel flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          /* The arrow only ever appears on hover, so in a half-width mobile
+             column it is 28px of dead space stolen from the brand name on a
+             device that cannot hover at all. */
+          <div
+            className={`rounded-full glass-panel items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${
+              grid ? "hidden sm:flex w-7 h-7 sm:w-8 sm:h-8" : "flex w-8 h-8"
+            }`}
+          >
             <iconify-icon
               icon="solar:arrow-right-up-linear"
               width="16"
@@ -109,12 +145,16 @@ export default function EquipmentCard({
 
       <div
         className={`absolute z-10 flex flex-col ${
-          grid ? "bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5" : "bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6"
+          grid
+            ? "bottom-2.5 left-2.5 right-2.5 sm:bottom-5 sm:left-5 sm:right-5"
+            : "bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6"
         }`}
       >
         <h3
           className={`font-medium tracking-tight ${
-            grid ? "text-xl sm:text-2xl mb-3" : "text-xl sm:text-2xl md:text-3xl mb-2.5 md:mb-4"
+            grid
+              ? "text-[13px] leading-snug line-clamp-2 mb-2 sm:text-2xl sm:leading-tight sm:mb-3"
+              : "text-xl sm:text-2xl md:text-3xl mb-2.5 md:mb-4"
           }`}
         >
           {title}
@@ -122,20 +162,34 @@ export default function EquipmentCard({
 
         <div
           className={`glass-panel panel-solid bg-card/80 rounded-2xl flex flex-col border-none ${
-            grid ? "p-3.5 gap-2.5" : "p-3 gap-2 md:p-4 md:gap-3"
+            grid ? "p-2.5 gap-2 sm:p-3.5 sm:gap-2.5" : "p-3 gap-2 md:p-4 md:gap-3"
           }`}
         >
           <div
             className={`flex justify-between items-center gap-2 border-b border-white/5 ${
-              grid ? "pb-2.5" : "pb-2 md:pb-3"
+              grid ? "pb-2 sm:pb-2.5" : "pb-2 md:pb-3"
             }`}
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-xs text-muted font-light whitespace-nowrap">
+              {/* In a half-width column the "Our price" caption is the first
+                  thing to go: the struck retail price above the live one says
+                  the same thing in less room. A sold unit keeps its caption —
+                  there the wording is the point. */}
+              <span
+                className={`text-muted font-light whitespace-nowrap ${
+                  grid
+                    ? `text-[10px] sm:text-xs ${sold ? "" : "hidden sm:block"}`
+                    : "text-xs"
+                }`}
+              >
                 {sold ? "Sold for" : "Our price"}
               </span>
               {retailPrice && (
-                <span className="text-[11px] text-muted font-light line-through whitespace-nowrap">
+                <span
+                  className={`text-muted font-light line-through whitespace-nowrap ${
+                    grid ? "text-[9px] sm:text-[11px]" : "text-[11px]"
+                  }`}
+                >
                   {rands(retailPrice)}
                   {grid ? "" : " new"}
                 </span>
@@ -144,13 +198,17 @@ export default function EquipmentCard({
             <div className="flex flex-col items-end min-w-0">
               <span
                 className={`font-medium tracking-tight whitespace-nowrap ${
-                  grid ? "text-base" : "text-base md:text-lg"
+                  grid ? "text-[13px] sm:text-base" : "text-base md:text-lg"
                 }`}
               >
                 {rands(price)}
               </span>
               {saving !== null && (
-                <span className="text-[11px] text-accent font-light whitespace-nowrap">
+                <span
+                  className={`text-accent font-light whitespace-nowrap ${
+                    grid ? "text-[9px] sm:text-[11px]" : "text-[11px]"
+                  }`}
+                >
                   Save {saving}%
                 </span>
               )}
@@ -158,7 +216,7 @@ export default function EquipmentCard({
           </div>
           <div
             className={`flex justify-between items-center font-light text-white/80 gap-x-1.5 gap-y-1 ${
-              grid ? "text-[10px]" : "flex-wrap text-[10px] md:text-xs"
+              grid ? "text-[9px] sm:text-[10px]" : "flex-wrap text-[10px] md:text-xs"
             }`}
           >
             {/* `noobserver` on every icon in this card, and it is load-bearing.
@@ -179,7 +237,7 @@ export default function EquipmentCard({
               ></iconify-icon>
               <span className={specText}>{capacity}</span>
             </div>
-            <div className={specItem}>
+            <div className={specPower}>
               <iconify-icon
                 icon="solar:bolt-linear"
                 className="text-muted shrink-0"
