@@ -23,13 +23,13 @@ const HEADER_ROW_BASE = "relative w-full px-6 md:px-12 h-10 flex items-center ju
  * `solid` (inner pages) caps and centers at 1440px, matching every section on
  * those pages — About, the catalogue, the footer, all of it. `overlay` (the
  * home hero) stays uncapped instead: every other row stacked in that hero —
- * the "Cape Town" line, the headline, the CTA buttons — is plain padding
- * against the real viewport edge, with no 1440 cap of its own. Capping just
- * the navbar's row would hold it to a *different* reference than its own
- * hero on any screen past ~1470px, pulling the logo right of everything
- * stacked under it by however far that centering shifted it. Uncapped past
- * that width is uncapped, but it will always agree with hero's own rows,
- * for the one page where that agreement matters.
+ * the "Cape Town" line, the headline, the CTA buttons — carries no 1440 cap
+ * of its own either. Capping just the navbar's row would hold it to a
+ * *different* reference than its own hero on any screen past ~1470px,
+ * pulling the logo right of everything stacked under it by however far that
+ * centering shifted it. Uncapped past that width is uncapped, but it will
+ * always agree with hero's own rows, for the one page where that agreement
+ * matters.
  *
  * Below 1440px both forms are identical — max-w-[1440px] is a no-op once the
  * viewport is already narrower than it — so this only changes anything on a
@@ -40,6 +40,32 @@ export function headerRow(variant: HeaderVariant) {
     ? HEADER_ROW_BASE
     : `${HEADER_ROW_BASE} max-w-[1440px] mx-auto`;
 }
+
+/**
+ * A second, smaller reference mismatch — separate from headerRow()'s cap,
+ * and present at every width, not just past 1440px.
+ *
+ * Hero.tsx's frame — the rounded image, and everything stacked on top of it
+ * (the "Cape Town" line, the headline) — sits *inside* an outer wrapper
+ * padded by p-2/md:p-4. That padding insets the frame itself by 8px/16px
+ * from the real viewport edge, so the hero's own content is measured from
+ * that inset edge, not the raw one.
+ *
+ * The overlay navbar is deliberately rendered as that outer wrapper's other
+ * child, a sibling to the frame rather than a child of it (see the comment
+ * in Hero.tsx) — that fix keeps the logo from sliding when the menu opens,
+ * since the menu overlay is a separate fixed layer with no frame of its own
+ * to inherit padding from. But it means the navbar's own inset-x-0 resolves
+ * against the *outer* wrapper's padding box, i.e. the raw viewport edge —
+ * 8px/16px to the left of where the frame's own content starts.
+ *
+ * This closes that specific gap: added to the logo only (not the row), so
+ * the true-centered pill and the right-side buttons are untouched. ml-2
+ * md:ml-4 are the same tokens as Hero's own p-2 md:p-4, so the two move in
+ * exact lockstep rather than by a separately-tuned number. `solid` pages
+ * have no such frame to match, so this only applies to `overlay`.
+ */
+export const OVERLAY_LOGO_FRAME_INSET = "ml-2 md:ml-4";
 
 /**
  * The distance from the top of the header's containing block down to the row,

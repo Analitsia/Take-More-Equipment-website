@@ -5,7 +5,12 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import MenuOverlay from "./MenuOverlay";
 import SearchOverlay from "./SearchOverlay";
-import { headerRow, HEADER_TOP, type HeaderVariant } from "./headerLayout";
+import {
+  headerRow,
+  HEADER_TOP,
+  OVERLAY_LOGO_FRAME_INSET,
+  type HeaderVariant,
+} from "./headerLayout";
 
 /**
  * Navbar Component
@@ -39,7 +44,13 @@ export default function Navbar({
         className={`${position} ${HEADER_TOP[variant]}`}
       >
         <div className={headerRow(variant)}>
-          <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
+          <Link
+            href="/"
+            aria-label="Take More Equipment — home"
+            className={`flex items-center cursor-pointer ${
+              variant === "overlay" ? OVERLAY_LOGO_FRAME_INSET : ""
+            }`}
+          >
             {/* SVG, not a raster crop — vector paths straight from the brand file,
                 so it stays crisp at any size instead of softening like a scaled
                 PNG. Two-line lockup (~2.24:1) rather than the old single-line
