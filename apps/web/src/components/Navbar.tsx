@@ -40,17 +40,17 @@ export default function Navbar({
       >
         <div className={HEADER_ROW}>
           <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
-            {/* 12:1 wordmark, so it is sized off the row rather than off the type
-                scale. object-contain is the guard: on a phone narrow enough that
-                the natural width would reach the search and menu buttons, the
-                max-width caps it and the mark scales down inside the box instead
-                of stretching. */}
+            {/* SVG, not a raster crop — vector paths straight from the brand file,
+                so it stays crisp at any size instead of softening like a scaled
+                PNG. object-contain plus max-width is still the guard against a
+                phone narrow enough that the natural width would reach the search
+                and menu buttons. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/takemore-wordmark.png"
+              src="/takemore-wordmark.svg"
               alt="Take More Equipment"
-              width={1466}
-              height={120}
+              width={1418}
+              height={195}
               className="h-4 sm:h-5 lg:h-6 w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
