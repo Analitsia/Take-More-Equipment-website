@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
+import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
 import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
 import { site, whatsappLink } from "@/data/site";
 
@@ -14,7 +15,14 @@ export const navLinks = [
   { href: "/blog", label: "Journal", blurb: "Buying guides and notes" },
 ];
 
-export default function MenuOverlay({ onClose }: { onClose: () => void }) {
+export default function MenuOverlay({
+  onClose,
+  align = "overlay",
+}: {
+  onClose: () => void;
+  /** Which navbar variant opened this, so the header lands on that navbar's row. */
+  align?: HeaderVariant;
+}) {
   useScrollLock();
 
   useEffect(() => {
@@ -27,7 +35,7 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain hide-scrollbar"
+      className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain hide-scrollbar lock-gutter"
       role="dialog"
       aria-modal="true"
       aria-label="Site menu"
@@ -37,8 +45,10 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
           below the first screenful. */}
       <div className="fixed inset-0 bg-background/95 backdrop-blur-md" aria-hidden />
 
-      <div className="relative min-h-full w-full max-w-[1440px] mx-auto px-5 sm:px-6 md:px-12 py-6 md:py-8">
-        <div className="flex items-center justify-between mb-10 md:mb-16">
+      <div className={`relative min-h-full w-full ${HEADER_TOP[align]} pb-6 md:pb-8`}>
+        {/* Same row as the navbar underneath, from the same source, so the logo
+            and the round button hold their pixel while the menu opens. */}
+        <div className={`${HEADER_ROW} mb-10 md:mb-16`}>
           <Link
             href="/"
             onClick={onClose}
@@ -56,7 +66,7 @@ export default function MenuOverlay({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 pb-12 md:pb-16">
+        <div className="w-full max-w-[1440px] mx-auto px-6 md:px-12 flex flex-col lg:flex-row gap-12 lg:gap-24 pb-12 md:pb-16">
           <nav className="flex-1">
             <div className="flex items-center space-x-3 mb-8">
               <div className="w-5 h-1 rounded-full bg-accent"></div>

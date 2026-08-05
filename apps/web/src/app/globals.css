@@ -26,6 +26,15 @@ body {
   scrollbar-width: none;
 }
 
+/* A full-screen overlay stands outside the body that useScrollLock pads while
+   it is open, so it would otherwise be a scrollbar's width wider than the page
+   behind it — enough to slide a centred header row half a scrollbar sideways
+   against the navbar it covers. Off every other time: the variable only exists
+   while the lock holds, and only when the scrollbar took layout space. */
+.lock-gutter {
+  padding-right: var(--lock-gutter, 0px);
+}
+
 /* <iconify-icon> gives its host `display:inline-block` and nothing else, so the
    element measures 0×0 until its <svg> arrives — and the svg arrives over the
    network, well after first paint. Every row of icon-plus-label on the site

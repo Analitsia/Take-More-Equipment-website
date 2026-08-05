@@ -8,8 +8,12 @@ import { site, whatsappLink } from "@/data/site";
 // Hero Component
 export default function Hero() {
   return (
-    <div className="p-2 md:p-4 h-[85vh] min-h-[520px] md:h-[90vh]">
-      <div className="relative w-full h-full rounded-[2rem] overflow-hidden">
+    // On a phone the framed image was 85vh with the title pinned to its floor,
+    // which left a screenful of empty photo between the city line and the
+    // headline. Shorter image, same composition, far less dead space. Desktop
+    // keeps its full 90vh.
+    <div className="relative p-2 md:p-4 h-[58vh] min-h-[490px] md:h-[90vh] md:min-h-[520px]">
+      <div className="w-full h-full rounded-[2rem] overflow-hidden relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="https://images.unsplash.com/photo-1708915965975-2a950db0e215?q=80&w=2938&auto=format&fit=crop"
@@ -19,8 +23,6 @@ export default function Hero() {
         {/* Scrim is heavier than the source template's — that hero used an already-dark
             studio car shot, whereas kitchen interiors are lit and busy. */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background/95"></div>
-
-        <Navbar />
 
         <div className="absolute top-20 md:top-32 inset-x-0 px-5 sm:px-6 md:px-12 flex justify-between items-start text-xs font-light text-white/70 z-10">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
@@ -92,6 +94,14 @@ export default function Hero() {
           </motion.div>
         </div>
       </div>
+
+      {/* Outside the framed image, not inside it: an absolute box is positioned
+          against its ancestor's padding box, so out here the navbar's own
+          padding is measured from the viewport edge — the same edge the menu
+          overlay measures from. Inside the frame it was offset by the frame's
+          own padding, and the logo slid by that much every time the menu
+          opened. It still paints over the image; only its ruler changed. */}
+      <Navbar />
     </div>
   );
 }

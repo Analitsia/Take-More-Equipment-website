@@ -16,6 +16,12 @@ import { useEffect } from "react";
  *
  * The scroll offset is restored on release, and the scrollbar's width is
  * replaced with padding so the page behind does not shift sideways.
+ *
+ * That padding is on the body, which a `position: fixed` overlay does not sit
+ * inside — it spans the viewport, scrollbar gutter included, and so centres its
+ * own content half a scrollbar to the right of everything in the page below.
+ * The width is published as `--lock-gutter` for those overlays to pad
+ * themselves by (see `.lock-gutter` in globals.css).
  */
 let locks = 0;
 let savedY = 0;
@@ -42,7 +48,10 @@ function lock() {
   body.style.top = `-${savedY}px`;
   body.style.width = "100%";
   body.style.overflow = "hidden";
-  if (scrollbar > 0) body.style.paddingRight = `${scrollbar}px`;
+  if (scrollbar > 0) {
+    body.style.paddingRight = `${scrollbar}px`;
+    html.style.setProperty("--lock-gutter", `${scrollbar}px`);
+  }
 }
 
 function release() {
@@ -55,6 +64,7 @@ function release() {
   body.style.width = saved.width ?? "";
   body.style.paddingRight = saved.paddingRight ?? "";
   body.style.overflow = saved.overflow ?? "";
+  document.documentElement.style.removeProperty("--lock-gutter");
 
   // Jump back without smooth-scrolling through the whole page.
   window.scrollTo({ top: savedY, behavior: "instant" as ScrollBehavior });
