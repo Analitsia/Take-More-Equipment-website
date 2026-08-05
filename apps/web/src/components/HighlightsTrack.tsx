@@ -38,6 +38,17 @@ import { featuredStock } from "@/data/equipment";
  * every one of 45 drag steps failed to be a pure translation, against four
  * after — and those four are the frames where a gesture starts or a new card
  * arrives on screen.
+ *
+ * The card-arriving-on-screen case turned out not to be about rasterisation at
+ * all. <iconify-icon> keeps an IntersectionObserver per icon and deletes its
+ * rendered <svg> as the icon crosses the viewport edge, so each card was
+ * rewriting its own contents on the way in and out — a layout change and a
+ * repaint at exactly the position where the dashing was reported, and the
+ * reason the icons quietly vanished when the row was left drifting on its own.
+ * See the `noobserver` note in EquipmentCard. It is worth holding onto the
+ * general shape of that: a held row is only still if nothing inside it moves
+ * on its own, so anything that mutates a card while the row is on screen will
+ * undo the work this file does, however cheap the mutation looks.
  */
 
 /** Seconds a card takes to travel its own width — keeps the pace even across breakpoints. */

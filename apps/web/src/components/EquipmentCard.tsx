@@ -97,7 +97,12 @@ export default function EquipmentCard({
           </span>
         ) : (
           <div className="w-8 h-8 rounded-full glass-panel flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <iconify-icon icon="solar:arrow-right-up-linear" width="16" height="16"></iconify-icon>
+            <iconify-icon
+              icon="solar:arrow-right-up-linear"
+              width="16"
+              height="16"
+              noobserver=""
+            ></iconify-icon>
           </div>
         )}
       </div>
@@ -156,18 +161,37 @@ export default function EquipmentCard({
               grid ? "text-[10px]" : "flex-wrap text-[10px] md:text-xs"
             }`}
           >
+            {/* `noobserver` on every icon in this card, and it is load-bearing.
+                <iconify-icon> runs an IntersectionObserver of its own and
+                *deletes* the rendered <svg> from its shadow root the moment the
+                icon leaves the viewport, rebuilding it on the way back in.
+                Inside a card drifting through the highlights row that is wrong
+                twice over: the host element carries no intrinsic size, so it
+                collapses to nothing and this spec row re-flows around it; and
+                the rebuild is a DOM mutation inside a card the compositor is
+                supposed to be translating untouched, which forces the card to
+                be painted again at whatever sub-pixel offset it has reached. */}
             <div className={specItem}>
-              <iconify-icon icon="solar:widget-linear" className="text-muted shrink-0"></iconify-icon>
+              <iconify-icon
+                icon="solar:widget-linear"
+                className="text-muted shrink-0"
+                noobserver=""
+              ></iconify-icon>
               <span className={specText}>{capacity}</span>
             </div>
             <div className={specItem}>
-              <iconify-icon icon="solar:bolt-linear" className="text-muted shrink-0"></iconify-icon>
+              <iconify-icon
+                icon="solar:bolt-linear"
+                className="text-muted shrink-0"
+                noobserver=""
+              ></iconify-icon>
               <span className={specText}>{power}</span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <iconify-icon
                 icon="solar:verified-check-linear"
                 className="text-muted shrink-0"
+                noobserver=""
               ></iconify-icon>
               <span className="whitespace-nowrap">Grade {grade}</span>
             </div>

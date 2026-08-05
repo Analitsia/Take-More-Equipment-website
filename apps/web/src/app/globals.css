@@ -26,6 +26,20 @@ body {
   scrollbar-width: none;
 }
 
+/* <iconify-icon> gives its host `display:inline-block` and nothing else, so the
+   element measures 0×0 until its <svg> arrives — and the svg arrives over the
+   network, well after first paint. Every row of icon-plus-label on the site
+   therefore lays out once without the icon and again with it.
+
+   An icon left at its default size renders at 1em square, so reserving exactly
+   that costs nothing and makes the surrounding layout independent of when (or
+   whether) the icon ever loads. Icons given an explicit `width`/`height` are
+   left alone — their own attributes already size them. */
+iconify-icon:not([width]):not([height]) {
+  width: 1em;
+  height: 1em;
+}
+
 .glass-panel {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(12px);
