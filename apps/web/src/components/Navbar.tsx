@@ -5,7 +5,12 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import MenuOverlay from "./MenuOverlay";
 import SearchOverlay from "./SearchOverlay";
-import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
+import {
+  HEADER_ROW,
+  HEADER_TOP,
+  OVERLAY_LOGO_DESKTOP_OFFSET,
+  type HeaderVariant,
+} from "./headerLayout";
 
 /**
  * Navbar Component
@@ -39,19 +44,26 @@ export default function Navbar({
         className={`${position} ${HEADER_TOP[variant]}`}
       >
         <div className={HEADER_ROW}>
-          <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
+          <Link
+            href="/"
+            aria-label="Take More Equipment — home"
+            className={`flex items-center cursor-pointer ${
+              variant === "overlay" ? OVERLAY_LOGO_DESKTOP_OFFSET : ""
+            }`}
+          >
             {/* SVG, not a raster crop — vector paths straight from the brand file,
                 so it stays crisp at any size instead of softening like a scaled
                 PNG. object-contain plus max-width is still the guard against a
                 phone narrow enough that the natural width would reach the search
-                and menu buttons. */}
+                and menu buttons. lg:h-[26.4px] is h-6 (24px) at +10% — desktop
+                only, mobile/tablet sizing is unchanged. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/takemore-wordmark.svg"
               alt="Take More Equipment"
               width={1418}
               height={195}
-              className="h-4 sm:h-5 lg:h-6 w-auto max-w-[52vw] object-contain object-left"
+              className="h-4 sm:h-5 lg:h-[26.4px] w-auto max-w-[52vw] object-contain object-left"
             />
           </Link>
 
