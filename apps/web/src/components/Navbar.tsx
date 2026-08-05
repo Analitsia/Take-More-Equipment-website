@@ -5,12 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import MenuOverlay from "./MenuOverlay";
 import SearchOverlay from "./SearchOverlay";
-import {
-  HEADER_ROW,
-  HEADER_TOP,
-  OVERLAY_LOGO_DESKTOP_OFFSET,
-  type HeaderVariant,
-} from "./headerLayout";
+import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
 
 /**
  * Navbar Component
@@ -44,19 +39,16 @@ export default function Navbar({
         className={`${position} ${HEADER_TOP[variant]}`}
       >
         <div className={HEADER_ROW}>
-          <Link
-            href="/"
-            aria-label="Take More Equipment — home"
-            className={`flex items-center cursor-pointer ${
-              variant === "overlay" ? OVERLAY_LOGO_DESKTOP_OFFSET : ""
-            }`}
-          >
+          <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
             {/* SVG, not a raster crop — vector paths straight from the brand file,
                 so it stays crisp at any size instead of softening like a scaled
                 PNG. object-contain plus max-width is still the guard against a
                 phone narrow enough that the natural width would reach the search
                 and menu buttons. lg:h-[26.4px] is h-6 (24px) at +10% — desktop
-                only, mobile/tablet sizing is unchanged. */}
+                only, mobile/tablet sizing is unchanged. Horizontal alignment
+                with the hero's "Cape Town" line comes from Hero.tsx sharing
+                this same max-w-[1440px] container past lg, not from any
+                per-element offset here — see the note there. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/takemore-wordmark.svg"

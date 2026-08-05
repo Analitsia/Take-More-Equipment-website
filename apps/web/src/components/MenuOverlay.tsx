@@ -3,12 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
-import {
-  HEADER_ROW,
-  HEADER_TOP,
-  OVERLAY_LOGO_DESKTOP_OFFSET,
-  type HeaderVariant,
-} from "./headerLayout";
+import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
 import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
 import { site, whatsappLink } from "@/data/site";
 
@@ -58,9 +53,7 @@ export default function MenuOverlay({
             href="/"
             onClick={onClose}
             aria-label="Take More Equipment — home"
-            className={`flex items-center ${
-              align === "overlay" ? OVERLAY_LOGO_DESKTOP_OFFSET : ""
-            }`}
+            className="flex items-center"
           >
             {/* Matches the navbar's logo box exactly — see headerLayout: any
                 disagreement reads as the mark jumping when the menu opens. */}

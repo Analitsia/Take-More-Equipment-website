@@ -28,21 +28,3 @@ export const HEADER_TOP = {
 } as const;
 
 export type HeaderVariant = keyof typeof HEADER_TOP;
-
-/**
- * Home hero only. HEADER_ROW centers its content inside max-w-[1440px], but
- * the hero's own overlay text (Hero.tsx's city/tagline row) is full-bleed
- * with no such cap — it sits at a fixed distance from the real viewport
- * edge. Past a 1440px viewport those two references diverge: the row's
- * centering pushes the logo right while the hero text stays put, which is
- * invisible on a laptop screen and increasingly obvious on a wide monitor.
- *
- * This cancels exactly that centering offset — (100vw - 1440px) / 2, floored
- * at 0 so it does nothing below 1440px — so the logo's left edge tracks the
- * hero text's left edge instead of the row's container edge. `lg:`-gated so
- * mobile is untouched, and only applied where `variant === "overlay"`: the
- * solid navbar on inner pages has no hero text to match, so it keeps the
- * ordinary centered position shared with every other section on those pages.
- */
-export const OVERLAY_LOGO_DESKTOP_OFFSET =
-  "lg:-ml-[max(0px,calc((100vw_-_1440px)/2))]";
