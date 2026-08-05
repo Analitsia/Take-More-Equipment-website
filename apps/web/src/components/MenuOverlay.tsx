@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
-import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
+import { headerRow, HEADER_TOP, type HeaderVariant } from "./headerLayout";
 import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
 import { site, whatsappLink } from "@/data/site";
 
@@ -48,7 +48,7 @@ export default function MenuOverlay({
       <div className={`relative min-h-full w-full ${HEADER_TOP[align]} pb-6 md:pb-8`}>
         {/* Same row as the navbar underneath, from the same source, so the logo
             and the round button hold their pixel while the menu opens. */}
-        <div className={`${HEADER_ROW} mb-10 md:mb-16`}>
+        <div className={`${headerRow(align)} mb-10 md:mb-16`}>
           <Link
             href="/"
             onClick={onClose}

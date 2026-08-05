@@ -24,12 +24,12 @@ export default function Hero() {
             studio car shot, whereas kitchen interiors are lit and busy. */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background/95"></div>
 
-        {/* lg:max-w-[1440px] lg:mx-auto matches HEADER_ROW's own container
-            exactly (see headerLayout.ts) so this row's left edge and the
-            navbar logo's left edge come from the same math, not two
-            independent numbers that have to be kept in sync by hand. Below
-            lg the row stays full-bleed as before — untouched on purpose. */}
-        <div className="absolute top-20 md:top-32 inset-x-0 px-5 sm:px-6 md:px-12 lg:max-w-[1440px] lg:mx-auto flex justify-between items-start text-xs font-light text-white/70 z-10">
+        {/* Deliberately uncapped, same as the headline row below it — capping
+            this at max-w-[1440px] would agree with the navbar but disagree
+            with the headline, since that row is plain padding too. See
+            headerRow() in headerLayout.ts: the overlay navbar is the one
+            that stays uncapped past 1440px, to agree with this. */}
+        <div className="absolute top-20 md:top-32 inset-x-0 px-5 sm:px-6 md:px-12 flex justify-between items-start text-xs font-light text-white/70 z-10">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
             {site.city}, {site.country}
           </motion.div>

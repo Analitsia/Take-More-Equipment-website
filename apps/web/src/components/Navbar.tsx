@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import MenuOverlay from "./MenuOverlay";
 import SearchOverlay from "./SearchOverlay";
-import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
+import { headerRow, HEADER_TOP, type HeaderVariant } from "./headerLayout";
 
 /**
  * Navbar Component
@@ -14,7 +14,7 @@ import { HEADER_ROW, HEADER_TOP, type HeaderVariant } from "./headerLayout";
  * it to the top of an inner page, where there is no hero behind it.
  *
  * The vertical inset lives on the outer element and the row's own geometry in
- * HEADER_ROW, so the menu overlay can reproduce the row exactly (see
+ * headerRow(), so the menu overlay can reproduce the row exactly (see
  * headerLayout).
  */
 export default function Navbar({
@@ -38,7 +38,7 @@ export default function Navbar({
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className={`${position} ${HEADER_TOP[variant]}`}
       >
-        <div className={HEADER_ROW}>
+        <div className={headerRow(variant)}>
           <Link href="/" aria-label="Take More Equipment — home" className="flex items-center cursor-pointer">
             {/* SVG, not a raster crop — vector paths straight from the brand file,
                 so it stays crisp at any size instead of softening like a scaled
