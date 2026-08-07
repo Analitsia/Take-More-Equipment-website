@@ -3,12 +3,15 @@
  *
  *   npm run db:types
  *
- * Regenerate after every migration. CI fails the build on a diff, which is what
- * catches "applied a migration, forgot to regenerate".
+ * Regenerate after every migration. A stale file here is a type system that
+ * confidently describes a schema that no longer exists.
  *
- * Note the generator cannot infer a view is nullable-free, so every column of
- * public_items arrives as `T | null`. Do not `!` through it at the call site —
- * narrow once, in a typed query helper.
+ * Two things the generator cannot know, both handled in the schema rather than
+ * worked around at call sites:
+ *   - trigger-populated NOT NULL columns look required on insert, which is why
+ *     items.sku and items.slug carry column defaults;
+ *   - a view's nullability is unknowable, so every column of public_items
+ *     arrives as `T | null`. Narrow once, in a typed query helper.
  */
 
 export type Json =
@@ -341,8 +344,8 @@ export type Database = {
           reserved_until?: string | null
           retail_price_cents?: number | null
           sale_price_cents?: number | null
-          sku: string
-          slug: string
+          sku?: string
+          slug?: string
           sold_at?: string | null
           specs?: Json
           status?: Database["public"]["Enums"]["item_status"]

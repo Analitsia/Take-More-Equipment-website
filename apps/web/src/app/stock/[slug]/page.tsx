@@ -7,18 +7,20 @@ import Subheading from "@/components/Subheading";
 import EquipmentCard from "@/components/EquipmentCard";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
-import {
-  WARRANTY_MONTHS,
-  bySlug,
-  deliveryFor,
-  mm,
-  rands,
-  relatedTo,
-  stock,
-} from "@/data/equipment";
+import { WARRANTY_MONTHS, deliveryFor, mm, rands, relatedTo } from "@/data/equipment";
+import { getBySlug, getGallery, getStock } from "@/lib/stock";
 import { site, whatsappLink } from "@/data/site";
 
-export function generateStaticParams() {
+/**
+ * Prebuild a page for everything published at build time.
+ *
+ * `dynamicParams` stays true (its default) deliberately: an item published
+ * thirty seconds after a deploy is not in this list, and must still resolve on
+ * first request rather than 404. Turning it off to "404 unknown slugs faster"
+ * would build a machine that 404s new stock.
+ */
+export async function generateStaticParams() {
+  const stock = await getStock();
   return stock.map((item) => ({ slug: item.slug }));
 }
 
@@ -28,7 +30,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const item = bySlug(slug);
+  const item = await getBySlug(slug);
   if (!item) return { title: "Not found — Take More" };
 
   return {
@@ -37,7 +39,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${item.brand} ${item.title} — ${rands(item.price)}`,
       description: item.description.slice(0, 155),
-      images: [item.images[0]],
+      images: item.images.length ? [item.images[0]] : [],
     },
   };
 }
@@ -48,14 +50,18 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const item = bySlug(slug);
+  const item = await getBySlug(slug);
   if (!item) notFound();
 
   const saving = item.retailPrice
     ? Math.round(((item.retailPrice - item.price) / item.retailPrice) * 100)
     : null;
   const delivery = deliveryFor(item);
-  const related = relatedTo(item);
+  const stock = await getStock();
+  const related = relatedTo(stock, item);
+  // Full-size renditions for the gallery; the card-sized ones on `item` are
+  // deliberately smaller.
+  const gallery = await getGallery(slug);
   const [width, depth, height] = item.dimensionsMm;
 
   const specs: [string, string][] = [
@@ -85,7 +91,7 @@ export default async function ProductPage({
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-16">
-          <ProductGallery images={item.images} title={item.title} sold={item.sold} />
+          <ProductGallery images={gallery} title={item.title} sold={item.sold} />
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 flex-wrap">

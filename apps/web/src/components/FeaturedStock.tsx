@@ -1,8 +1,9 @@
 import Subheading from "./Subheading";
 import HighlightsTrack from "./HighlightsTrack";
+import type { Equipment } from "@/data/equipment";
 
 // Featured Stock Section — the template's FeaturedModels, rebuilt around items.
-export default function FeaturedStock() {
+export default function FeaturedStock({ items }: { items: Equipment[] }) {
   return (
     <section id="stock" className="py-14 md:py-24 overflow-hidden scroll-mt-24">
       <div className="px-6 md:px-12 w-full max-w-[1440px] mx-auto mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -21,7 +22,7 @@ export default function FeaturedStock() {
         </a>
       </div>
 
-      <HighlightsTrack />
+      <HighlightsTrack items={items} />
     </section>
   );
 }

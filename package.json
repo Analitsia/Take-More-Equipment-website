@@ -14,7 +14,7 @@
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
-    "db:types": "supabase gen types typescript --project-id btiyizeyjedleeaddxuh --schema public > packages/db/src/types.generated.ts",
+    "db:types": "node scripts/gen-types.mjs",
     "test:rls": "node --env-file=.env.local packages/db/tests/rls.test.mjs",
     "test:parity": "node --env-file=.env.local packages/core/tests/parity.test.mjs",
     "test": "npm run test:rls && npm run test:parity"

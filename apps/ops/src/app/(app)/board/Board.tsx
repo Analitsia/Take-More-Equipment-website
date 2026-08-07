@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  STATUS_LABELS,
+  STATUS_ORDER,
+  nextStatuses,
+  rands,
+  type AppRole,
+  type ItemStatus,
+} from "@takemore/core";
+import { STATUS_CLASSES } from "@takemore/ui";
+import { setStatus } from "../items/actions";
+import { mediaUrl } from "@/lib/media";
+import type { ItemRow } from "@/lib/queries";
+
+/**
+ * The workshop board.
+ *
+ * Moves are buttons rather than drag-and-drop, deliberately. Dragging a card
+ * across seven columns on a phone with one hand and a glove on is worse than
+ * tapping, and the legal moves are a short list anyway — the same list the
+ * database will enforce, read from packages/core so the two cannot disagree.
+ */
+export default function Board({ items, role }: { items: ItemRow[]; role: AppRole }) {
+  const router = useRouter();
+  const [moving, setMoving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function move(id: string, to: ItemStatus) {
+    setMoving(id);
+    setError(null);
+    const result = await setStatus(id, to);
+    setMoving(null);
+    if (!result.ok) setError(result.error);
+    else router.refresh();
+  }
+
+  return (
+    <>
+      {error && (
+        <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5 mb-3">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+        {STATUS_ORDER.map((status) => {
+          const column = items.filter((i) => i.status === status);
+          const c = STATUS_CLASSES[status];
+
+          return (
+            <section
+              key={status}
+              className="w-[78vw] sm:w-72 shrink-0 bg-card/50 border border-border rounded-2xl flex flex-col max-h-[70vh]"
+            >
+              <header className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
+                <span className={`w-2 h-2 rounded-full ${c.dot}`} />
+                <h2 className={`text-xs font-medium uppercase tracking-wider ${c.text}`}>
+                  {STATUS_LABELS[status]}
+                </h2>
+                <span className="ml-auto text-xs font-light text-muted tabular-nums">
+                  {column.length}
+                </span>
+              </header>
+
+              <div className="board-column flex-1 overflow-y-auto p-2.5 space-y-2.5">
+                {column.length === 0 ? (
+                  <p className="text-[11px] font-light text-muted text-center py-6">Empty</p>
+                ) : (
+                  column.map((item) => {
+                    const image = item.media?.length ? mediaUrl(item.media[0], "card") : null;
+                    const moves = nextStatuses(item.status, role);
+
+                    return (
+                      <article
+                        key={item.id}
+                        className={`bg-card border border-border rounded-xl overflow-hidden transition-opacity ${
+                          moving === item.id ? "opacity-50" : ""
+                        }`}
+                      >
+                        <Link href={`/items/${item.id}`} className="block">
+                          <div className="flex gap-2.5 p-2.5">
+                            <div className="w-11 h-11 rounded-lg overflow-hidden bg-background border border-border shrink-0">
+                              {image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={image} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted">
+                                  <iconify-icon icon="solar:camera-linear" width="14" height="14" noobserver="" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-xs font-medium tracking-tight leading-snug line-clamp-2">
+                                {item.title}
+                              </h3>
+                              <p className="text-[10px] font-light text-muted mt-1 truncate">
+                                {item.list_price_cents ? rands(item.list_price_cents) : "No price"}
+                                {item.location_code && ` · ${item.location_code}`}
+                              </p>
+                            </div>
+                            {item.published_at && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 mt-1" title="Live on the site" />
+                            )}
+                          </div>
+                        </Link>
+
+                        {moves.length > 0 && (
+                          <div className="flex flex-wrap gap-1 px-2.5 pb-2.5">
+                            {moves.slice(0, 2).map((m) => (
+                              <button
+                                key={m.to}
+                                onClick={() => move(item.id, m.to)}
+                                disabled={moving === item.id}
+                                className="text-[10px] font-light px-2 py-1 rounded-lg border border-border
+                                           text-white/70 hover:border-white/25 hover:text-white
+                                           transition-colors disabled:opacity-40"
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </>
+  );
+}

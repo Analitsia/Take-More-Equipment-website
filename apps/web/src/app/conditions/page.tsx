@@ -3,7 +3,7 @@ import Link from "next/link";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
 import Subheading from "@/components/Subheading";
-import { GRADES, WARRANTY_MONTHS, countByCategory } from "@/data/equipment";
+import { GRADES, WARRANTY_MONTHS } from "@/data/equipment";
 
 export const metadata: Metadata = {
   title: "Condition & Warranty — Take More",
@@ -222,7 +222,7 @@ export default function ConditionsPage() {
             </p>
             <Link href="/#catalogue" className="inline-flex items-center gap-4 group shrink-0">
               <span className="text-sm font-light group-hover:text-accent transition-colors">
-                Browse {countByCategory("Cooking") > 0 ? "the catalogue" : "stock"}
+                Browse the catalogue
               </span>
               <span className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-background group-hover:scale-105 transition-transform">
                 <iconify-icon icon="solar:arrow-right-linear" width="18" height="18"></iconify-icon>

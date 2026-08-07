@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef } from "react";
 import EquipmentCard from "./EquipmentCard";
-import { featuredStock } from "@/data/equipment";
+import type { Equipment } from "@/data/equipment";
 
 /**
  * The highlights row — a continuously drifting carousel on every screen size.
@@ -66,7 +66,7 @@ const COPIES = [0, 1, 2];
 const clamp = (value: number, limit: number) =>
   Math.max(-limit, Math.min(limit, value));
 
-export default function HighlightsTrack() {
+export default function HighlightsTrack({ items }: { items: Equipment[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -147,7 +147,7 @@ export default function HighlightsTrack() {
     const build = () => {
       const cards = track.querySelectorAll<HTMLElement>('[data-card="stock"]');
       const first = cards[0];
-      const twin = cards[featuredStock.length];
+      const twin = cards[items.length];
       const setWidth =
         first && twin
           ? twin.getBoundingClientRect().left - first.getBoundingClientRect().left
@@ -165,7 +165,7 @@ export default function HighlightsTrack() {
         return;
       }
 
-      duration = SECONDS_PER_CARD * featuredStock.length * 1000;
+      duration = SECONDS_PER_CARD * items.length * 1000;
       pxPerMs = setWidth / duration;
       drift = track.animate(
         [
@@ -379,7 +379,7 @@ export default function HighlightsTrack() {
         {COPIES.map((copy) =>
           copy === 0 ? (
             <Fragment key={copy}>
-              {featuredStock.map((item) => (
+              {items.map((item) => (
                 <EquipmentCard key={item.slug} {...item} />
               ))}
             </Fragment>
@@ -388,7 +388,7 @@ export default function HighlightsTrack() {
             // they stay out of the accessibility tree and the tab order.
             // `contents` keeps the cards themselves as the flex items.
             <div key={copy} className="contents" aria-hidden="true">
-              {featuredStock.map((item) => (
+              {items.map((item) => (
                 <EquipmentCard key={item.slug} {...item} decorative />
               ))}
             </div>

@@ -6,5 +6,7 @@
  * preset, so both apps read the palette from one file.
  */
 
-export { default as tailwindPreset } from "./tailwind-preset";
-export * from "./tokens";
+export { default as tailwindPreset } from "./tailwind-preset.ts";
+export * from "./tokens.ts";
+export * from "./form.tsx";
+export * from "./status.tsx";

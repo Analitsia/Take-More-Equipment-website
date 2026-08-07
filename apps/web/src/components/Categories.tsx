@@ -2,19 +2,21 @@
 
 import { motion } from "framer-motion";
 import Subheading from "./Subheading";
-import { CATEGORIES, categoryMeta, countByCategory } from "@/data/filters";
-import type { Category } from "@/data/equipment";
+import type { CategoryMeta } from "@/data/equipment";
 
 /**
  * Browse strip above the catalogue. Selecting a tile drives the catalogue's
  * category filter rather than navigating — same card language as Benefits.
  */
 export default function Categories({
+  categories,
   selected,
   onSelect,
 }: {
-  selected: Category[];
-  onSelect: (category: Category) => void;
+  /** Name, icon, blurb and live count — all from the database now. */
+  categories: CategoryMeta[];
+  selected: string[];
+  onSelect: (category: string) => void;
 }) {
   return (
     <section className="pt-12 pb-4 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
@@ -32,13 +34,13 @@ export default function Categories({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
-        {CATEGORIES.map((category, idx) => {
-          const active = selected.includes(category);
+        {categories.map((category, idx) => {
+          const active = selected.includes(category.name);
           return (
             <motion.button
-              key={category}
+              key={category.name}
               type="button"
-              onClick={() => onSelect(category)}
+              onClick={() => onSelect(category.name)}
               aria-pressed={active}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -55,18 +57,18 @@ export default function Categories({
                   }`}
                 >
                   <iconify-icon
-                    icon={categoryMeta[category].icon}
+                    icon={category.icon}
                     width="22"
                     height="22"
                   ></iconify-icon>
                 </div>
                 <span className="text-xs font-light text-muted pt-1">
-                  {countByCategory(category)}
+                  {category.count}
                 </span>
               </div>
-              <h3 className="text-base font-medium tracking-tight mb-1">{category}</h3>
+              <h3 className="text-base font-medium tracking-tight mb-1">{category.name}</h3>
               <p className="text-muted font-light text-xs leading-relaxed">
-                {categoryMeta[category].blurb}
+                {category.blurb}
               </p>
             </motion.button>
           );

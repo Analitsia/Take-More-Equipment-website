@@ -13,11 +13,16 @@ import {
   type Filters,
   type SortId,
 } from "@/data/filters";
+import type { Equipment, Vocabulary } from "@/data/equipment";
 
 export default function Catalogue({
+  stock,
+  vocabulary,
   filters,
   setFilters,
 }: {
+  stock: Equipment[];
+  vocabulary: Vocabulary;
   filters: Filters;
   setFilters: (next: Filters) => void;
 }) {
@@ -25,8 +30,8 @@ export default function Catalogue({
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const results = useMemo(
-    () => applySort(applyFilters(filters), sort),
-    [filters, sort]
+    () => applySort(applyFilters(stock, filters), sort),
+    [stock, filters, sort]
   );
   const activeCount = countActive(filters);
 
@@ -48,6 +53,7 @@ export default function Catalogue({
 
       <div className="flex flex-col lg:flex-row gap-8">
         <FilterPanel
+          vocabulary={vocabulary}
           filters={filters}
           setFilters={setFilters}
           resultCount={results.length}
@@ -61,7 +67,7 @@ export default function Catalogue({
           <div className="flex items-center justify-between gap-3 pb-5 mb-6 border-b border-border">
             <span className="text-xs sm:text-sm font-light text-muted">
               <span className="text-white">{results.length}</span>
-              <span className="hidden sm:inline"> of {applyFilters(emptyFilters).length}</span>
+              <span className="hidden sm:inline"> of {stock.length}</span>
               <span className="sm:hidden"> units</span>
             </span>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
