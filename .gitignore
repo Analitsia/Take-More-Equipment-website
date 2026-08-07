@@ -5,3 +5,7 @@ next-env.d.ts
 *.tsbuildinfo
 .vercel
 .DS_Store
+
+# Supabase CLI scratch. Migrations and config.toml ARE committed; these are not.
+supabase/.temp/
+supabase/.branches/
