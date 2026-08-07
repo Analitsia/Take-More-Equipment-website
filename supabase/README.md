@@ -6,9 +6,17 @@ what is in here; the ops app is how it gets written.
 Full reasoning lives in `docs/architecture.md` and in the build plan. This file
 is the operational bit: how to get a project running and what to watch out for.
 
-> **Status: applied to `takemore-prod` (`btiyizeyjedleeaddxuh`, eu-central-1) and
-> verified.** 27 RLS assertions and 11 parity assertions pass against the live
-> project — `npm test`.
+> **Status: live.** Applied to `takemore-prod` (`btiyizeyjedleeaddxuh`,
+> eu-central-1) and verified end to end:
+>
+> | Suite | |
+> |---|---|
+> | `npm run test:rls` | 27 assertions — role boundaries, cost isolation, domain rules |
+> | `npm run test:parity` | 11 assertions — TypeScript domain rules vs SQL |
+> | `node --env-file=.env.local scripts/test-publish-loop.mjs` | 10 assertions — ops → storefront, against the live deployments |
+>
+> Storefront: https://take-more-equipment-website.vercel.app
+> Ops: https://takemore-ops.vercel.app
 
 ## Setting up
 
