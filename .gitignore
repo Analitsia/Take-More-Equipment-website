@@ -9,3 +9,6 @@ next-env.d.ts
 # Supabase CLI scratch. Migrations and config.toml ARE committed; these are not.
 supabase/.temp/
 supabase/.branches/
+
+# One-off local file holding the first-login password. Not for git.
+FIRST-LOGIN.local.md
