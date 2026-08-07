@@ -31,9 +31,15 @@ export async function GET() {
       })),
     },
     {
-      // Shares the storefront's own revalidation window; a publish drops the
-      // underlying cache tag and this follows on the next request.
-      headers: { "cache-control": "public, s-maxage=300, stale-while-revalidate=600" },
+      // NOT CDN-cached, deliberately.
+      //
+      // An `s-maxage` here looks like a free win and is actually a bug: the
+      // edge would keep serving the old body for the full window even after
+      // revalidateTag() has dropped the underlying data, so a freshly
+      // published item shows on its own detail page while staying invisible in
+      // search and the menu. Caching belongs one layer down, on getStock(),
+      // where the publish loop can actually reach it.
+      headers: { "cache-control": "no-store" },
     }
   );
 }
