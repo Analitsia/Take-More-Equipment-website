@@ -8,6 +8,18 @@
   "scripts": {
     "dev": "npm run dev --workspace=@takemore/web",
     "build": "npm run build --workspace=@takemore/web",
-    "start": "npm run start --workspace=@takemore/web"
+    "start": "npm run start --workspace=@takemore/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:apply": "node scripts/apply-migrations.mjs",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:types": "node scripts/gen-types.mjs",
+    "test:rls": "node --env-file=.env.local packages/db/tests/rls.test.mjs",
+    "test:parity": "node --env-file=.env.local packages/core/tests/parity.test.mjs",
+    "test": "npm run test:rls && npm run test:parity"
+  },
+  "devDependencies": {
+    "supabase": "^2.112.0"
   }
 }

@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #080805;
+  color: #ffffff;
+  font-family: var(--font-figtree), "Figtree", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shared with the storefront. The nav rail and any overlay use it. */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Reserve a square em so late-arriving icon SVGs don't reflow a row. */
+iconify-icon:not([width]):not([height]) {
+  width: 1em;
+  height: 1em;
+}
+
+/* Warehouse phones: stop iOS zooming the viewport when a field takes focus.
+   Anything under 16px triggers it, and a form that jumps on every tap is a
+   form nobody finishes in ninety seconds. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* The kanban board scrolls horizontally on a phone and vertically in each
+   column, so the columns need a floor to sit on. */
+.board-column {
+  scrollbar-width: thin;
+}

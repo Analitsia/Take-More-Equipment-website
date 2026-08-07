@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  CATEGORIES,
-  GRADES,
-  PRICE_BANDS,
-  TAGS,
-  countByCategory,
-  type Filters,
-} from "@/data/filters";
+import { GRADES, PRICE_BANDS, tagLabel, type Filters } from "@/data/filters";
+import type { Vocabulary } from "@/data/equipment";
 
 /** Small accent label — same treatment as Subheading, without the dash rule. */
 function GroupLabel({ text }: { text: string }) {
@@ -81,6 +75,7 @@ function Row({
 }
 
 export default function FilterPanel({
+  vocabulary,
   filters,
   setFilters,
   resultCount,
@@ -89,6 +84,8 @@ export default function FilterPanel({
   open,
   setOpen,
 }: {
+  /** Categories and tags come from the database, not a hardcoded list. */
+  vocabulary: Vocabulary;
   filters: Filters;
   setFilters: (next: Filters) => void;
   resultCount: number;
@@ -163,13 +160,13 @@ export default function FilterPanel({
 
         <div className={`${open ? "block pt-5" : "hidden"} lg:block lg:pt-6`}>
           <Group label="Category">
-            {CATEGORIES.map((category) => (
+            {vocabulary.categories.map((category) => (
               <Row
-                key={category}
-                label={category}
-                count={countByCategory(category)}
-                active={filters.categories.includes(category)}
-                onClick={() => toggle("categories", category)}
+                key={category.name}
+                label={category.name}
+                count={category.count}
+                active={filters.categories.includes(category.name)}
+                onClick={() => toggle("categories", category.name)}
               />
             ))}
           </Group>
@@ -203,10 +200,10 @@ export default function FilterPanel({
           </Group>
 
           <Group label="Specification">
-            {TAGS.map((tag) => (
+            {vocabulary.tags.map((tag) => (
               <Row
                 key={tag}
-                label={tag}
+                label={tagLabel(tag)}
                 active={filters.tags.includes(tag)}
                 onClick={() => toggle("tags", tag)}
               />

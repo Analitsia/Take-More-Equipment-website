@@ -9,7 +9,7 @@ import {
   OVERLAY_LOGO_FRAME_INSET,
   type HeaderVariant,
 } from "./headerLayout";
-import { CATEGORIES, categoryMeta, countByCategory } from "@/data/equipment";
+import useCatalogueIndex from "@/hooks/useCatalogueIndex";
 import { site, whatsappLink } from "@/data/site";
 
 export const navLinks = [
@@ -28,6 +28,7 @@ export default function MenuOverlay({
   /** Which navbar variant opened this, so the header lands on that navbar's row. */
   align?: HeaderVariant;
 }) {
+  const index = useCatalogueIndex();
   useScrollLock();
 
   useEffect(() => {
@@ -120,8 +121,8 @@ export default function MenuOverlay({
                 </span>
               </div>
               <ul className="flex flex-col gap-1">
-                {CATEGORIES.map((category) => (
-                  <li key={category}>
+                {(index?.categories ?? []).map((category) => (
+                  <li key={category.name}>
                     <Link
                       href="/#catalogue"
                       onClick={onClose}
@@ -129,17 +130,17 @@ export default function MenuOverlay({
                     >
                       <span className="flex items-center gap-3">
                         <iconify-icon
-                          icon={categoryMeta[category].icon}
+                          icon={category.icon}
                           width="16"
                           height="16"
                           className="text-accent"
                         ></iconify-icon>
                         <span className="text-sm font-light text-muted group-hover:text-white transition-colors">
-                          {category}
+                          {category.name}
                         </span>
                       </span>
                       <span className="text-xs font-light text-muted/60">
-                        {countByCategory(category)}
+                        {category.count}
                       </span>
                     </Link>
                   </li>

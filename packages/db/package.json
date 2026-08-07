@@ -1,0 +1,23 @@
+{
+  "name": "@takemore/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./admin": "./src/admin.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.2",
+    "@takemore/core": "*",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

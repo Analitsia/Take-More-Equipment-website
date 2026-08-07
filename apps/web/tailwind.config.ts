@@ -1,25 +1,12 @@
 import type { Config } from "tailwindcss";
+import preset from "@takemore/ui/tailwind-preset";
 
-// Mirrors the tailwind.config from the source template 1:1.
+// The palette and typeface live in @takemore/ui so the storefront and the ops
+// app cannot drift apart — change the accent there and it changes in both
+// places, or in neither. This file now only says which files to scan.
 const config: Config = {
-  darkMode: "class",
+  presets: [preset as Config],
   content: ["./src/**/*.{ts,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        background: "#080805",
-        foreground: "#ffffff",
-        accent: "#D4D414",
-        card: "#121212",
-        border: "#2A2A2A",
-        muted: "#888888",
-      },
-      fontFamily: {
-        sans: ["var(--font-figtree)", "Figtree", "sans-serif"],
-      },
-    },
-  },
-  plugins: [],
 };
 
 export default config;

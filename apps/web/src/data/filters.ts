@@ -1,26 +1,21 @@
-import {
-  PRICE_BANDS,
-  stock,
-  type Category,
-  type Equipment,
-  type Grade,
-  type PriceBandId,
-  type Tag,
-} from "./equipment";
+import { PRICE_BANDS, type Equipment, type Grade, type PriceBandId } from "./equipment";
 
-export {
-  CATEGORIES,
-  GRADES,
-  PRICE_BANDS,
-  TAGS,
-  categoryMeta,
-  countByCategory,
-} from "./equipment";
+export { GRADES, PRICE_BANDS } from "./equipment";
+
+/**
+ * Filtering and sorting.
+ *
+ * The item list is a parameter now rather than a module import — the array
+ * comes from the database and is handed down from a server component, so these
+ * stay pure functions with no idea where their input came from.
+ */
 
 export type Filters = {
-  categories: Category[];
+  /** Category names, matching Equipment.category. */
+  categories: string[];
   grades: Grade[];
-  tags: Tag[];
+  /** Tag slugs, matching Equipment.tags. */
+  tags: string[];
   price: PriceBandId | null;
   hideSold: boolean;
 };
@@ -41,7 +36,10 @@ export const countActive = (filters: Filters) =>
   (filters.hideSold ? 1 : 0);
 
 /** Groups are ANDed together; values inside a group are ORed. */
-export function applyFilters(filters: Filters): Equipment[] {
+export function applyFilters(
+  stock: readonly Equipment[],
+  filters: Filters
+): Equipment[] {
   const band = PRICE_BANDS.find((b) => b.id === filters.price);
 
   return stock.filter((item) => {
@@ -85,3 +83,7 @@ export function applySort(items: Equipment[], sort: SortId): Equipment[] {
       );
   }
 }
+
+/** Tag slugs read badly in a filter list — "glass-door" should say "Glass door". */
+export const tagLabel = (slug: string) =>
+  slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());

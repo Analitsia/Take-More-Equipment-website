@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
-import { rands, stock } from "@/data/equipment";
+import { rands } from "@/data/equipment";
+import useCatalogueIndex from "@/hooks/useCatalogueIndex";
 
 /**
  * Type-ahead over the catalogue. Matches title, brand, category and tags so
@@ -18,6 +19,7 @@ export default function SearchOverlay({
 }) {
   const [query, setQuery] = useState(initialQuery);
   const inputRef = useRef<HTMLInputElement>(null);
+  const index = useCatalogueIndex();
 
   useScrollLock();
 
@@ -33,7 +35,7 @@ export default function SearchOverlay({
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return [];
-    return stock
+    return (index?.items ?? [])
       .filter((item) =>
         [item.title, item.brand, item.category, ...item.tags]
           .join(" ")
@@ -41,7 +43,7 @@ export default function SearchOverlay({
           .includes(term)
       )
       .slice(0, 6);
-  }, [query]);
+  }, [query, index]);
 
   return (
     <div
@@ -95,7 +97,7 @@ export default function SearchOverlay({
                     <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-border shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={item.images[0]}
+                        src={item.image ?? ""}
                         alt={item.title}
                         className="w-full h-full object-cover"
                       />

@@ -7,14 +7,22 @@ import Benefits from "@/components/Benefits";
 import Testimonials from "@/components/Testimonials";
 import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
+import { getStock, getVocabulary } from "@/lib/stock";
 
-export default function Page() {
+export default async function Page() {
+  // Fetched once here and handed down, rather than each section reaching for
+  // the database on its own — the catalogue, the highlights row and the
+  // category counts are three views of the same list and must agree.
+  const stock = await getStock();
+  const vocabulary = await getVocabulary(stock);
+  const featured = stock.filter((item) => item.featured);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Hero />
       {/* Stock leads the page — the stats and the story follow it. */}
-      <FeaturedStock />
-      <Shop />
+      {featured.length > 0 && <FeaturedStock items={featured} />}
+      <Shop stock={stock} vocabulary={vocabulary} />
       <About />
       <Process />
       <Benefits />
