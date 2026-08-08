@@ -521,6 +521,80 @@ async function leads() {
       : fail("opt-out is audited", `${(data ?? []).length} entries`);
   }
 
+  console.log("\nLEADS — the embeds the CRM screens depend on");
+  // These are the exact select strings from apps/ops/src/lib/leads.ts, and they
+  // are here because a broken EMBED is invisible to every other check in this
+  // repo: it typechecks, it builds, and it 500s the first time somebody opens
+  // the page. PostgREST resolves relationships from foreign keys at runtime, so
+  // "does this join exist" is a property of the schema that only a real query
+  // can answer.
+  //
+  // Two ways it broke on the first deploy, both represented below:
+  //   - lead_interests points at items TWICE, so an unqualified embed is
+  //     ambiguous and the whole query is refused
+  //   - lead_events.actor_id pointed at auth.users, which has no route to
+  //     staff_profiles
+  const INTEREST_SELECT = `
+    id, category_id, subcategory_id, item_id, budget_max_cents, min_grade,
+    description, active, created_at,
+    category:categories(name),
+    subcategory:subcategories(name),
+    item:items!lead_interests_item_id_fkey(title, slug),
+    tags:lead_interest_tags(tag_id)
+  `;
+
+  await visible(
+    "listLeads(): every interest embed resolves",
+    staff
+      .from("leads")
+      .select(`id, full_name, interests:lead_interests(${INTEREST_SELECT})`)
+      .eq("id", captured.id),
+    1
+  );
+
+  await visible(
+    "getLeadEvents(): the actor's name embeds",
+    staff
+      .from("lead_events")
+      .select("id, kind, body, created_at, item:items(title, slug), actor:staff_profiles(full_name)")
+      .eq("lead_id", captured.id)
+  );
+
+  {
+    // An empty queue is a legitimate result, so this asserts only that the
+    // query is ACCEPTED — a broken embed comes back as an error, not as zero
+    // rows, which is the one case `denied()` would wrongly forgive.
+    const { error } = await staff
+      .from("outreach_messages")
+      .select(
+        `id, channel, state, reason, body, match_score, created_at,
+         lead:leads(id, full_name, email, phone, phone_e164),
+         item:items(id, title, brand, slug, list_price_cents,
+                    media:item_media(storage_path, external_url))`
+      )
+      .limit(1);
+    error
+      ? fail("getQueuedOutreach(): the queue embeds resolve", error.message)
+      : ok("getQueuedOutreach(): the queue embeds resolve");
+  }
+
+  {
+    const { error } = await manager
+      .from("outreach_campaigns")
+      .select("id, name, subject, intro, state, item_ids, recipient_count, sent_at, error, created_at")
+      .limit(1);
+    error
+      ? fail("listCampaigns(): selects every column it renders", error.message)
+      : ok("listCampaigns(): selects every column it renders");
+  }
+
+  {
+    const { error } = await staff.rpc("leads_wanting_item", { p_item_id: publishedId });
+    error
+      ? fail("leads_wanting_item(): callable by staff", error.message)
+      : ok("leads_wanting_item(): callable by staff");
+  }
+
   console.log("\nLEADS — the matcher");
   // Unsubscribed, so nothing may be queued for them however good the match is.
   {

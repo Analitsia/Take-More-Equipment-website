@@ -58,12 +58,22 @@ export type LeadRow = {
   interests: LeadInterestRow[];
 };
 
+/**
+ * `item:items` has to name its foreign key.
+ *
+ * lead_interests points at items TWICE — `item_id` (the machine they enquired
+ * about) and `fulfilled_by_item_id` (the one that eventually satisfied them) —
+ * so an unqualified embed is ambiguous and PostgREST refuses the whole query
+ * rather than guessing. Naming the constraint is the documented way to say
+ * which one, and it fails loudly if the constraint is ever renamed, which is
+ * the behaviour you want from a join you cannot see.
+ */
 const INTEREST_SELECT = `
   id, category_id, subcategory_id, item_id, budget_max_cents, min_grade,
   description, active, created_at,
   category:categories(name),
   subcategory:subcategories(name),
-  item:items(title, slug),
+  item:items!lead_interests_item_id_fkey(title, slug),
   tags:lead_interest_tags(tag_id)
 `;
 

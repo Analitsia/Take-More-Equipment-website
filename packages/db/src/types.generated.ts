@@ -447,6 +447,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "lead_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "lead_events_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false

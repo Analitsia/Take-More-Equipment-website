@@ -18,6 +18,7 @@
     "test:rls": "node --env-file=.env.local packages/db/tests/rls.test.mjs",
     "test:parity": "node --env-file=.env.local packages/core/tests/parity.test.mjs",
     "test:leads": "node --env-file=.env.local scripts/test-lead-loop.mjs",
+    "test:pages": "node --env-file=.env.local scripts/test-ops-pages.mjs",
     "test": "npm run test:rls && npm run test:parity && npm run test:leads"
   },
   "devDependencies": {
