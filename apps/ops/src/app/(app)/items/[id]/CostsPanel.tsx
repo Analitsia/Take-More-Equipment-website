@@ -94,7 +94,7 @@ export default function CostsPanel({
               onBlur={() => commitFixed("auction", auctionCents)}
             />
           </Field>
-          <Field label="Workshop price" required hint="what putting it right cost">
+          <Field label="Workshop cost" required hint="what putting it right cost">
             <RandInput
               valueCents={workshopCents}
               onChangeCents={(cents) => onFixedCostChange("workshop", cents)}

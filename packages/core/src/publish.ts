@@ -55,7 +55,7 @@ export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
         },
         {
           id: "workshop-cost",
-          label: "A workshop price",
+          label: "A workshop cost",
           met: item.costs.workshopCents !== null && item.costs.workshopCents > 0,
         },
       ]

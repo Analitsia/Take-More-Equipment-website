@@ -26,7 +26,7 @@ export type CostKind = (typeof COST_KINDS)[number];
 
 export const COST_KIND_LABELS: Record<CostKind, string> = {
   auction: "Auction price",
-  workshop: "Workshop price",
+  workshop: "Workshop cost",
   buyers_premium: "Buyer's premium",
   transport: "Transport",
   parts: "Parts",
