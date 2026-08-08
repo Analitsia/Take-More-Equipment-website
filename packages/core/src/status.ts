@@ -50,11 +50,15 @@ export const TRANSITIONS: readonly Transition[] = [
   { from: "reserved", to: "listed", minRole: "staff", label: "Release reservation" },
 
   { from: "sold", to: "handed_over", minRole: "staff", label: "Handed over" },
-  // A sale that falls through after payment is rare and consequential — it
-  // rewrites revenue — so it is the owner's call, not a manager's.
-  { from: "sold", to: "listed", minRole: "owner", label: "Reverse sale" },
+  // Every undo costs exactly what its matching action costs. Reversing a sale
+  // does rewrite revenue — which was the old argument for making it owner-only —
+  // but a manager who can mark a machine sold and then cannot unmark it has to
+  // go and find their boss, and in practice the record just stays wrong. The
+  // activity log records who reversed what; a wrong number nobody can correct is
+  // worse than a correction anyone can audit.
+  { from: "sold", to: "listed", minRole: "manager", label: "Reverse sale" },
 
-  { from: "handed_over", to: "sold", minRole: "owner", label: "Undo handover" },
+  { from: "handed_over", to: "sold", minRole: "staff", label: "Undo handover" },
 ] as const;
 
 export const canTransition = (from: ItemStatus, to: ItemStatus, role: AppRole) => {

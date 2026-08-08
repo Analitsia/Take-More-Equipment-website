@@ -16,7 +16,9 @@ import type { CostKind, ItemStatus } from "@takemore/core";
  * disagree with itself.
  */
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true; notice?: string }
+  | { ok: false; error: string };
 
 /** Postgres error text is written for developers; these are for a warehouse. */
 const humanise = (message: string): string => {
@@ -86,18 +88,55 @@ export async function updateItem(id: string, patch: ItemPatch): Promise<ActionRe
   return { ok: true };
 }
 
+/**
+ * Move an item along the workshop flow.
+ *
+ * Un-selling does one thing more than the status change: it puts the machine
+ * back on the website. Reversing a sale means it is for sale again, and leaving
+ * it invisible would be an undo that only half worked.
+ *
+ * That re-publish is a SEPARATE write, deliberately. The publish gate lives in
+ * items_enforce_publish_requirements, which Postgres fires BEFORE
+ * items_enforce_status_transition — so a published_at set from inside the status
+ * trigger would sail straight past the check meant to validate it. Writing it
+ * here means the gate runs properly, and means a machine too incomplete to
+ * publish still gets un-sold: the status change has already committed, and the
+ * caller is told what stopped the rest rather than losing the whole action.
+ */
 export async function setStatus(id: string, status: ItemStatus): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();
 
+  const { data: before } = await client
+    .from("items")
+    .select("status, published_at")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await client.from("items").update({ status }).eq("id", id);
   if (error) return { ok: false, error: humanise(error.message) };
+
+  const unsold =
+    status === "listed" &&
+    (before?.status === "sold" || before?.status === "handed_over");
+
+  let notice: string | undefined;
+  if (unsold && !before?.published_at) {
+    const { error: publishError } = await client
+      .from("items")
+      .update({ published_at: new Date().toISOString() })
+      .eq("id", id);
+
+    notice = publishError
+      ? `Sale reversed, but it could not go back on the site: ${humanise(publishError.message).toLowerCase()}`
+      : "Sale reversed — back on the website.";
+  }
 
   revalidatePath(`/items/${id}`);
   revalidatePath("/items");
   revalidatePath("/board");
   await revalidateStorefront(id);
-  return { ok: true };
+  return { ok: true, notice };
 }
 
 /**

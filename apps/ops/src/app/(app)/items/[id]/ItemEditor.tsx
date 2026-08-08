@@ -105,6 +105,7 @@ export default function ItemEditor({
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
@@ -193,9 +194,13 @@ export default function ItemEditor({
 
   async function onStatus(next: ItemStatus) {
     setError(null);
+    setNotice(null);
     const result = await setStatus(item.id, next);
-    if (!result.ok) setError(result.error);
-    else startTransition(() => router.refresh());
+    if (!result.ok) return setError(result.error);
+    // Un-selling puts the machine back on the site, which is a thing that
+    // happened to it without anyone asking — so it is said out loud.
+    if (result.notice) setNotice(result.notice);
+    startTransition(() => router.refresh());
   }
 
   async function onPublish(next: boolean) {
@@ -238,6 +243,12 @@ export default function ItemEditor({
       {error && (
         <div className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="text-xs text-accent bg-accent/10 border border-accent/30 rounded-xl px-3 py-2.5">
+          {notice}
         </div>
       )}
 
