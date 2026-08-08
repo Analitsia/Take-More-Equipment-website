@@ -13,6 +13,44 @@ export const metadata: Metadata = {
 export default function BlogIndexPage() {
   const [lead, ...rest] = posts;
 
+  // Nothing verified yet. This used to be a crash rather than an empty page:
+  // `lead` was undefined and `lead.slug` threw during the static build.
+  if (!lead) {
+    return (
+      <PageShell
+        eyebrow="Journal"
+        title={<>Notes from the workshop, shortly.</>}
+        intro="We are writing up what we have learnt rebuilding kitchens — what equipment should actually cost, what to check before you pay, and the reasoning behind how we grade. It goes up here once the numbers in it have been checked."
+        crumbs={[{ label: "Home", href: "/" }, { label: "Journal" }]}
+      >
+        <ContentSection>
+          <div className="bg-card rounded-[2rem] border border-border p-8 sm:p-12 max-w-2xl">
+            <p className="text-muted font-light text-sm md:text-base leading-relaxed mb-8">
+              In the meantime, the two things people ask us most are already
+              written down and are not going to change.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link
+                href="/conditions"
+                className="inline-flex items-center gap-3 border border-border rounded-2xl px-6 py-4 hover:border-white/25 transition-colors"
+              >
+                <span className="text-sm font-light">How we grade and warranty</span>
+                <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
+              </Link>
+              <Link
+                href="/delivery"
+                className="inline-flex items-center gap-3 border border-border rounded-2xl px-6 py-4 hover:border-white/25 transition-colors"
+              >
+                <span className="text-sm font-light">Delivery and installation</span>
+                <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
+              </Link>
+            </div>
+          </div>
+        </ContentSection>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       eyebrow="Journal"
@@ -29,7 +67,7 @@ export default function BlogIndexPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={lead.image}
-              alt={lead.title}
+              alt={lead.imageAlt}
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent"></div>
@@ -60,6 +98,9 @@ export default function BlogIndexPage() {
         </Link>
       </ContentSection>
 
+      {/* One verified post means a lead card and nothing else — an empty grid
+          section below it would just be a band of padding. */}
+      {rest.length > 0 && (
       <ContentSection>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {rest.map((post) => (
@@ -72,7 +113,7 @@ export default function BlogIndexPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={post.image}
-                  alt={post.title}
+                  alt={post.imageAlt}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-card/90 via-card/20 to-transparent"></div>
@@ -100,6 +141,7 @@ export default function BlogIndexPage() {
           ))}
         </div>
       </ContentSection>
+      )}
     </PageShell>
   );
 }

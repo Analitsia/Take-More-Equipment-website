@@ -1,0 +1,89 @@
+# The check that runs on everything, and needs nothing.
+#
+# No secrets, no database, no deployed app. That is the whole design: a check
+# that needs credentials is a check that silently stops running the moment a
+# credential expires or somebody opens a pull request from a fork. Everything
+# here works in a clean checkout with npm and nothing else.
+#
+# The suites that DO need a live project live in live.yml, which never triggers
+# on a pull request for exactly that reason.
+#
+# ── Why the builds work with fake Supabase credentials ──────────────────────
+#
+# Not an accident, and worth understanding before changing it:
+#
+#   · packages/db/src/env.ts throws only when a variable is MISSING, not when
+#     it is wrong. So the values must exist; they need not be real.
+#   · Every build-time read in the storefront swallows its error rather than
+#     throwing — see the comment at apps/web/src/lib/stock.ts:122, which
+#     explains why, and Catalogue.tsx, which already renders an empty state.
+#     postgrest-js turns a failed fetch into { data: null, error }, not an
+#     exception. So the build produces a real site with an empty catalogue.
+#   · apps/ops never touches the network at build: every page under (app)/ is
+#     force-dynamic, and /login reads cookies.
+#
+# THE FRAGILITY, stated so it is not rediscovered as a mystery: if somebody
+# adds a build-time read that THROWS on failure, this job goes red for a reason
+# that has nothing to do with their change. The fix is to make the read
+# tolerate a dead database, not to give CI real credentials.
+#
+# 127.0.0.1 is deliberate — connection-refused is instant. A plausible-looking
+# *.supabase.co hostname risks resolving through wildcard DNS and hanging.
+# Expect ~30s of retry backoff regardless: postgrest-js retries idempotent GETs
+# three times with 1s/2s/4s delays. That is noise next to a Next build.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, launch gate, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_not_a_real_key
+      SUPABASE_SECRET_KEY: sb_secret_ci_not_a_real_key
+      NEXT_PUBLIC_STOREFRONT_URL: http://127.0.0.1:3000
+      STOREFRONT_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Is the website telling the truth? Fails on placeholder media outside the
+      # manifest, on a fact marked verified that was never changed, on a
+      # malformed phone number, and on an undocumented environment variable.
+      # Unverified facts are warnings until launchState is flipped to "live" in
+      # apps/web/src/data/launch.ts — which is why this step never needs editing
+      # at cutover.
+      - name: Launch gate
+        run: npm run check:launch
+
+      - name: No secrets in the tree
+        run: npm run check:secrets
+
+      - name: Build storefront
+        run: npm run build --workspace=@takemore/web
+
+      - name: Build ops
+        run: npm run build --workspace=@takemore/ops

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { posts } from "@/data/posts";
 import { site } from "@/data/site";
 
 // Footer (Minimal based on design feel)
@@ -21,9 +22,12 @@ export default function Footer() {
         <Link href="/about" className="hover:text-white transition-colors">
           About
         </Link>
-        <Link href="/blog" className="hover:text-white transition-colors">
-          Journal
-        </Link>
+        {/* A nav link to an empty page is worse than no link. */}
+        {posts.length > 0 && (
+          <Link href="/blog" className="hover:text-white transition-colors">
+            Journal
+          </Link>
+        )}
         <Link href="/wanted" className="hover:text-white transition-colors">
           Wanted
         </Link>

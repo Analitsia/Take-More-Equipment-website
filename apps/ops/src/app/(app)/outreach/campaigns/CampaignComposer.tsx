@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input, Panel, Textarea } from "@takemore/ui";
 import { rands } from "@takemore/core";
 import type { CampaignRow } from "@/lib/leads";
-import { createCampaign, deleteCampaign, sendCampaign, type CampaignResult } from "./actions";
+import { createCampaign, deleteCampaign, type CampaignResult } from "./actions";
+import PreviewDialog from "./PreviewDialog";
 
 /**
  * Writing and sending the newsletter.
  *
- * Two deliberate frictions. The machines are ticked from live stock rather than
- * typed, so a newsletter cannot advertise something that is not on the site.
- * And sending is a two-step — save a draft, then send it — because a newsletter
- * is the one action in this whole feature with no undo.
+ * Three deliberate frictions. The machines are ticked from live stock rather
+ * than typed, so a newsletter cannot advertise something that is not on the
+ * site. Sending is a two-step — save a draft, then send it. And the send itself
+ * now happens inside a preview of the actual email, because a newsletter is the
+ * one action in this whole feature with no undo, and the failure it was missing
+ * a guard against was never "sent twice" — that is handled atomically in SQL —
+ * it was "sent once, wrong".
  */
 export default function CampaignComposer({
   items,
@@ -33,6 +37,7 @@ export default function CampaignComposer({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<{ id: string; name: string } | null>(null);
 
   const report = (result: CampaignResult) => {
     if (result.ok) {
@@ -177,17 +182,16 @@ export default function CampaignComposer({
                     >
                       Delete
                     </Button>
+                    {/* Opens the preview rather than sending. The send button
+                        lives inside it, underneath the thing it will send —
+                        this action cannot be undone, and one tap is not enough
+                        ceremony for that. */}
                     <Button
-                      loading={busy === campaign.id}
                       disabled={!canSend || audienceCount === 0}
                       className="text-[11px] px-3 py-1.5"
-                      onClick={async () => {
-                        setBusy(campaign.id);
-                        report(await sendCampaign(campaign.id));
-                        setBusy(null);
-                      }}
+                      onClick={() => setPreviewing({ id: campaign.id, name: campaign.name })}
                     >
-                      Send to {audienceCount}
+                      Preview &amp; send
                     </Button>
                   </div>
                 ) : (
@@ -205,6 +209,15 @@ export default function CampaignComposer({
             ))}
           </ul>
         </Panel>
+      )}
+
+      {previewing && (
+        <PreviewDialog
+          campaignId={previewing.id}
+          campaignName={previewing.name}
+          onClose={() => setPreviewing(null)}
+          onSent={report}
+        />
       )}
     </div>
   );

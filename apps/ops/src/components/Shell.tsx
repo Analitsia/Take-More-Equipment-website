@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Session } from "@/lib/supabase";
 import { canManageTeam, canSeeCosts, ROLE_LABELS } from "@takemore/core";
+import ConnectionBanner from "./ConnectionBanner";
+import GlobalSearch from "./GlobalSearch";
 import NewItemButton from "./NewItemButton";
 import SignOutButton from "./SignOutButton";
 
@@ -69,6 +71,19 @@ const WEBSITE: NavItem = {
   icon: "solar:global-linear",
 };
 
+/**
+ * The log of who changed what.
+ *
+ * Desk-only for the same reason as the website link: the bottom bar is already
+ * at capacity, and this is something somebody goes looking for when a question
+ * has come up — not something they tap while carrying a fryer.
+ */
+const ACTIVITY: NavItem = {
+  href: "/activity",
+  label: "Activity",
+  icon: "solar:history-linear",
+};
+
 /** A count that only exists when it is worth interrupting someone for. */
 function Badge({ count, className = "" }: { count?: number; className?: string }) {
   if (!count) return null;
@@ -112,8 +127,14 @@ export default function Shell({
           <p className="text-sm font-medium tracking-tight">Operations</p>
         </div>
 
+        {/* On a desk the search is a persistent affordance rather than a
+            keyboard shortcut somebody has to know about. ⌘K works either way. */}
+        <div className="px-3 pb-3 flex justify-start">
+          <GlobalSearch />
+        </div>
+
         <nav className="flex-1 px-3 space-y-1">
-          {[...nav, WEBSITE].map((item) => (
+          {[...nav, ACTIVITY, WEBSITE].map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -158,6 +179,7 @@ export default function Shell({
           <span className="text-sm font-medium tracking-tight">Ops</span>
         </div>
         <div className="flex items-center gap-3">
+          <GlobalSearch />
           <Link
             href={WEBSITE.href}
             aria-label="View the website"
@@ -176,7 +198,10 @@ export default function Shell({
       </header>
 
       {/* pb-24 on mobile keeps the last row clear of the fixed bottom nav. */}
-      <main className="flex-1 min-w-0 p-4 md:p-6 pb-24 md:pb-6">{children}</main>
+      <main className="flex-1 min-w-0">
+        <ConnectionBanner />
+        <div className="p-4 md:p-6 pb-24 md:pb-6">{children}</div>
+      </main>
 
       {/* Mobile bottom nav */}
       <nav

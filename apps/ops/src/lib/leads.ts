@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { reportError } from "@takemore/observability";
 import type {
   LeadEventKind,
   LeadSource,
@@ -212,7 +213,7 @@ export async function getLeadsWantingItem(itemId: string): Promise<WantingLead[]
   const { data, error } = await client.rpc("leads_wanting_item", { p_item_id: itemId });
   if (error) {
     // A missing panel is survivable; a 500 on the item editor is not.
-    console.error("leads_wanting_item failed:", error.message);
+    reportError(error, { where: "ops/getLeadsWantingItem", itemId });
     return [];
   }
   return (data ?? []) as WantingLead[];

@@ -1,57 +1,41 @@
+import Link from "next/link";
 import Subheading from "./Subheading";
+import { published, testimonials as testimonialFacts } from "@/data/launch";
 
 /**
- * PLACEHOLDER TESTIMONIALS — every quote below is invented for the mockup.
- * These must be replaced with real, attributable customer quotes before launch.
+ * What customers say — once a customer has actually said it.
+ *
+ * The mockup carried nine invented quotes with real-sounding names and Cape
+ * Town suburbs attached. Those are still in launch.ts, unverified, and nothing
+ * here renders until somebody sets a date against one. Attributing words to a
+ * named person who never said them is an advertising standards and consumer
+ * protection problem, not a content nit, so the default is silence.
+ *
+ * The avatars used to be generated stock faces standing in for customers, which
+ * is the same lie in picture form. Initials instead: no external request, no
+ * invented face, and it reads as a deliberate choice rather than a missing
+ * image.
  */
+
+/**
+ * Below this many quotes the masonry looks broken rather than sparse — one card
+ * in a three-column layout reads as a rendering failure — so the section shows
+ * the proof panel instead. Three is the point where it looks intentional.
+ */
+const ENOUGH_FOR_A_WALL = 3;
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
 export default function Testimonials() {
-  const reviews = [
-    {
-      name: "Nadia Petersen",
-      loc: "Woodstock",
-      text: "We opened with a combi, a range and a double under-counter for what one new combi would have cost. Eighteen months later all three are still running six services a week.",
-    },
-    {
-      name: "Sipho Ndlovu",
-      loc: "Salt River",
-      text: "They sent me photos of the replaced element before I paid a cent. No dealer has ever done that for me, new or otherwise.",
-    },
-    {
-      name: "Marco da Silva",
-      loc: "Sea Point",
-      text: "Ordered on the Tuesday, delivered and levelled in my kitchen on the Thursday. No drama, no surprise costs at the door.",
-    },
-    {
-      name: "Aisha Solomon",
-      loc: "Observatory",
-      text: "The thermostat went at month four. They collected it, fixed it and returned it with nothing to pay. That is the whole reason I would buy from them again.",
-    },
-    {
-      name: "Johan Brits",
-      loc: "Paarden Eiland",
-      text: "I run three coffee shops. Every stainless table and under-counter fridge in all three came out of that warehouse.",
-    },
-    {
-      name: "Thandeka Mokoena",
-      loc: "Muizenberg",
-      text: "Seeing the actual unit with its actual scratches before driving out there saved me two wasted trips across town.",
-    },
-    {
-      name: "Riaan Kloppers",
-      loc: "Durbanville",
-      text: "Graded B, priced like a B, performs like an A. They were straight with me about the dent and knocked it off the price before I asked.",
-    },
-    {
-      name: "Fatima Adams",
-      loc: "Athlone",
-      text: "I sent a photo of the gap in my line on a Saturday. By Monday they had two options with prices and dimensions in my inbox.",
-    },
-    {
-      name: "Grant Michaels",
-      loc: "Somerset West",
-      text: "Fitting out a second site from new would have taken my whole budget. We did it for under half and kept cash for staff.",
-    },
-  ];
+  const reviews = published(testimonialFacts);
+
+  if (reviews.length < ENOUGH_FOR_A_WALL) return <Proof />;
 
   return (
     <section className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative overflow-hidden">
@@ -64,25 +48,42 @@ export default function Testimonials() {
         </h2>
       </div>
 
-      <div className="relative h-[440px] sm:h-[520px] md:h-[600px] overflow-hidden">
-        {/* Gradients for smooth scrolling effect */}
-        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none"></div>
-        <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none"></div>
+      {/* The fade only makes sense over a wall tall enough to be cut off. With a
+          handful of quotes the fixed height would strand them in a box of empty
+          space, so the overflow treatment is applied only once there are enough
+          to overflow. */}
+      <div
+        className={
+          reviews.length > 6
+            ? "relative h-[440px] sm:h-[520px] md:h-[600px] overflow-hidden"
+            : "relative"
+        }
+      >
+        {reviews.length > 6 && (
+          <>
+            <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none"></div>
+            <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none"></div>
+          </>
+        )}
 
-        <div className="columns-1 md:columns-2 lg:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6 pb-32">
-          {reviews.map((review, idx) => (
+        <div
+          className={`columns-1 md:columns-2 lg:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6 ${
+            reviews.length > 6 ? "pb-32" : ""
+          }`}
+        >
+          {reviews.map((review) => (
             <div
-              key={idx}
+              key={`${review.name}-${review.loc}`}
               className="bg-card rounded-[2rem] p-6 sm:p-8 border border-border break-inside-avoid shadow-lg"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-border overflow-hidden mb-5 sm:mb-6">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://i.pravatar.cc/150?u=takemore-${idx}`}
-                    alt={review.name}
-                    className="w-full h-full object-cover opacity-80"
-                  />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-border flex items-center justify-center mb-5 sm:mb-6">
+                  <span
+                    aria-hidden="true"
+                    className="text-sm font-medium tracking-wider text-white/70"
+                  >
+                    {initials(review.name)}
+                  </span>
                 </div>
                 <p className="text-xs sm:text-sm font-light text-white/80 leading-relaxed mb-5 sm:mb-6">
                   &quot;{review.text}&quot;
@@ -94,6 +95,77 @@ export default function Testimonials() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What stands in for testimonials until there are testimonials.
+ *
+ * Every line here is checkable by the reader on this same website, which is the
+ * point: it is stronger than an anonymous five-star quote anyway, and it cannot
+ * become false. Nothing in it needs verifying because nothing in it is a claim
+ * about a customer — it is a description of how the site itself works.
+ */
+function Proof() {
+  const points = [
+    {
+      icon: "solar:gallery-wide-linear",
+      title: "The photographs are of the actual machine",
+      copy: "Not a catalogue render of the model. The unit on the page is the unit on the floor, with its own scratches in frame.",
+      href: "/#catalogue",
+      link: "See the stock",
+    },
+    {
+      icon: "solar:shield-check-linear",
+      title: "Six months, in writing",
+      copy: "The warranty terms are published before you buy, not produced at the counter afterwards.",
+      href: "/conditions",
+      link: "Read the terms",
+    },
+    {
+      icon: "solar:list-check-linear",
+      title: "The grades mean something specific",
+      copy: "A, B and C are defined and applied the same way to every unit. If we will not write it down, we do not claim it.",
+      href: "/conditions",
+      link: "How we grade",
+    },
+  ];
+
+  return (
+    <section className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
+      <div className="flex flex-col items-center text-center mb-10 md:mb-16">
+        <Subheading text="Why Trust This" />
+        <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight">
+          Proof, Not Adjectives
+        </h2>
+        <p className="text-muted font-light text-sm md:text-base leading-relaxed mt-5 max-w-xl">
+          Anyone can print a five-star quote. These are things you can check on
+          this page, before you speak to us at all.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {points.map((point) => (
+          <div
+            key={point.title}
+            className="bg-card rounded-[2rem] p-6 sm:p-8 md:p-10 border border-border flex flex-col"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mb-8">
+              <iconify-icon icon={point.icon} width="24" height="24"></iconify-icon>
+            </div>
+            <h3 className="text-xl font-medium tracking-tight mb-4">{point.title}</h3>
+            <p className="text-muted font-light text-sm leading-relaxed mb-8">{point.copy}</p>
+            <Link
+              href={point.href}
+              className="mt-auto inline-flex items-center gap-3 text-sm font-light hover:text-accent transition-colors"
+            >
+              <span>{point.link}</span>
+              <iconify-icon icon="solar:arrow-right-linear" width="14" height="14"></iconify-icon>
+            </Link>
+          </div>
+        ))}
       </div>
     </section>
   );

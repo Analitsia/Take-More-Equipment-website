@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@takemore/db";
+import { reportError } from "@takemore/observability";
 import type { Equipment, GalleryMedia, Grade, Vocabulary } from "@/data/equipment";
 
 /**
@@ -122,7 +123,11 @@ async function fetchStock(): Promise<Equipment[]> {
   if (error) {
     // A storefront that 500s because the database hiccuped is worse than one
     // that shows an empty catalogue for a few minutes.
-    console.error("stock query failed:", error.message);
+    //
+    // This tolerance is also what lets CI build both apps against a database
+    // that is not there — see .github/workflows/ci.yml, which depends on it. A
+    // build-time read that THROWS would turn every CI run red.
+    reportError(error, { where: "web/fetchStock" });
     return [];
   }
 

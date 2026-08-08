@@ -33,7 +33,40 @@ type Media = {
  * thing here: a modern phone camera produces 4–8 MB per frame, warehouse wifi
  * is bad, and eight of those is the difference between a ninety-second intake
  * and one nobody finishes.
+ *
+ * Warehouse wifi being bad is also why every network call here retries, and why
+ * one failure no longer abandons the batch — see onFiles().
  */
+
+/**
+ * Three attempts, backing off, for something that failed because the signal
+ * dropped rather than because it was wrong.
+ *
+ * A 4xx is not retried: a file that is too large or of a refused MIME type will
+ * be exactly as refused in two seconds, and retrying it only makes the person
+ * wait longer to be told. Everything else — a timeout, a dropped socket, a 5xx
+ * — gets another go, because in this building it is usually somebody walking
+ * behind a container.
+ */
+async function withRetry<T>(attempt: () => Promise<T>, tries = 3): Promise<T> {
+  let last: unknown;
+  for (let n = 0; n < tries; n++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      last = error;
+      const message = error instanceof Error ? error.message : String(error);
+      // Refusals, not failures. Asked-and-answered.
+      if (/too large|exceeded|mime|not permitted|invalid|duplicate|already exists/i.test(message)) {
+        throw error;
+      }
+      if (n < tries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** n));
+      }
+    }
+  }
+  throw last;
+}
 export default function MediaManager({
   itemId,
   media,
@@ -47,6 +80,8 @@ export default function MediaManager({
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Named, so a retry is the two that failed rather than all twelve again. */
+  const [failures, setFailures] = useState<{ name: string; reason: string }[]>([]);
 
   const ordered = [...media].sort((a, b) => a.position - b.position);
   const photos = ordered.filter((m) => m.kind === "photo");
@@ -58,11 +93,14 @@ export default function MediaManager({
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;
     setError(null);
+    setFailures([]);
     setUploading({ done: 0, total: files.length });
 
     const client = createBrowserClient();
+    const failed: { name: string; reason: string }[] = [];
+    let done = 0;
 
-    for (const [index, file] of Array.from(files).entries()) {
+    for (const file of Array.from(files)) {
       try {
         let upload: File | Blob = file;
         let dimensions: { width?: number; height?: number; duration?: number } = {};
@@ -89,32 +127,63 @@ export default function MediaManager({
           }
         }
 
-        const path = storagePathFor(itemId, isVideo(file) ? file : new File([upload], "photo.webp"));
-        const { error: uploadError } = await client.storage
-          .from("item-media")
-          .upload(path, upload, {
-            contentType: isVideo(file) ? file.type : "image/webp",
-            upsert: false,
-          });
+        // A fresh path per attempt. `upsert: false` means a retry against the
+        // same path would collide with a partial object from the attempt that
+        // timed out, and report that collision as the failure — hiding the
+        // connection problem that actually caused it.
+        const named = isVideo(file) ? file : new File([upload], "photo.webp");
 
-        if (uploadError) throw new Error(uploadError.message);
+        const path = await withRetry(async () => {
+          const attemptPath = storagePathFor(itemId, named);
+          const { error: uploadError } = await client.storage
+            .from("item-media")
+            .upload(attemptPath, upload, {
+              contentType: isVideo(file) ? file.type : "image/webp",
+              upsert: false,
+            });
+          if (uploadError) throw new Error(uploadError.message);
+          return attemptPath;
+        });
 
-        const result = await recordMedia(
-          itemId,
-          path,
-          isVideo(file) ? "video" : "photo",
-          dimensions
-        );
-        if (!result.ok) throw new Error(result.error);
+        // Retried separately: the bytes are already in Storage at this point,
+        // and giving up here would leave an orphaned object with no row
+        // pointing at it — invisible in the app and impossible to clean up
+        // from inside it.
+        await withRetry(async () => {
+          const result = await recordMedia(
+            itemId,
+            path,
+            isVideo(file) ? "video" : "photo",
+            dimensions
+          );
+          if (!result.ok) throw new Error(result.error);
+        });
 
-        setUploading({ done: index + 1, total: files.length });
+        done++;
+        setUploading({ done, total: files.length });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Upload failed.");
-        break;
+        // Record and CARRY ON, rather than breaking out of the loop.
+        //
+        // This used to `break`, which meant one bad frame in a batch of twelve
+        // abandoned the other eleven and left somebody standing in a warehouse
+        // re-picking files on a phone. The failures are named at the end so the
+        // retry is the two that failed, not all twelve.
+        failed.push({
+          name: file.name,
+          reason: e instanceof Error ? e.message : "Upload failed.",
+        });
       }
     }
 
     setUploading(null);
+    setFailures(failed);
+    if (failed.length > 0) {
+      setError(
+        failed.length === files.length
+          ? "Nothing uploaded. Check your signal and try again."
+          : `${files.length - failed.length} of ${files.length} uploaded. The rest are listed below — pick just those again.`
+      );
+    }
     if (fileInput.current) fileInput.current.value = "";
     router.refresh();
   }
@@ -168,9 +237,21 @@ export default function MediaManager({
       )}
 
       {error && (
-        <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5 mb-3">
-          {error}
-        </p>
+        <div className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5 mb-3">
+          <p>{error}</p>
+          {/* Named individually, because "upload failed" on a batch of twelve
+              means re-picking twelve files on a phone to find the two that
+              did not make it. */}
+          {failures.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1">
+              {failures.map((failure) => (
+                <li key={failure.name} className="font-light">
+                  <span className="font-medium">{failure.name}</span> — {failure.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {ordered.length === 0 ? (

@@ -1,29 +1,46 @@
 /**
- * MOCKUP EDITORIAL — written for the MVP so the Journal has real, useful
- * content rather than lorem. The advice reflects how the business actually
- * works, but figures are illustrative and should be checked before publishing.
+ * The Journal.
+ *
+ * The prose was written for the MVP so the Journal had real, useful content
+ * rather than lorem. The advice reflects how the business actually works — but
+ * the rand figures in it are illustrative, and they are presented to somebody
+ * deciding how to spend their money, so none of it publishes until it has been
+ * checked.
+ *
+ * That check is recorded in `launch.ts`, not here: `posts` below is the full
+ * set of drafts, and the exported `posts` is filtered down to the ones whose
+ * slug appears in the manifest with a verification date. The photograph for
+ * each post comes from the manifest too, which is what keeps the stock-photo
+ * URLs out of this file and confined to the one place the launch gate allows
+ * them.
  */
+// Explicit .ts extension, matching the convention in packages/core: it is what
+// lets plain `node` resolve this module, which scripts/check-launch-ready.mjs
+// depends on to read the draft slugs from the real file rather than guess at
+// them with a regex.
+import { isVerified, posts as postFacts } from "./launch.ts";
+
 export type Block =
   | { kind: "p"; text: string }
   | { kind: "h"; text: string }
   | { kind: "list"; items: string[] }
   | { kind: "quote"; text: string };
 
-export type Post = {
+/** A post as a page renders it: the draft, plus the photograph from the manifest. */
+export type Post = Draft & { image: string; imageAlt: string };
+
+/** A post as it is written. No photograph — that is a separate thing to verify. */
+type Draft = {
   slug: string;
   title: string;
   excerpt: string;
   date: string; // ISO
   readingMinutes: number;
   tag: string;
-  image: string;
   body: Block[];
 };
 
-const img = (id: string) =>
-  `https://images.unsplash.com/${id}?q=80&w=1200&auto=format&fit=crop`;
-
-export const posts: Post[] = [
+const drafts: Draft[] = [
   {
     slug: "what-a-second-hand-combi-oven-should-cost",
     title: "What a second-hand combi oven should actually cost",
@@ -32,7 +49,6 @@ export const posts: Post[] = [
     date: "2026-07-22",
     readingMinutes: 6,
     tag: "Buying guide",
-    image: img("photo-1707255280298-e540809f4c01"),
     body: [
       {
         kind: "p",
@@ -101,7 +117,6 @@ export const posts: Post[] = [
     date: "2026-06-30",
     readingMinutes: 7,
     tag: "Buying guide",
-    image: img("photo-1588416820614-f8d6ac6cea56"),
     body: [
       {
         kind: "p",
@@ -154,7 +169,6 @@ export const posts: Post[] = [
     date: "2026-06-11",
     readingMinutes: 4,
     tag: "How we work",
-    image: img("photo-1696475091592-cd1cab5afdc2"),
     body: [
       {
         kind: "p",
@@ -202,7 +216,6 @@ export const posts: Post[] = [
     date: "2026-05-19",
     readingMinutes: 8,
     tag: "Buying guide",
-    image: img("photo-1708915965975-2a950db0e215"),
     body: [
       {
         kind: "p",
@@ -262,6 +275,24 @@ export const posts: Post[] = [
     ],
   },
 ];
+
+/**
+ * The posts that actually publish.
+ *
+ * Manifest order, not draft order, so the Journal's running order is something
+ * Carlo controls by rearranging launch.ts. A verified entry whose slug has no
+ * draft is skipped rather than throwing — a typo in a slug should cost one post,
+ * not the whole build. The launch gate reports that mismatch separately.
+ */
+export const posts: Post[] = postFacts.flatMap((fact) => {
+  if (!isVerified(fact)) return [];
+  const draft = drafts.find((candidate) => candidate.slug === fact.value.slug);
+  if (!draft) return [];
+  return [{ ...draft, image: fact.value.image.src, imageAlt: fact.value.image.alt }];
+});
+
+/** Every slug that has prose written for it, verified or not. Used by the gate. */
+export const draftSlugs = drafts.map((draft) => draft.slug);
 
 export const postBySlug = (slug: string) => posts.find((post) => post.slug === slug);
 

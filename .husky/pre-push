@@ -1,0 +1,12 @@
+# The slow checks, run once before the code leaves this machine rather than on
+# every commit.
+#
+# These are the same two things CI runs first, so a red pipeline is something
+# you find out about in thirty seconds locally instead of three minutes later
+# in a browser tab. Neither needs credentials or a network.
+#
+# `main` deploys to production on push, which is the other reason this exists
+# here rather than only in CI: by the time CI goes red on main, Vercel is
+# already building.
+npm run typecheck
+npm run check:launch

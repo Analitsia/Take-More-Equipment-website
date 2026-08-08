@@ -77,7 +77,7 @@ const users = {
 };
 
 const created = [];
-let publishedId, draftId;
+let publishedId, draftId, publishedPhotoPath;
 
 async function setup() {
   for (const key of Object.keys(users)) {
@@ -129,11 +129,37 @@ async function setup() {
   if (pubError) throw new Error(`create item: ${pubError.message}`);
   publishedId = pub.id;
 
+  /**
+   * A REAL photograph, uploaded to Storage.
+   *
+   * This fixture used to attach a placeholder row and publish on it. The schema
+   * allowed that because the publish gate counted any photo at all; it no
+   * longer does (20260809090000_no_placeholders_on_published.sql), so an item
+   * cannot go live on a stock image.
+   *
+   * Actually putting bytes in the bucket rather than only writing the row is
+   * what lets the STORAGE section below assert the thing that matters: that the
+   * public CDN URL still returns 200 after anon lost its read policy. Without a
+   * real object that assertion would be untestable, and it is the assertion the
+   * whole storage migration rests on.
+   *
+   * The smallest valid PNG there is — 1×1, transparent, 67 bytes.
+   */
+  publishedPhotoPath = `items/${publishedId}/${crypto.randomUUID()}.png`;
+  const onePixelPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "base64"
+  );
+  const { error: uploadError } = await admin.storage
+    .from("item-media")
+    .upload(publishedPhotoPath, onePixelPng, { contentType: "image/png", upsert: true });
+  if (uploadError) throw new Error(`upload fixture photo: ${uploadError.message}`);
+
   await admin.from("item_media").insert({
     item_id: publishedId,
     kind: "photo",
-    external_url: "https://example.test/rls.jpg",
-    is_placeholder: true,
+    storage_path: publishedPhotoPath,
+    is_placeholder: false,
     position: 0,
   });
   // A draft starts at 'refurbishing' and any stage is one hop from any other, so
@@ -647,9 +673,129 @@ async function leads() {
       ? ok("a skipped suggestion is not re-queued")
       : fail("skipped stays skipped", `${after} queued`);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log("\nSTORAGE — drafts cannot be enumerated, published photos still serve");
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // THIS IS THE SECTION THAT MATTERS MOST IN THIS FILE, because the migration
+  // it guards (20260809090300_media_path_hygiene.sql) is one where the obvious
+  // implementation changes nothing at all.
+  //
+  // A Supabase PUBLIC bucket serves from /storage/v1/object/public/… and that
+  // endpoint does not evaluate storage.objects SELECT policies. So a policy
+  // rewritten to require `published_at is not null` would look like a fix, pass
+  // review, and protect nothing. What the policy DOES govern is `list`, and
+  // list was the real hole: anon could enumerate every draft photo in the
+  // bucket with the publishable key that ships in every visitor's browser.
+  //
+  // Both halves are asserted here because reasoning about which endpoint
+  // consults RLS is exactly how the wrong fix gets shipped.
+
+  {
+    const { data: listed, error } = await anon.storage.from("item-media").list("items");
+    // A denial here is EITHER an error or an empty array depending on how
+    // storage reports it — unlike a table read, where the distinction is
+    // load-bearing. Both mean "you cannot see what is in this bucket".
+    if (error) {
+      ok(`anon cannot list the media bucket  (${error.message})`);
+    } else if ((listed ?? []).length === 0) {
+      ok("anon cannot list the media bucket  (0 objects)");
+    } else {
+      fail(
+        "anon cannot list the media bucket",
+        `enumerated ${listed.length} objects — draft photography is discoverable`
+      );
+    }
+  }
+
+  {
+    // The positive control, and the whole reason the bucket is still public.
+    // If this fails, every product photograph on the storefront is broken —
+    // which is precisely the outcome the "obvious" version of this migration
+    // (making the bucket private) would have produced.
+    const href = `${url}/storage/v1/object/public/item-media/${publishedPhotoPath}`;
+    const response = await fetch(href, { method: "HEAD" });
+    response.ok
+      ? ok("a published photo is still publicly readable over the CDN path", `${response.status}`)
+      : fail("a published photo is still publicly readable", `got ${response.status}`);
+  }
+
+  {
+    // Staff keep full access — the ops app lists the bucket when managing media.
+    const { error } = await staff.storage.from("item-media").list("items");
+    error
+      ? fail("staff can still list the media bucket", error.message)
+      : ok("staff can still list the media bucket");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log("\nSCHEMA — the functions PostgREST resolves are unambiguous");
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // capture_lead() was replaced wholesale by
+  // 20260809090100_lead_capture_ceilings.sql. `create or replace` only replaces
+  // when the SIGNATURE matches exactly — a changed default, type or parameter
+  // order silently creates an OVERLOAD instead, at which point PostgREST picks
+  // between two functions unpredictably and half the enquiries hit the old
+  // ceilings. Nothing else in the system would notice.
+  {
+    // Through the STAFF client, not admin. search_everything is SECURITY
+    // INVOKER and gates on app.is_staff(), which reads auth.uid() — and the
+    // service role has no uid, so admin is refused here exactly as an anonymous
+    // caller is. That is the design working, and it is why this suite insists
+    // on driving everything through real sessions.
+    const { data, error } = await staff.rpc("search_everything", {
+      p_query: "RLS",
+      p_limit: 5,
+    });
+    error
+      ? fail("search_everything is callable by staff", error.message)
+      : ok("search_everything is callable by staff", `${(data ?? []).length} rows`);
+  }
+
+  {
+    // The service role is deliberately NOT a staff member. Worth pinning: a
+    // future refactor that "fixes" this by loosening the guard would open the
+    // function to anything holding the secret key with no session at all.
+    await refused(
+      "the service role alone cannot call search_everything",
+      admin.rpc("search_everything", { p_query: "RLS", p_limit: 1 })
+    );
+  }
+
+  {
+    // Anon must not reach the search at all — it reads leads.
+    await refused(
+      "anon cannot call search_everything",
+      anon.rpc("search_everything", { p_query: "fryer", p_limit: 1 })
+    );
+  }
+
+  {
+    // The access-request ledger is service-role only. This is the tightening
+    // that distinguishes it from capture_lead, so it is worth asserting.
+    await refused(
+      "anon cannot call claim_access_request",
+      anon.rpc("claim_access_request", { p_email: "nobody@rls.test" })
+    );
+  }
+
+  {
+    await refused(
+      "anon cannot read cron_runs",
+      anon.from("cron_runs").select("job").limit(1)
+    );
+  }
 }
 
 async function cleanup() {
+  // The object first: deleting the item cascades the item_media ROW, which
+  // would otherwise leave the bytes in the bucket with nothing pointing at
+  // them — invisible, and exactly the orphan check:launch:db looks for.
+  if (publishedPhotoPath) {
+    await admin.storage.from("item-media").remove([publishedPhotoPath]);
+  }
   await admin.from("items").delete().ilike("title", "%RLS%");
   await admin.from("items").delete().in("title", ["Staff Test Item", "No Photo Oven", "Renamed After Publishing"]);
   await admin.from("leads").delete().like("email", "%@rls.test");

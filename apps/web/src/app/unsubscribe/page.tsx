@@ -3,6 +3,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { createPublicClient } from "@takemore/db";
+import { reportError } from "@takemore/observability";
 import { site } from "@/data/site";
 
 /**
@@ -38,7 +39,10 @@ export default async function UnsubscribePage({
   if (token) {
     const client = createPublicClient();
     const { data, error } = await client.rpc("unsubscribe", { p_token: token });
-    if (error) console.error("unsubscribe failed:", error.message);
+    // A failed opt-out is the one failure here that has legal weight: the
+    // person asked to be left alone and the system did not record it. The token
+    // is deliberately not passed to the reporter — it identifies the customer.
+    if (error) reportError(error, { where: "web/unsubscribe" });
     done = data === true;
   }
 

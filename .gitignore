@@ -12,3 +12,6 @@ supabase/.branches/
 
 # One-off local file holding the first-login password. Not for git.
 FIRST-LOGIN.local.md
+
+# Written by the Sentry build plugin when it uploads source maps.
+.env.sentry-build-plugin

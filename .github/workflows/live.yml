@@ -1,0 +1,151 @@
+# The suites that need a real database.
+#
+# ── Read this before adding a trigger ──────────────────────────────────────
+#
+# THESE TESTS WRITE TO THE PRODUCTION DATABASE. They create throwaway auth
+# users, insert leads, publish and delete items, and clean up after themselves
+# in a `finally`. The cleanup is careful and scoped (everything is created under
+# @takemore.test addresses), but it is still production.
+#
+# That is why:
+#
+#   · There is no schedule. An unattended job writing to production every night
+#     while nobody is watching is a bad trade for catching a regression a few
+#     hours earlier than the next push would.
+#   · `cancel-in-progress: false`. Two runs interleaving would have them
+#     deleting each other's fixtures, and the failure would look like a bug in
+#     the code rather than in the harness.
+#   · This never triggers on `pull_request`. A pull request from a fork gets an
+#     empty `secrets` context, so the run would fail for everyone who is not
+#     Carlo. Restricting the trigger is the fix, not an `if:` guard.
+#
+# THE RIGHT EVENTUAL ANSWER is a second Supabase project for tests, at which
+# point a nightly schedule becomes sensible. Until then, this is deliberate.
+
+name: Live suites
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: live
+  cancel-in-progress: false
+
+jobs:
+  database:
+    name: RLS, parity, leads
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Secrets are checked through a step output rather than a job-level
+      # `if: secrets.X != ''`, which GitHub does not evaluate in that context.
+      # A repository with no secrets configured yet gets a warning annotation
+      # and a green run, not a wall of red that trains people to ignore it.
+      - id: secrets
+        env:
+          KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Live suites skipped::SUPABASE_SECRET_KEY is not configured. See docs/runbook.md."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: RLS policies
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run test:rls
+
+      - name: TypeScript / SQL parity
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run test:parity
+
+      - name: The lead loop
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run test:leads
+
+      # Placeholder media, missing photographs and dead storage paths on
+      # anything the public can currently see.
+      - name: Published stock
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run check:launch:db
+
+  pages:
+    name: Every ops page renders
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Its own job because it needs a running server. This is the suite that
+    # exists because two PostgREST embeds typechecked, built cleanly, and 500'd
+    # the moment somebody opened /leads — `tsc` cannot see a relationship that
+    # is resolved at runtime from foreign keys.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_STOREFRONT_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+      OPS_URL: http://127.0.0.1:3001
+      # Job level, not step level: /api/match reads this in the SERVER process,
+      # which is started several steps before the test that exercises it.
+      REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - id: secrets
+        env:
+          KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Page suite skipped::SUPABASE_SECRET_KEY is not configured."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ops
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run build --workspace=@takemore/ops
+
+      - name: Start ops
+        if: steps.secrets.outputs.present == 'true'
+        run: |
+          npm run start --workspace=@takemore/ops &
+          echo $! > /tmp/ops.pid
+          curl --retry-connrefused --retry 30 --retry-delay 1 --fail --silent --output /dev/null \
+            http://127.0.0.1:3001/login
+
+      - name: Drive every page
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run test:pages
+
+      - name: The cron endpoint's auth
+        if: steps.secrets.outputs.present == 'true'
+        run: npm run test:match
+
+      - name: Stop ops
+        if: always() && steps.secrets.outputs.present == 'true'
+        run: kill "$(cat /tmp/ops.pid)" || true

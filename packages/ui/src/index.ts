@@ -10,3 +10,4 @@ export { default as tailwindPreset } from "./tailwind-preset.ts";
 export * from "./tokens.ts";
 export * from "./form.tsx";
 export * from "./status.tsx";
+export { default as Turnstile } from "./turnstile.tsx";

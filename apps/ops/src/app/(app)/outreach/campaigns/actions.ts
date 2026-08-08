@@ -2,10 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase, requireStaff } from "@/lib/supabase";
-import { sendMarketingBatch } from "@/lib/email";
+import {
+  renderPreview,
+  renderPreviewText,
+  sendMarketingBatch,
+  senderIdentity,
+} from "@/lib/email";
 import { itemUrl } from "@/lib/message";
 import { mediaUrl } from "@/lib/media";
 import { atLeast, rands } from "@takemore/core";
+import { reportError } from "@takemore/observability";
 
 /**
  * The monthly list of what came in.
@@ -52,6 +58,134 @@ export async function createCampaign(formData: FormData): Promise<CampaignResult
 
   revalidatePath("/outreach/campaigns");
   return { ok: true, notice: "Saved as a draft. Preview it, then send." };
+}
+
+export type CampaignPreview =
+  | {
+      ok: true;
+      subject: string;
+      from: string;
+      replyTo: string | null;
+      html: string;
+      text: string;
+      recipientCount: number;
+      items: { title: string; price: string | null; live: boolean }[];
+      warnings: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Exactly what will go out, before anything goes out.
+ *
+ * A campaign send is the one action in this whole system that cannot be walked
+ * back. Duplicate sends were already protected — the draft→sending claim is
+ * atomic — but nothing protected against sending the RIGHT message once and
+ * having it be wrong: a typo in the subject, an intro addressed to the wrong
+ * month, a machine that sold this morning.
+ *
+ * This resolves everything the send would resolve, in the same order, using the
+ * same helpers, and renders it with the same wrap() the sender uses. It does not
+ * touch the campaign's state, so it can be run as often as somebody likes.
+ *
+ * The audience count is resolved here too, and is deliberately a COUNT rather
+ * than a list: the preview should not put every customer's email address on a
+ * screen in a warehouse.
+ */
+export async function previewCampaign(id: string): Promise<CampaignPreview> {
+  const staff = await requireStaff();
+  if (!atLeast(staff.role, "manager")) return { ok: false, error: "Managers and owners only." };
+
+  const client = await supabase();
+
+  const { data: campaign, error } = await client
+    .from("outreach_campaigns")
+    .select("id, subject, intro, item_ids, state")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    reportError(error, { where: "ops/previewCampaign" });
+    return { ok: false, error: "Could not load that campaign." };
+  }
+  if (!campaign) return { ok: false, error: "That campaign is gone." };
+
+  // Every chosen item, not only the live ones — the preview has to be able to
+  // say "two of these have sold", which it cannot do if it never sees them.
+  const { data: chosen } = await client
+    .from("items")
+    .select(
+      "id, title, brand, slug, status, published_at, deleted_at, list_price_cents, media:item_media(storage_path, external_url)"
+    )
+    .in("id", campaign.item_ids);
+
+  const all = (chosen ?? []) as unknown as {
+    id: string;
+    title: string;
+    brand: string | null;
+    slug: string;
+    status: string;
+    published_at: string | null;
+    deleted_at: string | null;
+    list_price_cents: number | null;
+    media: { storage_path: string | null; external_url: string | null }[];
+  }[];
+
+  const isLive = (row: (typeof all)[number]) =>
+    row.status === "listed" && row.published_at !== null && row.deleted_at === null;
+
+  const live = all.filter(isLive);
+
+  const { count: recipientCount } = await client
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .is("unsubscribed_at", null)
+    .not("email_consent_at", "is", null)
+    .not("email", "is", null);
+
+  const warnings: string[] = [];
+  const goneCount = all.length - live.length;
+  const missingCount = campaign.item_ids.length - all.length;
+
+  if (goneCount > 0) {
+    warnings.push(
+      `${goneCount} of the machines you picked ${goneCount === 1 ? "is" : "are"} no longer for sale and will be left out.`
+    );
+  }
+  if (missingCount > 0) {
+    warnings.push(`${missingCount} of the machines you picked no longer exist.`);
+  }
+  if (live.length === 0) {
+    warnings.push("None of these machines are still for sale, so this cannot send.");
+  }
+  if (!live[0]?.media?.length) {
+    warnings.push("No photograph — this will go out as text only.");
+  }
+  if (campaign.state !== "draft") {
+    warnings.push(`This campaign is already "${campaign.state}" and cannot be sent again.`);
+  }
+
+  const hero = live[0]?.media?.length ? mediaUrl(live[0].media[0], "card") : undefined;
+  // "there" is the fallback the real send uses for a lead with no name, so the
+  // preview shows the least personalised version rather than the best case.
+  const body = bodyFor("there", campaign.intro, live);
+  const { from, replyTo } = senderIdentity();
+
+  return {
+    ok: true,
+    subject: campaign.subject,
+    from,
+    replyTo,
+    html: renderPreview(body, hero ?? undefined),
+    text: renderPreviewText(body),
+    recipientCount: recipientCount ?? 0,
+    items: all.map((row) => ({
+      title: row.title,
+      price: row.list_price_cents ? rands(row.list_price_cents) : null,
+      live: isLive(row),
+    })),
+    warnings,
+  };
 }
 
 export async function deleteCampaign(id: string): Promise<CampaignResult> {

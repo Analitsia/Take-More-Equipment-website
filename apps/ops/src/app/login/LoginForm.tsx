@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@takemore/db";
-import { Button, Field, Input } from "@takemore/ui";
+import { Button, Field, Input, Turnstile } from "@takemore/ui";
 import { requestAccess } from "./actions";
 
 type Mode = "signin" | "request";
@@ -32,9 +32,30 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Turnstile, on the request path only.
+   *
+   * Not on sign in: Supabase Auth already rate-limits that, and friction on the
+   * door somebody walks through every morning costs real time and buys nothing.
+   * The request path is the one that creates accounts out of thin air.
+   *
+   * `challenge` forces a fresh token. A Turnstile token is single-use and this
+   * component stays mounted across mode switches and failed attempts, so
+   * without it the second submission replays a spent token and is refused for a
+   * reason the person cannot act on.
+   */
+  const [token, setToken] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState(0);
+
+  const freshChallenge = () => {
+    setToken(null);
+    setChallenge((n) => n + 1);
+  };
+
   function switchTo(next: Mode) {
     setMode(next);
     setError(null);
+    freshChallenge();
   }
 
   async function signIn() {
@@ -60,10 +81,13 @@ export default function LoginForm() {
   }
 
   async function request() {
-    const result = await requestAccess(name, email, password);
+    const result = await requestAccess(name, email, password, token);
     if (!result.ok) {
       setError(result.error);
       setBusy(false);
+      // The token just spent is now useless whether it was the reason for the
+      // failure or not, so the retry needs a new one.
+      freshChallenge();
       return;
     }
 
@@ -154,6 +178,16 @@ export default function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
+
+        {/* Request path only, and renders nothing when no site key is set, so
+            local development and the page suite are unaffected. */}
+        {mode === "request" && (
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onToken={setToken}
+            resetKey={challenge}
+          />
+        )}
 
         {error && (
           <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">

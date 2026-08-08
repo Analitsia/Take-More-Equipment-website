@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
+import { processors, published } from "@/data/launch";
 import { site } from "@/data/site";
 
 /**
@@ -11,11 +12,24 @@ import { site } from "@/data/site";
  * enquiry form on this site links here. Written in the same voice as the rest of
  * the site, because a notice nobody reads protects nobody.
  *
- * TODO(carlo): have this checked against the real registered particulars —
- * company registration number and the appointed Information Officer's name —
- * before the DNS cutover. The substance below is accurate to what the system
- * actually does; the two blanks are the only outstanding items.
+ * The registered particulars — company registration number and the appointed
+ * Information Officer — come from `launch.ts` and are blocking facts: a
+ * production build fails while either is unfilled, because s18 requires a data
+ * subject be told who is responsible for their information and "nobody yet" is
+ * not an answer.
+ *
+ * The sub-processor list is also generated from `launch.ts` rather than typed
+ * out here. That is deliberate. Adding a vendor anywhere in this codebase means
+ * adding it to the manifest, which mechanically changes this page — so the
+ * notice cannot quietly fall out of date the way it did when error monitoring
+ * was introduced and the sentence still read "Supabase and Resend".
  */
+
+/** "A, B and C" — an Oxford-comma-free list, because this is prose. */
+const sentenceList = (items: string[]): string =>
+  items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
 export const metadata: Metadata = {
   title: "Privacy — Take More",
@@ -51,7 +65,9 @@ const sections: Section[] = [
     heading: "Who can see it",
     body: [
       "Our own staff, and only through our internal system, which requires an account that the owner has personally approved. It is not a shared spreadsheet and it is not on anybody's phone.",
-      "Our database is hosted by Supabase and our email is sent by Resend. Both process this data on our behalf and neither may use it for anything else.",
+      `We use a handful of suppliers to run this: ${sentenceList(
+        published(processors).map((p) => `${p.name} ${p.purpose}`)
+      )}. Each processes this data on our behalf and none of them may use it for anything else.`,
       "We do not sell your details. We do not share them with other equipment dealers. There is no third case.",
     ],
   },
@@ -119,20 +135,56 @@ export default function PrivacyPage() {
             </section>
           ))}
 
+          {/* Who is responsible, named. POPIA s18(1)(a) requires the responsible
+              party be identified to the data subject, and the Information
+              Regulator expects a specific person rather than a department. */}
+          <section>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-5">
+              Who is responsible for this
+            </h2>
+            <dl className="flex flex-col gap-3 max-w-md">
+              <Particular label="Responsible party" value={site.legalName} />
+              <Particular label="Registration number" value={site.registrationNumber} />
+              <Particular label="Information Officer" value={site.informationOfficer} />
+              <Particular label="Address" value={site.address} />
+              <Particular label="Email" value={site.email} href={`mailto:${site.email}`} />
+              <Particular label="Phone" value={site.phone} />
+            </dl>
+          </section>
+
           <div className="pt-8 border-t border-border">
             <p className="text-xs font-light text-muted leading-relaxed">
-              {site.legalName}, {site.address}. Questions about any of this go to{" "}
-              <a
-                href={`mailto:${site.email}`}
-                className="text-white/80 hover:text-accent transition-colors"
-              >
-                {site.email}
-              </a>
-              .
+              Last updated {new Date().getFullYear()}. If we change how any of
+              this works, this page changes with it before the change goes live.
             </p>
           </div>
         </div>
       </ContentSection>
     </PageShell>
+  );
+}
+
+function Particular({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 pb-3 border-b border-border">
+      <dt className="text-xs font-light text-muted sm:w-44 shrink-0">{label}</dt>
+      <dd className="text-sm font-light text-white/90">
+        {href ? (
+          <a href={href} className="hover:text-accent transition-colors">
+            {value}
+          </a>
+        ) : (
+          value
+        )}
+      </dd>
+    </div>
   );
 }

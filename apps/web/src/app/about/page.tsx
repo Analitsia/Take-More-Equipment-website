@@ -2,20 +2,33 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
+import SiteImage from "@/components/SiteImage";
+import Stats from "@/components/Stats";
 import Subheading from "@/components/Subheading";
-import { site, whatsappLink } from "@/data/site";
+import { claims, isVerified, media } from "@/data/launch";
+import { newLineCost, savingRange, site, whatsappLink } from "@/data/site";
+
+/**
+ * Two figures on this page are marketing claims rather than descriptions: how
+ * far below new we price, and what a new line costs. Both are withheld until
+ * verified, and the sentences around them are written twice — once with the
+ * number and once without — rather than left with a gap where it should be.
+ */
+const saving = savingRange();
+const lineCost = newLineCost();
 
 export const metadata: Metadata = {
   title: "About Us — Take More Catering Equipment, Cape Town",
-  description:
-    "A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it 40–60% below new.",
+  description: saving
+    ? `A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it ${saving} below new.`
+    : "A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it well below new.",
 };
 
-const stats = [
-  { number: "600", suffix: "+", label: "Machines Rebuilt" },
-  { number: "50", suffix: "%", label: "Average Saving vs New" },
-  { number: "6", suffix: "Mo", label: "Workshop Warranty" },
-  { number: "48", suffix: "H", label: "Cape Town Delivery" },
+const statFacts = [
+  claims.machinesRebuilt,
+  claims.averageSaving,
+  claims.warranty,
+  claims.delivery,
 ];
 
 const principles = [
@@ -41,26 +54,22 @@ export default function AboutPage() {
     <PageShell
       eyebrow="About Us"
       title={<>The kitchen you wanted, at the number you actually budgeted.</>}
-      intro="Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it 40–60% below new, and stand behind every unit in writing for six months."
+      intro={
+        saving
+          ? `Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it ${saving} below new, and stand behind every unit in writing for six months.`
+          : "Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it well below new, and stand behind every unit in writing for six months."
+      }
       crumbs={[{ label: "Home", href: "/" }, { label: "About Us" }]}
     >
-      <ContentSection>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-12 gap-x-8 pb-16 border-b border-border">
-          {stats.map((stat) => (
-            <div key={stat.label} className="flex flex-col">
-              <div className="flex items-end mb-2">
-                <span className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter">
-                  {stat.number}
-                </span>
-                <span className="text-accent text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
-                  {stat.suffix}
-                </span>
-              </div>
-              <span className="text-muted font-light text-sm">{stat.label}</span>
-            </div>
-          ))}
-        </div>
-      </ContentSection>
+      {/* The whole section goes, border and all, when no stat is verified — a
+          lone horizontal rule under an empty block reads as a broken page. */}
+      {statFacts.some(isVerified) && (
+        <ContentSection>
+          <div className="pb-16 border-b border-border">
+            <Stats facts={statFacts} />
+          </div>
+        </ContentSection>
+      )}
 
       <ContentSection>
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
@@ -71,10 +80,11 @@ export default function AboutPage() {
             </h2>
             <div className="flex flex-col gap-6 text-muted font-light text-sm md:text-base leading-relaxed">
               <p>
-                A working line for a 60-seat restaurant quotes at around R380 000 new,
-                before extraction, gas certification or an electrician. So the menu gets
-                cut to fit the machines that survived the budget, or the whole thing goes
-                on finance that takes three years to clear.
+                {lineCost
+                  ? `A working line for a 60-seat restaurant quotes at around ${lineCost} new, before extraction, gas certification or an electrician.`
+                  : "A working line for a 60-seat restaurant quotes at a number that stops most people before they start, and that is before extraction, gas certification or an electrician."}{" "}
+                So the menu gets cut to fit the machines that survived the budget, or the
+                whole thing goes on finance that takes three years to clear.
               </p>
               <p>
                 The usual escape is a private sale. You drive across town to a unit with no
@@ -99,11 +109,10 @@ export default function AboutPage() {
 
           <div className="lg:w-1/2">
             <div className="rounded-[2rem] overflow-hidden border border-border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://images.unsplash.com/photo-1589109807644-924edf14ee09?q=80&w=1200&auto=format&fit=crop"
-                alt="Stainless wash-up line in the workshop"
+              <SiteImage
+                fact={media.aboutWorkshop}
                 className="w-full h-full object-cover aspect-[4/3]"
+                fallbackClassName="w-full aspect-[4/3]"
               />
             </div>
             <p className="text-xs font-light text-muted mt-4">

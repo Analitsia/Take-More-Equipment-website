@@ -79,15 +79,34 @@ takemore/
 │  ├─ web/                 # public storefront      → takemoreequipment.co.za
 │  └─ ops/                 # staff PWA (the ERP)    → ops.takemoreequipment.co.za
 ├─ packages/
-│  ├─ db/                  # migrations, generated types, typed Supabase clients
+│  ├─ db/                  # generated types, typed Supabase clients
 │  ├─ core/                # domain logic: status machine, SKU gen, pricing, margin
-│  └─ ui/                  # shared primitives, tokens, brand
-└─ turbo.json, pnpm-workspace.yaml
+│  ├─ ui/                  # shared primitives, tokens, brand
+│  └─ observability/       # reportError(), Sentry wiring, cron check-ins
+├─ supabase/migrations/    # hand-written SQL, applied in filename order
+└─ package.json            # npm workspaces
 ```
+
+> **Amended in build.** Two things here differ from what was planned, both
+> deliberately and both recorded rather than silently done:
+>
+> - **npm workspaces, not pnpm + Turborepo.** At two apps and four source-only
+>   packages, Turborepo buys task caching this build does not need. Revisit when
+>   CI builds get slow. Reasoning in `supabase/README.md`.
+> - **Migrations live in `supabase/migrations/`, not in `packages/db`,** and are
+>   applied over the Management API rather than `supabase db push` — the CLI
+>   cannot reach `db.<ref>.supabase.co` from an IPv4-only network.
+>
+> `packages/observability` was added later, when it became clear that every
+> failure path in both apps was a `console.error` and several were not even that.
 
 `packages/core` is the load-bearing one. Every status transition, SKU format, and margin
 calculation lives there and is imported by both apps — so the website can never disagree
-with the ERP about what "sold" means.
+with the ERP about what "sold" means. Its **zero runtime dependencies** are a real
+constraint, not an accident: it is bundled into storefront client code *and* executed by
+plain `node` in the parity suite. Anything needing a dependency goes elsewhere — which is
+why `@takemore/observability` is its own package and why `verifyTurnstile` is a subpath
+export (`@takemore/core/turnstile`) rather than part of the barrel.
 
 ---
 
@@ -201,7 +220,19 @@ send is deliberate.
 Code128 SKU + a QR that opens the item's ops page — scan a machine in the warehouse, land on
 its record. Label PDFs for a Brother QL-820NWB or Zebra ZD421. KPI dashboard from Postgres
 views: revenue, gross margin per unit and category, days-to-sale (rotation), shelf-space
-efficiency via `dimensions_mm`, sell-through rate.
+efficiency, sell-through rate.
+
+> **The KPI half is built**, ahead of the labels. `money_by_month`,
+> `money_by_category` and `money_position`
+> (`supabase/migrations/20260809090500_money_kpis.sql`) back the Money page:
+> revenue and margin by month, margin and sell-through by category, days-to-sale,
+> and capital sitting in stock over ninety days old. All three are
+> `security_invoker` views guarded on `app.can_see_costs()` — without that a
+> staff account would see aggregates summing to zero and read them as real.
+>
+> Still outstanding here: labels, barcodes and the QR. **Shelf-space efficiency
+> is not built and its spec above is stale** — `dimensions_mm` became centimetres
+> in `20260808090300_dimensions_typed_as_centimetres.sql`.
 
 Bob Go courier integration slots into Phase 3 or 6 depending on how soon small items ship.
 
@@ -249,6 +280,14 @@ Bob Go courier integration slots into Phase 3 or 6 depending on how soon small i
   Capitec Pay appear at checkout), Meta Business + WhatsApp sender, Resend domain, Bob Go.
 - Domain/DNS cutover from Hostinger to Vercel.
 - Whether buyers get accounts, or checkout stays guest-only. Guest-only is assumed for now.
+- **A second Supabase project for tests.** The live suites currently write to
+  production and clean up after themselves, which is why they run only on pushes
+  to `main` and on demand rather than on a schedule.
+- **Next 16.** The only outstanding `npm audit` findings (`postcss`, `sharp`) are
+  transitive through Next 15 and not resolvable within it.
+- **Real-world facts and service keys** — the whole of
+  [`launch-checklist.md`](launch-checklist.md), which is what stands between this
+  and a public domain.
 
 ---
 

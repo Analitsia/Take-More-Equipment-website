@@ -30,6 +30,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip_hash: string | null
+          outcome: string
+          settled_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip_hash?: string | null
+          outcome: string
+          settled_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip_hash?: string | null
+          outcome?: string
+          settled_at?: string | null
+        }
+        Relationships: []
+      }
       activity_log: {
         Row: {
           action: Database["public"]["Enums"]["activity_action"]
@@ -93,6 +120,36 @@ export type Database = {
           name?: string
           position?: number
           slug?: string
+        }
+        Relationships: []
+      }
+      cron_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: number
+          job: string
+          ok: boolean | null
+          result: Json | null
+          started_at: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: never
+          job: string
+          ok?: boolean | null
+          result?: Json | null
+          started_at?: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: never
+          job?: string
+          ok?: boolean | null
+          result?: Json | null
+          started_at?: string
         }
         Relationships: []
       }
@@ -405,6 +462,13 @@ export type Database = {
             foreignKeyName: "items_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "money_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "public_categories"
             referencedColumns: ["id"]
           },
@@ -572,6 +636,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_by_category"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "lead_interests_category_id_fkey"
@@ -924,6 +995,13 @@ export type Database = {
             foreignKeyName: "subcategories_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "money_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "public_categories"
             referencedColumns: ["id"]
           },
@@ -970,6 +1048,50 @@ export type Database = {
           status: Database["public"]["Enums"]["item_status"] | null
           title: string | null
           total_cost_cents: number | null
+        }
+        Relationships: []
+      }
+      money_by_category: {
+        Row: {
+          avg_days_to_sale: number | null
+          category: string | null
+          category_id: string | null
+          cost_cents: number | null
+          margin_cents: number | null
+          revenue_cents: number | null
+          sell_through_percent: number | null
+          tied_up_cents: number | null
+          units_in_stock: number | null
+          units_sold: number | null
+          units_total: number | null
+        }
+        Relationships: []
+      }
+      money_by_month: {
+        Row: {
+          avg_days_to_sale: number | null
+          cost_cents: number | null
+          margin_cents: number | null
+          margin_percent: number | null
+          month: string | null
+          revenue_cents: number | null
+          units_sold: number | null
+        }
+        Relationships: []
+      }
+      money_position: {
+        Row: {
+          aged_stock_cents: number | null
+          aged_units: number | null
+          avg_days_to_sale: number | null
+          margin_30d_cents: number | null
+          margin_all_time_cents: number | null
+          revenue_all_time_cents: number | null
+          tied_up_cents: number | null
+          units_in_stock: number | null
+          units_sold_30d: number | null
+          units_sold_all_time: number | null
+          unrealised_margin_cents: number | null
         }
         Relationships: []
       }
@@ -1075,6 +1197,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      claim_access_request: {
+        Args: { p_email: string; p_ip_hash?: string }
+        Returns: {
+          outcome: string
+          request_id: string
+        }[]
+      }
       leads_wanting_item: {
         Args: { p_item_id: string }
         Returns: {
@@ -1099,12 +1228,27 @@ export type Database = {
         Returns: undefined
       }
       run_stock_match: { Args: never; Returns: number }
+      search_everything: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          badge: string
+          id: string
+          kind: string
+          rank: number
+          subtitle: string
+          title: string
+        }[]
+      }
       set_item_cost: {
         Args: {
           p_amount_cents: number
           p_item_id: string
           p_kind: Database["public"]["Enums"]["cost_kind"]
         }
+        Returns: undefined
+      }
+      settle_access_request: {
+        Args: { p_request_id: string; p_succeeded: boolean }
         Returns: undefined
       }
       unsubscribe: { Args: { p_token: string }; Returns: boolean }

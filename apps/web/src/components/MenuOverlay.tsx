@@ -10,6 +10,7 @@ import {
   type HeaderVariant,
 } from "./headerLayout";
 import useCatalogueIndex from "@/hooks/useCatalogueIndex";
+import { hasJournal } from "@/data/launch";
 import { site, whatsappLink } from "@/data/site";
 
 export const navLinks = [
@@ -17,7 +18,11 @@ export const navLinks = [
   { href: "/conditions", label: "Condition & Warranty", blurb: "What A, B and C mean" },
   { href: "/delivery", label: "Delivery & Collection", blurb: "Lead times and costs" },
   { href: "/about", label: "About Us", blurb: "Why we cost half of new" },
-  { href: "/blog", label: "Journal", blurb: "Buying guides and notes" },
+  // Dropped entirely while no post has been verified, rather than offering a
+  // prominent route to an empty page.
+  ...(hasJournal
+    ? [{ href: "/blog", label: "Journal", blurb: "Buying guides and notes" }]
+    : []),
 ];
 
 export default function MenuOverlay({

@@ -1,0 +1,7 @@
+# Fast checks only. Anything slower than a couple of seconds here teaches
+# people to type --no-verify, and a hook everyone bypasses is worse than none.
+#
+# Deliberately NOT here: tsc. It cannot be scoped to staged files, it takes
+# tens of seconds across six workspaces, and it is the single most common
+# reason a team turns hooks off. It runs on pre-push and in CI instead.
+npx lint-staged

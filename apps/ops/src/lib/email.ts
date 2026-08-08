@@ -28,6 +28,24 @@ const STOREFRONT =
   process.env.STOREFRONT_URL ??
   "https://takemoreequipment.co.za";
 
+/**
+ * The postal identity in the footer of every marketing email.
+ *
+ * A physical address in a commercial message is not decoration — it is what
+ * makes the sender identifiable, which POPIA s69 and every major mailbox
+ * provider's bulk-sender guidance both expect. It was hardcoded here with the
+ * same placeholder address the website carried, which meant fixing the website
+ * would silently leave the email wrong.
+ *
+ * It is an environment variable rather than an import because apps/web's launch
+ * manifest is not reachable from here. The launch gate asserts every variable
+ * the code reads appears in .env.example, and docs/launch-checklist.md lists
+ * this one beside the manifest entry it has to agree with.
+ */
+const POSTAL_IDENTITY =
+  process.env.BUSINESS_POSTAL_IDENTITY ??
+  "Take More Catering Equipment (Pty) Ltd, Montague Gardens, Cape Town";
+
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };
 
 const unsubscribeUrl = (token: string) =>
@@ -76,7 +94,7 @@ function wrap(body: string, token: string, heroImageUrl?: string): string {
     <hr style="border:none;border-top:1px solid #e8e8e2;margin:28px 0 16px">
     <p style="margin:0;font-size:12px;line-height:1.6;color:#8a8a80">
       You are getting this because you asked us to tell you when we get equipment
-      like this. Take More Catering Equipment (Pty) Ltd, Montague Gardens, Cape Town.
+      like this. ${escape(POSTAL_IDENTITY)}.
       <br>
       <a href="${unsubscribeUrl(token)}" style="color:#8a8a80">Unsubscribe in one click</a>
       — it takes effect immediately.
@@ -212,3 +230,28 @@ export async function sendMarketingBatch(
 
 /** Whether the newsletter can be sent at all, for the UI to say so up front. */
 export const emailIsConfigured = () => !!KEY;
+
+/**
+ * Exactly what a customer will receive, rendered without sending anything.
+ *
+ * The same `wrap()` the sender uses — not a re-implementation, which would
+ * drift and then reassure somebody about an email that no longer looks like
+ * this. That is the whole point of a preview.
+ *
+ * The unsubscribe token is a visible dummy: the preview's footer link must not
+ * be clickable-into-a-real-unsubscribe, and a token that reads as a placeholder
+ * is clearer than one that looks real.
+ */
+export const PREVIEW_TOKEN = "preview-token-not-a-real-unsubscribe";
+
+export function renderPreview(body: string, heroImageUrl?: string): string {
+  return wrap(body, PREVIEW_TOKEN, heroImageUrl);
+}
+
+/** The plain-text half, which is what many people actually see. */
+export function renderPreviewText(body: string): string {
+  return `${body}\n\n---\nStop these: ${unsubscribeUrl(PREVIEW_TOKEN)}`;
+}
+
+/** The From/Reply-to a recipient will see, for the preview header. */
+export const senderIdentity = () => ({ from: FROM, replyTo: REPLY_TO ?? null });

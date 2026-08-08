@@ -80,7 +80,7 @@ export default async function PostPage({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.image}
-            alt={post.title}
+            alt={post.imageAlt}
             className="w-full aspect-[3/2] sm:aspect-[21/9] object-cover"
           />
         </div>
@@ -129,7 +129,7 @@ export default async function PostPage({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={other.image}
-                      alt={other.title}
+                      alt={other.imageAlt}
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-card/90 to-transparent"></div>

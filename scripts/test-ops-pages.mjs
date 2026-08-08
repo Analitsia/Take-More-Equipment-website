@@ -140,6 +140,9 @@ async function run(cookie) {
   await visit(cookie, "/money");
   await visit(cookie, "/team");
   await visit(cookie, "/account");
+  // Joins activity_log to staff_profiles for actor names — another embed that
+  // typechecks and could still fail at runtime, which is why this suite exists.
+  await visit(cookie, "/activity", { contains: "Activity" });
   // The iframe's title, which only exists if the storefront frame rendered.
   await visit(cookie, "/website", { contains: "Take More website" });
 

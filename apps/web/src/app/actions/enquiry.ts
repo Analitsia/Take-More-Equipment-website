@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createPublicClient } from "@takemore/db";
 import { normalisePhone } from "@takemore/core";
+import { callerIp, turnstileMessage, verifyTurnstile } from "@takemore/core/turnstile";
+import { reportError, reportMessage, reportOnce } from "@takemore/observability";
 
 /**
  * The storefront's only write.
@@ -53,6 +56,36 @@ export async function submitEnquiry(
   // an error would tell whoever wrote the bot exactly what to change.
   if (read("website")) return { ok: true, message: "Thanks — we will be in touch." };
 
+  /**
+   * The bot check.
+   *
+   * DELIBERATELY NOT the honeypot's cheerful-success treatment. Silence is
+   * right for the honeypot because only a bot ever sees that field, so nobody
+   * real is harmed by it. Turnstile has false positives — a VPN, a hardened
+   * browser, a bad afternoon on Cloudflare's side — and telling a real person
+   * "thanks, we will be in touch" while dropping their enquiry on the floor is
+   * the worst outcome available here. Every failure says what happened and
+   * names the WhatsApp fallback.
+   *
+   * Note this does not protect capture_lead() itself, which anon can still call
+   * directly over PostgREST. That is what the SQL ceilings in
+   * 20260809090100_lead_capture_ceilings.sql are for. This raises the cost of
+   * the easy path; those bound the hard one.
+   */
+  const verdict = await verifyTurnstile(read("cf-turnstile-response"), callerIp(await headers()));
+  if (!verdict.ok) {
+    if (verdict.reason === "not-configured") {
+      // Production, with no key set. The form is offline by design, and that
+      // must be loud — a silent unguarded form is the failure this prevents.
+      reportOnce("turnstile-unconfigured", "Turnstile is not configured in production", {
+        where: "web/submitEnquiry",
+      });
+    } else if (verdict.reason !== "missing-token") {
+      reportMessage(`Turnstile ${verdict.reason}`, { where: "web/submitEnquiry" }, "info");
+    }
+    return { ok: false, error: turnstileMessage(verdict.reason) };
+  }
+
   const email = read("email");
   const phone = read("phone");
 
@@ -85,8 +118,10 @@ export async function submitEnquiry(
 
   if (error) {
     // Logged in full for us, summarised for them. A failed enquiry is a lost
-    // sale, so it should be findable in the Vercel logs afterwards.
-    console.error("capture_lead failed:", error.message);
+    // sale, so it must be findable afterwards. The customer's own details are
+    // deliberately not attached to the report — the message and the item slug
+    // are enough to reproduce it, and the reporter scrubs them anyway.
+    reportError(error, { where: "web/submitEnquiry", itemSlug: read("itemSlug") || null });
     return { ok: false, error: humanise(error.message) };
   }
 

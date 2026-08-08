@@ -85,12 +85,53 @@ async function setup() {
     returning id`);
   itemId = item.id;
 
+  // A REAL photo row, not a placeholder.
+  //
+  // This fixture used to attach `is_placeholder: true` and publish on it, which
+  // the schema allowed because the publish gate counted any photo at all. It no
+  // longer does — 20260809090000_no_placeholders_on_published.sql requires a
+  // storage_path, so an item cannot go live on a stock image. The fixture now
+  // follows the same path the ops app does, which is what a fixture should have
+  // been doing anyway.
+  //
+  // No object is uploaded to Storage for it: nothing in this suite fetches the
+  // image, the row is deleted at the end of the run, and the publish gate cares
+  // that a real photograph was recorded, not that the bytes are reachable.
+  // `npm run check:launch:db` is the check that asserts bytes are reachable.
   await sql(`
-    insert into public.item_media (item_id, kind, external_url, is_placeholder, position)
-    values ('${itemId}', 'photo', 'https://example.test/leadloop.jpg', true, 0)`);
+    insert into public.item_media (item_id, kind, storage_path, is_placeholder, position)
+    values ('${itemId}', 'photo', 'items/${itemId}/lead-loop-fixture.webp', false, 0)`);
 }
 
 async function run() {
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log("\nSCHEMA  (there is exactly one capture_lead)");
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // 20260809090100_lead_capture_ceilings.sql replaces capture_lead() wholesale,
+  // because plpgsql has no way to patch a function body. `create or replace`
+  // only REPLACES when the signature matches exactly — a changed default, a
+  // reordered parameter, `text` where the original said `bigint`, and Postgres
+  // silently creates an OVERLOAD instead.
+  //
+  // At that point PostgREST has two candidates and picks between them by rules
+  // nobody on this project has memorised. Half the enquiries would hit the old
+  // ceilings and nothing anywhere would error. This is the assertion that makes
+  // that failure loud, and it costs one query.
+  {
+    const rows = await sql(`
+      select count(*)::int as n
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'capture_lead'`);
+    const n = rows[0]?.n;
+    check(
+      "capture_lead was replaced, not overloaded",
+      n === 1,
+      n === 1 ? "1 definition" : `${n} definitions — PostgREST would choose unpredictably`
+    );
+  }
+
   console.log("\nCAPTURE  (what the website does)");
 
   await sql(`select public.capture_lead(

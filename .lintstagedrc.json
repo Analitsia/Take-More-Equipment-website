@@ -1,0 +1,4 @@
+{
+  "*": ["node scripts/check-no-secrets.mjs --staged"],
+  "apps/web/src/**/*.{ts,tsx}": ["node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-launch-ready.mjs"]
+}

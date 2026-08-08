@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Turnstile } from "@takemore/ui";
 import { submitEnquiry, type EnquiryResult } from "@/app/actions/enquiry";
 import { site } from "@/data/site";
 
@@ -77,6 +78,21 @@ export default function EnquiryForm({
   const id = useId();
   const copy = COPY[mode];
   const onProduct = mode === "product" || mode === "sold";
+
+  /**
+   * Bumped every time the form comes back with an error, to make the Turnstile
+   * widget mint a fresh token.
+   *
+   * A Turnstile token is single-use, and this form stays mounted after a
+   * failure. Without a reset the retry replays a spent token and fails again —
+   * permanently, from the person's point of view, for a reason they could do
+   * nothing about. Which is a far worse failure than the one it protects
+   * against.
+   */
+  const [attempts, setAttempts] = useState(0);
+  useEffect(() => {
+    if (state && !state.ok) setAttempts((n) => n + 1);
+  }, [state]);
 
   if (state?.ok) {
     return (
@@ -225,6 +241,18 @@ export default function EnquiryForm({
           WhatsApp me too — it is usually faster.
         </Consent>
       </fieldset>
+
+      {/* Bot check. Renders nothing at all when no site key is configured —
+          local development and CI — so the form has no gap in it there.
+          `resetKey` on the attempt count matters: a Turnstile token is
+          single-use, and this form stays mounted after a failed submission, so
+          without a reset the second attempt replays a spent token and is
+          rejected for a reason the person cannot possibly act on. */}
+      <Turnstile
+        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+        resetKey={attempts}
+        className="mt-5"
+      />
 
       {state && !state.ok && (
         <p className="mt-4 text-xs text-[#D47A85] bg-[#D47A85]/10 border border-[#D47A85]/30 rounded-xl px-3 py-2.5">

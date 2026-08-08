@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import Navbar from "./Navbar";
 import Subheading from "./Subheading";
+import SiteImage from "./SiteImage";
+import { media } from "@/data/launch";
 import { site, whatsappLink } from "@/data/site";
 
 // Hero Component
@@ -14,14 +16,15 @@ export default function Hero() {
     // keeps its full 90vh.
     <div className="relative p-2 md:p-4 h-[58vh] min-h-[490px] md:h-[90vh] md:min-h-[520px]">
       <div className="w-full h-full rounded-[2rem] overflow-hidden relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://images.unsplash.com/photo-1708915965975-2a950db0e215?q=80&w=2938&auto=format&fit=crop"
-          alt="Refurbished commercial kitchen line"
+        <SiteImage
+          fact={media.hero}
           className="absolute inset-0 w-full h-full object-cover scale-105"
+          fallbackClassName="absolute inset-0 w-full h-full"
         />
         {/* Scrim is heavier than the source template's — that hero used an already-dark
-            studio car shot, whereas kitchen interiors are lit and busy. */}
+            studio car shot, whereas kitchen interiors are lit and busy. It is also
+            what lets the hero survive having no photograph at all: over a flat card
+            colour this same gradient reads as an intentional dark hero. */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background/95"></div>
 
         {/* Deliberately uncapped, same as the headline row below it — capping

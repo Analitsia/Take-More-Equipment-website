@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { listItems } from "@/lib/queries";
+import { getLastCronRun, listItems } from "@/lib/queries";
 import { listLeads } from "@/lib/leads";
+import { reportError } from "@takemore/observability";
 import NewItemButton from "@/components/NewItemButton";
 import CounterLookup from "@/components/CounterLookup";
 import { requireStaff } from "@/lib/supabase";
@@ -53,12 +54,17 @@ export default async function DashboardPage() {
   let costTotal: number | null = null;
   if (canSeeCosts(staff.role)) {
     const client = await supabase();
-    const { data } = await client.from("item_economics").select("total_cost_cents");
+    const { data, error } = await client.from("item_economics").select("total_cost_cents");
+    // Reported rather than swallowed: a failed read here used to render as
+    // "R0 tied up", which is a number somebody would act on.
+    if (error) reportError(error, { where: "ops/dashboard", view: "item_economics" });
     costTotal = (data ?? []).reduce(
       (sum, row: any) => sum + Number(row.total_cost_cents ?? 0),
       0
     );
   }
+
+  const lastSweep = await getLastCronRun();
 
   return (
     <div className="max-w-5xl">
@@ -75,6 +81,8 @@ export default async function DashboardPage() {
 
       {/* Above everything, because it is used with a customer standing there. */}
       <CounterLookup leads={leads} />
+
+      <SweepStatus run={lastSweep} />
 
       {birthdays.length > 0 && (
         <Link
@@ -186,6 +194,70 @@ function Stat({
         {value}
       </p>
       {sub && <p className="text-[11px] font-light text-muted mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+/**
+ * Did the nightly sweep run, and what did it do?
+ *
+ * The stock-match job fires at 04:00 and queues an outreach message for every
+ * customer whose recorded want a new machine matches. Before cron_runs existed
+ * it failed into a void — one console.error, a 500 returned to a scheduler that
+ * reads 500s to nobody. It could have been broken for a month and the first
+ * symptom would have been a customer asking why nobody told them.
+ *
+ * Shown only when there is something to say. A sweep that ran last night and
+ * queued nothing is the normal case and does not need a row on the dashboard.
+ */
+function SweepStatus({
+  run,
+}: {
+  run: {
+    started_at: string;
+    finished_at: string | null;
+    ok: boolean | null;
+    result: unknown;
+    error: string | null;
+  } | null;
+}) {
+  // Never run at all is normal on a fresh deployment, and there is nothing
+  // useful to say about it until 04:00 has come around once.
+  if (!run) return null;
+
+  const ageHours = (Date.now() - new Date(run.started_at).getTime()) / 3_600_000;
+  // 26, not 24: a daily job jitters, and clocks change twice a year. A warning
+  // that cries wolf monthly is one nobody reads.
+  const stale = ageHours > 26;
+  const failed = run.ok === false;
+  const unfinished = run.ok === null;
+
+  if (!stale && !failed && !unfinished) return null;
+
+  const queued =
+    run.result && typeof run.result === "object" && "queued" in run.result
+      ? Number((run.result as { queued: unknown }).queued)
+      : null;
+
+  const message = failed
+    ? "The nightly stock match failed."
+    : unfinished
+      ? "The nightly stock match started and never finished."
+      : `The nightly stock match has not run for ${Math.floor(ageHours)} hours.`;
+
+  return (
+    <div className="flex items-start gap-3 bg-card border border-status-sold/30 rounded-2xl p-4 mb-4">
+      <span className="w-9 h-9 rounded-xl bg-status-sold/10 border border-status-sold/30 flex items-center justify-center text-status-sold shrink-0">
+        <iconify-icon icon="solar:danger-triangle-linear" width="16" height="16" noobserver="" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-light text-white/85">{message}</p>
+        <p className="text-[11px] font-light text-muted mt-0.5">
+          Customers are not being told about matching stock automatically. You
+          can still send from Outreach by hand.
+          {queued !== null && ` Last run queued ${queued}.`}
+        </p>
+      </div>
     </div>
   );
 }

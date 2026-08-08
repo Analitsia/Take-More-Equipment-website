@@ -1,6 +1,9 @@
 {
   "name": "takemore",
   "private": true,
+  "engines": {
+    "node": ">=22.18"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -10,18 +13,27 @@
     "build": "npm run build --workspace=@takemore/web",
     "start": "npm run start --workspace=@takemore/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "db:apply": "node scripts/apply-migrations.mjs",
+    "check:launch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-launch-ready.mjs",
+    "check:launch:db": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/check-launch-ready.mjs --db",
+    "check:secrets": "node scripts/check-no-secrets.mjs",
+    "db:apply": "node --env-file-if-exists=.env.local scripts/apply-migrations.mjs",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
     "db:types": "node scripts/gen-types.mjs",
-    "test:rls": "node --env-file=.env.local packages/db/tests/rls.test.mjs",
-    "test:parity": "node --env-file=.env.local packages/core/tests/parity.test.mjs",
-    "test:leads": "node --env-file=.env.local scripts/test-lead-loop.mjs",
-    "test:pages": "node --env-file=.env.local scripts/test-ops-pages.mjs",
-    "test": "npm run test:rls && npm run test:parity && npm run test:leads"
+    "test:rls": "node --env-file-if-exists=.env.local packages/db/tests/rls.test.mjs",
+    "test:parity": "node --env-file-if-exists=.env.local packages/core/tests/parity.test.mjs",
+    "test:leads": "node --env-file-if-exists=.env.local scripts/test-lead-loop.mjs",
+    "test:pages": "node --env-file-if-exists=.env.local scripts/test-ops-pages.mjs",
+    "test:match": "node --env-file-if-exists=.env.local scripts/test-match-route.mjs",
+    "test:email": "node --env-file-if-exists=.env.local scripts/test-email.mjs",
+    "test:publish": "node --env-file-if-exists=.env.local scripts/test-publish-loop.mjs",
+    "test": "npm run test:rls && npm run test:parity && npm run test:leads && npm run test:email",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "supabase": "^2.112.0"
   }
 }

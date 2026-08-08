@@ -2,15 +2,23 @@
 
 import { motion } from "framer-motion";
 import Subheading from "./Subheading";
+import Stats from "./Stats";
+import { claims, isVerified } from "@/data/launch";
 
 // About Section
 export default function About() {
-  const stats = [
-    { number: "600", suffix: "+", label: "Machines Rebuilt" },
-    { number: "50", suffix: "%", label: "Average Saving vs New" },
-    { number: "6", suffix: "Mo", label: "Workshop Warranty" },
-    { number: "48", suffix: "H", label: "Cape Town Delivery" },
-  ];
+  /**
+   * The four numbers were hardcoded here and again on /about, unverified in
+   * both places. They now come from the launch manifest and only appear once
+   * somebody has stood behind them.
+   *
+   * The layout has to cope with none of them being ready. The stats are the
+   * right half of a two-column row, so when there is nothing to put there the
+   * left column must also stop being half-width — otherwise the copy sits in
+   * half a page beside dead space, which looks like a bug rather than a choice.
+   */
+  const facts = [claims.machinesRebuilt, claims.averageSaving, claims.warranty, claims.delivery];
+  const anyStats = facts.some(isVerified);
 
   return (
     <section className="py-14 md:py-24 lg:py-32 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
@@ -19,7 +27,7 @@ export default function About() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          className="lg:w-1/2"
+          className={anyStats ? "lg:w-1/2" : "max-w-3xl"}
         >
           <Subheading text="About Us" />
           <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-8 max-w-2xl">
@@ -42,28 +50,11 @@ export default function About() {
           </a>
         </motion.div>
 
-        <div className="lg:w-1/2 grid grid-cols-2 gap-y-12 gap-x-8">
-          {stats.map((stat, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="flex flex-col"
-            >
-              <div className="flex items-end mb-2">
-                <span className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tighter">
-                  {stat.number}
-                </span>
-                <span className="text-accent text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter mb-1 ml-1">
-                  {stat.suffix}
-                </span>
-              </div>
-              <span className="text-muted font-light text-sm">{stat.label}</span>
-            </motion.div>
-          ))}
-        </div>
+        {anyStats && (
+          <div className="lg:w-1/2">
+            <Stats facts={facts} animate />
+          </div>
+        )}
       </div>
     </section>
   );
