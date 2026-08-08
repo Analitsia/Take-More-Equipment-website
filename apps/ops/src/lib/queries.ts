@@ -73,6 +73,24 @@ export async function getCategories() {
   return data ?? [];
 }
 
+/**
+ * Every subcategory, not just the ones under the item's current category.
+ *
+ * The editor filters them client-side as the category changes, so switching a
+ * machine from Cooking to Refrigeration repopulates the second dropdown without
+ * a round trip. There are eighteen rows; fetching them all is cheaper than the
+ * request that would fetch the right six.
+ */
+export async function getSubcategories() {
+  const client = await supabase();
+  const { data } = await client
+    .from("subcategories")
+    .select("id, name, slug, category_id")
+    .eq("active", true)
+    .order("position");
+  return data ?? [];
+}
+
 export async function getTags() {
   const client = await supabase();
   const { data } = await client

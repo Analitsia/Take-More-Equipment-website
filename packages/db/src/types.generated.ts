@@ -314,6 +314,7 @@ export type Database = {
           sold_at: string | null
           specs: Json
           status: Database["public"]["Enums"]["item_status"]
+          subcategory_id: string | null
           title: string
           updated_at: string
           weight_kg: number | null
@@ -349,6 +350,7 @@ export type Database = {
           sold_at?: string | null
           specs?: Json
           status?: Database["public"]["Enums"]["item_status"]
+          subcategory_id?: string | null
           title?: string
           updated_at?: string
           weight_kg?: number | null
@@ -384,6 +386,7 @@ export type Database = {
           sold_at?: string | null
           specs?: Json
           status?: Database["public"]["Enums"]["item_status"]
+          subcategory_id?: string | null
           title?: string
           updated_at?: string
           weight_kg?: number | null
@@ -404,6 +407,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_subcategory_matches_category"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id", "category_id"]
           },
         ]
       }
@@ -433,6 +443,48 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      subcategories: {
+        Row: {
+          active: boolean
+          category_id: string
+          id: string
+          name: string
+          position: number
+          slug: string
+        }
+        Insert: {
+          active?: boolean
+          category_id: string
+          id?: string
+          name: string
+          position?: number
+          slug: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string
+          id?: string
+          name?: string
+          position?: number
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "public_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {
@@ -553,6 +605,8 @@ export type Database = {
           sold_at: string | null
           specs: Json | null
           status: Database["public"]["Enums"]["item_status"] | null
+          subcategory_name: string | null
+          subcategory_slug: string | null
           tag_slugs: string[] | null
           title: string | null
           weight_kg: number | null
@@ -574,6 +628,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_item_cost: {
+        Args: {
+          p_amount_cents: number
+          p_item_id: string
+          p_kind: Database["public"]["Enums"]["cost_kind"]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       activity_action:
@@ -588,6 +650,7 @@ export type Database = {
       condition_grade: "A" | "B" | "C"
       cost_kind:
         | "auction"
+        | "workshop"
         | "buyers_premium"
         | "transport"
         | "parts"
@@ -742,6 +805,7 @@ export const Constants = {
       condition_grade: ["A", "B", "C"],
       cost_kind: [
         "auction",
+        "workshop",
         "buyers_premium",
         "transport",
         "parts",

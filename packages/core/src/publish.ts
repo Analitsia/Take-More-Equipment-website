@@ -19,6 +19,24 @@ export type PublishCandidate = {
   grade: string | null;
   listPriceCents: Cents | null;
   photoCount: number;
+  /**
+   * What the machine cost us — and null when the viewer is not allowed to know.
+   *
+   * A `staff` account is refused the cost rows by RLS, so for them these two
+   * requirements are OMITTED rather than drawn as permanently unmet: a checklist
+   * item nobody can satisfy or even verify is a dead end, not a rule.
+   *
+   * DELIBERATE DIVERGENCE from the database trigger, which does not check either
+   * of these. Everything else in this file is mirrored in SQL; these two are
+   * enforced in the app alone, because failing a publish on figures the caller
+   * cannot read produces an error they have no way to diagnose. If this ever
+   * needs to be absolute, it belongs in the trigger — where it can read the
+   * ledger under SECURITY DEFINER — and not here.
+   */
+  costs?: {
+    auctionCents: Cents | null;
+    workshopCents: Cents | null;
+  } | null;
 };
 
 export type PublishRequirement = {
@@ -28,6 +46,21 @@ export type PublishRequirement = {
 };
 
 export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
+  const costs = item.costs
+    ? [
+        {
+          id: "auction-cost",
+          label: "An auction price",
+          met: item.costs.auctionCents !== null && item.costs.auctionCents > 0,
+        },
+        {
+          id: "workshop-cost",
+          label: "A workshop price",
+          met: item.costs.workshopCents !== null && item.costs.workshopCents > 0,
+        },
+      ]
+    : [];
+
   return [
     {
       id: "photo",
@@ -62,6 +95,7 @@ export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
       label: "A description",
       met: !!item.description && item.description.trim().length >= 40,
     },
+    ...costs,
   ];
 }
 

@@ -56,6 +56,7 @@ export type ItemPatch = {
   brand?: string | null;
   model?: string | null;
   category_id?: string | null;
+  subcategory_id?: string | null;
   condition_grade?: "A" | "B" | "C" | null;
   description?: string | null;
   workshop_notes?: string[];
@@ -166,6 +167,41 @@ export async function recordCost(
     // Omitted rather than nulled — the RPC's optional arguments are typed as
     // `string | undefined`, and the SQL default already coalesces.
     p_note: note,
+  });
+
+  if (error) return { ok: false, error: humanise(error.message) };
+
+  revalidatePath(`/items/${itemId}`);
+  return { ok: true };
+}
+
+/**
+ * The two fixed cost boxes — auction and workshop.
+ *
+ * Separate from recordCost() because these are a VALUE, not a ledger entry: the
+ * field is re-blurred every time a manager corrects a typo, and appending a row
+ * each time would turn one auction price into six. The RPC keeps exactly one row
+ * per kind, and clearing the box deletes it rather than storing a zero — a
+ * stored R0 reads as a machine that was free.
+ *
+ * Returns void like record_item_cost() and for the same reason: a staff account
+ * may write costs and may not read them, so anything that returns the row would
+ * come back as a 403 that looks exactly like a broken policy.
+ */
+export async function setItemCost(
+  itemId: string,
+  kind: CostKind,
+  amountCents: number | null
+): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { error } = await client.rpc("set_item_cost", {
+    p_item_id: itemId,
+    p_kind: kind,
+    // An empty box and a zero mean the same thing to the RPC — "there is no
+    // such cost" — and it deletes the row rather than storing a zero either way.
+    p_amount_cents: amountCents ?? 0,
   });
 
   if (error) return { ok: false, error: humanise(error.message) };

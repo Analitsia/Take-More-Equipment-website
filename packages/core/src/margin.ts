@@ -15,6 +15,7 @@ import type { Cents } from "./money.ts";
 
 export const COST_KINDS = [
   "auction",
+  "workshop",
   "buyers_premium",
   "transport",
   "parts",
@@ -25,6 +26,7 @@ export type CostKind = (typeof COST_KINDS)[number];
 
 export const COST_KIND_LABELS: Record<CostKind, string> = {
   auction: "Auction price",
+  workshop: "Workshop price",
   buyers_premium: "Buyer's premium",
   transport: "Transport",
   parts: "Parts",
@@ -33,11 +35,22 @@ export const COST_KIND_LABELS: Record<CostKind, string> = {
 };
 
 /**
- * The two boxes the intake form actually shows. Everything else is a line a
- * manager adds later — asking a worker holding a phone in a warehouse to split
- * a repair into parts and labour is how you lose the ninety-second target.
+ * The two boxes the intake form shows as fixed fields rather than as options in
+ * a dropdown, because every machine has both: something was paid for it, and
+ * something was spent putting it right. Everything else is a line a manager adds
+ * later — asking a worker holding a phone in a warehouse to split a repair into
+ * parts and labour is how you lose the ninety-second target.
+ *
+ * These two are written through set_item_cost(), which keeps exactly one row per
+ * kind so the box can be corrected in place instead of appending a duplicate
+ * every time it is re-blurred.
  */
-export const INTAKE_COST_KINDS: readonly CostKind[] = ["auction", "parts"];
+export const INTAKE_COST_KINDS: readonly CostKind[] = ["auction", "workshop"];
+
+/** The kinds the "add another cost" dropdown offers — everything not fixed above. */
+export const LEDGER_COST_KINDS: readonly CostKind[] = COST_KINDS.filter(
+  (kind) => !INTAKE_COST_KINDS.includes(kind)
+);
 
 export type CostLine = { kind: CostKind; amountCents: Cents };
 

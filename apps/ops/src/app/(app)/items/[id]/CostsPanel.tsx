@@ -4,20 +4,27 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   COST_KIND_LABELS,
-  COST_KINDS,
+  LEDGER_COST_KINDS,
   marginCents,
   marginPercent,
   rands,
   type CostKind,
 } from "@takemore/core";
 import { Button, Field, Panel, RandInput, Select } from "@takemore/ui";
-import { deleteCost, recordCost } from "../actions";
+import { deleteCost, recordCost, setItemCost } from "../actions";
 
 /**
- * The cost ledger and what it implies.
+ * What the machine cost us.
  *
- * Only ever rendered for managers and owners — a staff account is refused these
- * rows by RLS, and an empty ledger would read as "this machine was free".
+ * Two of these are fixed boxes rather than dropdown options, because every unit
+ * has both: something was paid for it at auction, and something was spent
+ * putting it right. They write through set_item_cost(), which keeps one row per
+ * kind — so correcting a typo corrects the number instead of appending a second
+ * auction price underneath the first.
+ *
+ * Everything else stays a ledger a manager itemises later. Asking a worker
+ * holding a phone in a warehouse to split a repair into parts and labour is how
+ * you lose the ninety-second intake.
  *
  * Margin is recomputed here as the price is typed, before anything is saved, so
  * a manager can find a price rather than guess one and check afterwards. The
@@ -26,35 +33,50 @@ import { deleteCost, recordCost } from "../actions";
 export default function CostsPanel({
   itemId,
   costs,
-  economics,
+  auctionCents,
+  workshopCents,
+  onFixedCostChange,
   listPriceCents,
 }: {
   itemId: string;
   costs: { id: string; kind: CostKind; amount_cents: number; note: string | null }[];
-  economics: { total_cost_cents: number } | null;
+  auctionCents: number | null;
+  workshopCents: number | null;
+  onFixedCostChange: (kind: "auction" | "workshop", cents: number | null) => void;
   listPriceCents: number | null;
 }) {
   const router = useRouter();
-  const [kind, setKind] = useState<CostKind>("auction");
+  const [kind, setKind] = useState<CostKind>(LEDGER_COST_KINDS[0]);
   const [amount, setAmount] = useState<number | null>(null);
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = costs.reduce((sum, c) => sum + c.amount_cents, 0);
-  // Live, from the price in the form above rather than the saved one.
+  // The fixed boxes hold their own state in the parent, so the checklist above
+  // can react to them; the ledger rows are whatever the server last sent.
+  const ledger = costs.filter((c) => c.kind !== "auction" && c.kind !== "workshop");
+  const total =
+    (auctionCents ?? 0) +
+    (workshopCents ?? 0) +
+    ledger.reduce((sum, c) => sum + c.amount_cents, 0);
+
   const margin = marginCents(listPriceCents, null, total);
   const percent = marginPercent(listPriceCents, null, total);
+
+  async function commitFixed(k: "auction" | "workshop", cents: number | null) {
+    setError(null);
+    const result = await setItemCost(itemId, k, cents);
+    if (!result.ok) setError(result.error);
+    else router.refresh();
+  }
 
   async function add() {
     if (!amount) return;
     setBusy(true);
     setError(null);
-    const result = await recordCost(itemId, kind, amount, note || undefined);
+    const result = await recordCost(itemId, kind, amount);
     setBusy(false);
     if (!result.ok) return setError(result.error);
     setAmount(null);
-    setNote("");
     router.refresh();
   }
 
@@ -64,9 +86,26 @@ export default function CostsPanel({
       subtitle="Owners and managers only. Staff can add a cost but never see one."
     >
       <div className="space-y-4">
-        {costs.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Auction price" required hint="what we paid for it">
+            <RandInput
+              valueCents={auctionCents}
+              onChangeCents={(cents) => onFixedCostChange("auction", cents)}
+              onBlur={() => commitFixed("auction", auctionCents)}
+            />
+          </Field>
+          <Field label="Workshop price" required hint="what putting it right cost">
+            <RandInput
+              valueCents={workshopCents}
+              onChangeCents={(cents) => onFixedCostChange("workshop", cents)}
+              onBlur={() => commitFixed("workshop", workshopCents)}
+            />
+          </Field>
+        </div>
+
+        {ledger.length > 0 && (
           <ul className="divide-y divide-white/5">
-            {costs.map((cost) => (
+            {ledger.map((cost) => (
               <li key={cost.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
                   <p className="text-sm font-light">{COST_KIND_LABELS[cost.kind]}</p>
@@ -121,26 +160,40 @@ export default function CostsPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Kind">
-            <Select value={kind} onChange={(e) => setKind(e.target.value as CostKind)}>
-              {COST_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {COST_KIND_LABELS[k]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Amount">
-            <RandInput valueCents={amount} onChangeCents={setAmount} />
-          </Field>
-        </div>
+        {/* Anything beyond the two fixed boxes — transport, a part bought late. */}
+        <details className="group">
+          <summary className="text-xs font-light text-muted cursor-pointer hover:text-white transition-colors list-none flex items-center gap-1.5">
+            <iconify-icon
+              icon="solar:alt-arrow-right-linear"
+              width="12"
+              height="12"
+              noobserver=""
+              className="group-open:rotate-90 transition-transform"
+            />
+            Add another cost
+          </summary>
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Kind">
+                <Select value={kind} onChange={(e) => setKind(e.target.value as CostKind)}>
+                  {LEDGER_COST_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {COST_KIND_LABELS[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Amount">
+                <RandInput valueCents={amount} onChangeCents={setAmount} />
+              </Field>
+            </div>
+            <Button variant="secondary" onClick={add} loading={busy} disabled={!amount}>
+              Add cost
+            </Button>
+          </div>
+        </details>
 
         {error && <p className="text-xs text-status-sold">{error}</p>}
-
-        <Button variant="secondary" onClick={add} loading={busy} disabled={!amount}>
-          Add cost
-        </Button>
       </div>
     </Panel>
   );

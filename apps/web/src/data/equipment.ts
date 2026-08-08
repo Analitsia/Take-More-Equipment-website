@@ -27,6 +27,8 @@ export type Equipment = {
   title: string;
   brand: string;
   category: Category;
+  /** The second level of the tree, where one has been chosen. Optional by design. */
+  subcategory?: string;
   /** What we're asking, in rands. */
   price: number;
   /** Comparable new price, for the saving anchor. Omit if we can't back it up. */
@@ -129,4 +131,13 @@ export type PriceBandId = (typeof PRICE_BANDS)[number]["id"];
  */
 export const rands = (amount: number) => `R${amount.toLocaleString("en-ZA")}`;
 
-export const mm = (value: number) => `${value.toLocaleString("en-ZA")} mm`;
+/**
+ * Millimetres in, centimetres out.
+ *
+ * The column is millimetres — integer, and fine enough to take the half a
+ * centimetre a tape measure actually reads — but nobody shopping for a fridge
+ * thinks in millimetres, so the page speaks centimetres. The same split as the
+ * prices above, which are cents in the database and rands on the screen.
+ */
+export const cm = (millimetres: number) =>
+  `${(millimetres / 10).toLocaleString("en-ZA", { maximumFractionDigits: 1 })} cm`;

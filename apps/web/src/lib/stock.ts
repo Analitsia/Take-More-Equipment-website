@@ -59,6 +59,7 @@ type PublicItemRow = {
   title: string;
   brand: string | null;
   category_name: string | null;
+  subcategory_name: string | null;
   condition_grade: Grade | null;
   description: string | null;
   workshop_notes: string[] | null;
@@ -89,6 +90,9 @@ function toEquipment(row: PublicItemRow, images: string[]): Equipment {
     title: row.title,
     brand: row.brand ?? "",
     category: row.category_name ?? "Uncategorised",
+    // Left undefined rather than defaulted: the detail page skips the row
+    // entirely when there is no subcategory, and "—" would be noise.
+    subcategory: row.subcategory_name ?? undefined,
     // A sold unit shows what it actually went for; everything else shows the ask.
     price: Math.round(((sold ? row.sale_price_cents : null) ?? row.list_price_cents ?? 0) / 100),
     retailPrice: row.retail_price_cents ? Math.round(row.retail_price_cents / 100) : undefined,

@@ -82,6 +82,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
 export function RandInput({
   valueCents,
   onChangeCents,
+  className = "",
   ...props
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> & {
   valueCents: number | null;
@@ -103,11 +104,25 @@ export function RandInput({
           const rands = Number.parseFloat(raw);
           onChangeCents(Number.isFinite(rands) ? Math.round(rands * 100) : null);
         }}
-        className={`${CONTROL} pl-7`}
+        className={`${CONTROL} pl-7 ${className}`}
       />
     </div>
   );
 }
+
+/**
+ * The one figure on this form that a buyer will read.
+ *
+ * A hairline of accent and a soft bloom underneath it — enough that the eye
+ * lands here first among eight identical boxes, not so much that it reads as an
+ * error state or as the focus ring it sits next to. `focus:` still wins, so
+ * nothing is lost when the field is actually being typed into.
+ */
+// Written as literal rgba rather than an opacity utility because Tailwind scans
+// source text for whole class names — and #D4D414 is the accent from the shared
+// preset, spelled out here only because a box-shadow colour cannot reference it.
+export const PUBLIC_FIELD_HALO =
+  "border-accent/50 shadow-[0_0_0_3px_rgba(212,212,20,0.07),0_0_18px_-6px_rgba(212,212,20,0.45)]";
 
 /** Multi-select chips. Used for tags, where a dropdown would cost more taps. */
 export function ChipGroup<T extends string>({

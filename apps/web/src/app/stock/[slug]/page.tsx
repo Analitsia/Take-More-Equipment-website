@@ -7,7 +7,7 @@ import Subheading from "@/components/Subheading";
 import EquipmentCard from "@/components/EquipmentCard";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
-import { WARRANTY_MONTHS, deliveryFor, mm, rands, relatedTo } from "@/data/equipment";
+import { WARRANTY_MONTHS, cm, deliveryFor, rands, relatedTo } from "@/data/equipment";
 import { getBySlug, getGallery, getStock } from "@/lib/stock";
 import { site, whatsappLink } from "@/data/site";
 
@@ -67,11 +67,15 @@ export default async function ProductPage({
   const specs: [string, string][] = [
     ["Brand", item.brand],
     ["Category", item.category],
+    // Only rendered once a subcategory has been chosen — most stock is filed at
+    // category level, and an empty row reads as missing data rather than as a
+    // field nobody needed.
+    ...(item.subcategory ? ([["Type", item.subcategory]] as [string, string][]) : []),
     ["Capacity", item.capacity],
     ["Power", item.power],
-    ["Width", mm(width)],
-    ["Depth", mm(depth)],
-    ["Height", mm(height)],
+    ["Width", cm(width)],
+    ["Depth", cm(depth)],
+    ["Height", cm(height)],
     ["Weight", `${item.weightKg} kg`],
     ["Condition", `Grade ${item.grade}`],
   ];

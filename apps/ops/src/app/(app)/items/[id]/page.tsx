@@ -6,6 +6,7 @@ import {
   getCosts,
   getEconomics,
   getItem,
+  getSubcategories,
   getTags,
 } from "@/lib/queries";
 import { requireStaff } from "@/lib/supabase";
@@ -30,8 +31,9 @@ export default async function ItemPage({
   // Costs and margin are not merely hidden from staff in the UI — the queries
   // return nothing for them by policy. Skipping the fetch entirely keeps the
   // intent obvious at the call site.
-  const [categories, tags, costs, economics, activity] = await Promise.all([
+  const [categories, subcategories, tags, costs, economics, activity] = await Promise.all([
     getCategories(),
+    getSubcategories(),
     getTags(),
     showCosts ? getCosts(id) : Promise.resolve([]),
     showCosts ? getEconomics(id) : Promise.resolve(null),
@@ -51,6 +53,7 @@ export default async function ItemPage({
       <ItemEditor
         item={item}
         categories={categories}
+        subcategories={subcategories}
         tags={tags}
         costs={costs}
         economics={economics}

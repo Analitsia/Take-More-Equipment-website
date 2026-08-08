@@ -13,7 +13,17 @@ import {
   type AppRole,
   type ItemStatus,
 } from "@takemore/core";
-import { Button, Field, Input, Panel, RandInput, Select, Textarea, ChipGroup } from "@takemore/ui";
+import {
+  Button,
+  Field,
+  Input,
+  Panel,
+  RandInput,
+  Select,
+  Textarea,
+  ChipGroup,
+  PUBLIC_FIELD_HALO,
+} from "@takemore/ui";
 import { StatusPill, PublishPill } from "@takemore/ui";
 import { setPublished, setStatus, setTags, updateItem, type ItemPatch } from "../actions";
 import MediaManager from "./MediaManager";
@@ -36,6 +46,7 @@ type Item = Record<string, any>;
 export default function ItemEditor({
   item,
   categories,
+  subcategories,
   tags,
   costs,
   economics,
@@ -44,6 +55,7 @@ export default function ItemEditor({
 }: {
   item: Item;
   categories: { id: string; name: string; slug: string }[];
+  subcategories: { id: string; name: string; slug: string; category_id: string }[];
   tags: { id: string; name: string; slug: string }[];
   costs: any[];
   economics: any;
@@ -53,21 +65,35 @@ export default function ItemEditor({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
+  // Dimensions are stored in millimetres and typed in centimetres — the same
+  // arrangement money has here, where the database holds cents and every screen
+  // shows rands. A tape measure in a warehouse reads centimetres; millimetres
+  // keep the column an integer and let the form take a half-centimetre.
+  const toCm = (mm: number | null | undefined) =>
+    mm === null || mm === undefined ? "" : String(mm / 10);
+  const toMm = (cm: string) => (cm === "" ? null : Math.round(Number(cm) * 10));
+
   const [form, setForm] = useState({
     title: item.title ?? "",
     brand: item.brand ?? "",
     model: item.model ?? "",
     category_id: item.category_id ?? "",
+    subcategory_id: item.subcategory_id ?? "",
     condition_grade: item.condition_grade ?? "",
     description: item.description ?? "",
     capacity: item.capacity ?? "",
     power: item.power ?? "",
-    width_mm: item.width_mm ?? "",
-    depth_mm: item.depth_mm ?? "",
-    height_mm: item.height_mm ?? "",
+    width_cm: toCm(item.width_mm),
+    depth_cm: toCm(item.depth_mm),
+    height_cm: toCm(item.height_mm),
     weight_kg: item.weight_kg ?? "",
     location_code: item.location_code ?? "",
   });
+
+  /** Only the subcategories belonging to the category currently chosen. */
+  const subcategoryOptions = subcategories.filter(
+    (s) => s.category_id === form.category_id
+  );
 
   const [listPrice, setListPrice] = useState<number | null>(item.list_price_cents ?? null);
   const [retailPrice, setRetailPrice] = useState<number | null>(item.retail_price_cents ?? null);
@@ -115,27 +141,53 @@ export default function ItemEditor({
 
   const toNumber = (v: string) => (v === "" ? null : Number(v));
 
-  const checklist = useMemo(
-    () =>
-      publishChecklist({
-        title: form.title,
-        description: form.description,
-        categoryId: form.category_id || null,
-        grade: form.condition_grade || null,
-        listPriceCents: listPrice,
-        photoCount: mediaCount,
-      }),
-    [form, listPrice, mediaCount]
+  /**
+   * Centimetres in the box, millimetres in the column.
+   *
+   * Needs its own committer rather than commit()'s transform hook because the
+   * two sides are in different units: the comparison that decides whether
+   * anything actually changed has to happen after the conversion, or every blur
+   * writes.
+   */
+  const commitCm = (key: "width_cm" | "depth_cm" | "height_cm") => {
+    const column = key.replace("_cm", "_mm") as "width_mm" | "depth_mm" | "height_mm";
+    return {
+      value: form[key],
+      onChange: (e: any) => setForm((f) => ({ ...f, [key]: e.target.value })),
+      onBlur: () => {
+        const mm = toMm(form[key]);
+        if (mm === (item[column] ?? null)) return;
+        save({ [column]: mm } as ItemPatch);
+      },
+    };
+  };
+
+  // The two fixed cost boxes. Held here rather than in CostsPanel so the publish
+  // checklist below can react to them as they are typed.
+  const costOf = (kind: string) =>
+    costs.find((c: any) => c.kind === kind)?.amount_cents ?? null;
+  const [auctionCents, setAuctionCents] = useState<number | null>(costOf("auction"));
+  const [workshopCents, setWorkshopCents] = useState<number | null>(costOf("workshop"));
+
+  // Null for a staff account, which is refused the cost rows by RLS — the
+  // checklist omits what it cannot see rather than drawing it permanently unmet.
+  const visibleCosts = canSeeCosts(role) ? { auctionCents, workshopCents } : null;
+
+  const candidate = useMemo(
+    () => ({
+      title: form.title,
+      description: form.description,
+      categoryId: form.category_id || null,
+      grade: form.condition_grade || null,
+      listPriceCents: listPrice,
+      photoCount: mediaCount,
+      costs: visibleCosts,
+    }),
+    [form, listPrice, mediaCount, visibleCosts]
   );
 
-  const ready = canPublish({
-    title: form.title,
-    description: form.description,
-    categoryId: form.category_id || null,
-    grade: form.condition_grade || null,
-    listPriceCents: listPrice,
-    photoCount: mediaCount,
-  });
+  const checklist = useMemo(() => publishChecklist(candidate), [candidate]);
+  const ready = canPublish(candidate);
 
   const moves = nextStatuses(item.status as ItemStatus, role);
 
@@ -219,8 +271,13 @@ export default function ItemEditor({
               <Select
                 value={form.category_id}
                 onChange={(e) => {
-                  setForm((f) => ({ ...f, category_id: e.target.value }));
-                  save({ category_id: e.target.value || null });
+                  const category_id = e.target.value;
+                  setForm((f) => ({ ...f, category_id, subcategory_id: "" }));
+                  // Both columns in one patch. Clearing the subcategory is not
+                  // tidiness — the composite foreign key refuses a subcategory
+                  // belonging to the category we just moved away from, so this
+                  // is what makes the write legal at all.
+                  save({ category_id: category_id || null, subcategory_id: null });
                 }}
               >
                 <option value="">Choose…</option>
@@ -232,23 +289,44 @@ export default function ItemEditor({
               </Select>
             </Field>
 
-            <Field label="Condition grade" required>
+            <Field
+              label="Subcategory"
+              hint={form.category_id ? undefined : "pick a category first"}
+            >
               <Select
-                value={form.condition_grade}
+                value={form.subcategory_id}
+                disabled={!form.category_id}
                 onChange={(e) => {
-                  setForm((f) => ({ ...f, condition_grade: e.target.value }));
-                  save({ condition_grade: (e.target.value || null) as any });
+                  setForm((f) => ({ ...f, subcategory_id: e.target.value }));
+                  save({ subcategory_id: e.target.value || null });
                 }}
               >
                 <option value="">Choose…</option>
-                {CONDITION_GRADES.map((g) => (
-                  <option key={g} value={g}>
-                    Grade {g}
+                {subcategoryOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
               </Select>
             </Field>
           </div>
+
+          <Field label="Condition grade" required>
+            <Select
+              value={form.condition_grade}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, condition_grade: e.target.value }));
+                save({ condition_grade: (e.target.value || null) as any });
+              }}
+            >
+              <option value="">Choose…</option>
+              {CONDITION_GRADES.map((g) => (
+                <option key={g} value={g}>
+                  Grade {g}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
           {/* The grading standard, inline. Two workers on two days should grade
               the same fryer the same way. */}
@@ -286,6 +364,81 @@ export default function ItemEditor({
         </div>
       </Panel>
 
+      <Panel title="Specification" subtitle="Capacity and power show on every card.">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Capacity">
+              <Input {...commit("capacity")} placeholder="6 × GN 1/1" />
+            </Field>
+            <Field label="Power">
+              <Input {...commit("power")} placeholder="10.2 kW" />
+            </Field>
+          </div>
+
+          <Field label="Dimensions" hint="width × depth × height, centimetres">
+            <div className="grid grid-cols-3 gap-2">
+              <Input {...commitCm("width_cm")} inputMode="decimal" placeholder="W" />
+              <Input {...commitCm("depth_cm")} inputMode="decimal" placeholder="D" />
+              <Input {...commitCm("height_cm")} inputMode="decimal" placeholder="H" />
+            </div>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Weight" hint="kg — decides delivery">
+              <Input {...commit("weight_kg", toNumber)} inputMode="decimal" placeholder="118" />
+            </Field>
+            <Field label="Shelf" hint="where to find it">
+              <Input {...commit("location_code")} placeholder="A-14" />
+            </Field>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel title="Price">
+        <div className="grid grid-cols-2 gap-3">
+          {/* The only figure on this form a buyer will ever read, so it carries a
+              faint accent halo — enough that the eye finds it among eight
+              identical boxes, not so much that it reads as an error. */}
+          <Field label="Asking price" required hint="shows on the website">
+            <RandInput
+              className={PUBLIC_FIELD_HALO}
+              valueCents={listPrice}
+              onChangeCents={setListPrice}
+              onBlur={() => {
+                if (listPrice !== (item.list_price_cents ?? null))
+                  save({ list_price_cents: listPrice });
+              }}
+            />
+          </Field>
+          <Field label="New price" hint="powers the saving badge">
+            <RandInput
+              valueCents={retailPrice}
+              onChangeCents={setRetailPrice}
+              onBlur={() => {
+                if (retailPrice !== (item.retail_price_cents ?? null))
+                  save({ retail_price_cents: retailPrice });
+              }}
+            />
+          </Field>
+        </div>
+      </Panel>
+
+      {/* Costs and margin exist only for managers and owners. A staff account
+          gets no panel at all rather than an empty one, which would read as
+          "this machine cost nothing". */}
+      {canSeeCosts(role) && (
+        <CostsPanel
+          itemId={item.id}
+          costs={costs}
+          auctionCents={auctionCents}
+          workshopCents={workshopCents}
+          onFixedCostChange={(kind, cents) =>
+            (kind === "auction" ? setAuctionCents : setWorkshopCents)(cents)
+          }
+          listPriceCents={listPrice}
+        />
+      )}
+
       <Panel
         title="Workshop report"
         subtitle="What was actually replaced. This is the proof behind the grade, and it renders on the public page."
@@ -322,73 +475,6 @@ export default function ItemEditor({
           </Button>
         </div>
       </Panel>
-
-      <Panel title="Specification" subtitle="Capacity and power show on every card.">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Capacity">
-              <Input {...commit("capacity")} placeholder="6 × GN 1/1" />
-            </Field>
-            <Field label="Power">
-              <Input {...commit("power")} placeholder="10.2 kW" />
-            </Field>
-          </div>
-
-          <Field label="Dimensions" hint="width × depth × height, millimetres">
-            <div className="grid grid-cols-3 gap-2">
-              <Input {...commit("width_mm", toNumber)} inputMode="numeric" placeholder="W" />
-              <Input {...commit("depth_mm", toNumber)} inputMode="numeric" placeholder="D" />
-              <Input {...commit("height_mm", toNumber)} inputMode="numeric" placeholder="H" />
-            </div>
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Weight" hint="kg — decides delivery">
-              <Input {...commit("weight_kg", toNumber)} inputMode="decimal" placeholder="118" />
-            </Field>
-            <Field label="Shelf" hint="where to find it">
-              <Input {...commit("location_code")} placeholder="A-14" />
-            </Field>
-          </div>
-        </div>
-      </Panel>
-
-      <Panel title="Price">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Asking price" required>
-            <RandInput
-              valueCents={listPrice}
-              onChangeCents={setListPrice}
-              onBlur={() => {
-                if (listPrice !== (item.list_price_cents ?? null))
-                  save({ list_price_cents: listPrice });
-              }}
-            />
-          </Field>
-          <Field label="New price" hint="powers the saving badge">
-            <RandInput
-              valueCents={retailPrice}
-              onChangeCents={setRetailPrice}
-              onBlur={() => {
-                if (retailPrice !== (item.retail_price_cents ?? null))
-                  save({ retail_price_cents: retailPrice });
-              }}
-            />
-          </Field>
-        </div>
-      </Panel>
-
-      {/* Costs and margin exist only for managers and owners. A staff account
-          gets no panel at all rather than an empty one, which would read as
-          "this machine cost nothing". */}
-      {canSeeCosts(role) && (
-        <CostsPanel
-          itemId={item.id}
-          costs={costs}
-          economics={economics}
-          listPriceCents={listPrice}
-        />
-      )}
 
       <Panel title="Where it is" subtitle="Moving an item follows the workshop flow — one step at a time.">
         <div className="flex flex-wrap gap-2">
