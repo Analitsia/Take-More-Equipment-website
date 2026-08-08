@@ -6,11 +6,9 @@ import {
   CONDITION_GRADES,
   GRADE_GUIDANCE,
   canSeeCosts,
-  canPublish,
   publishChecklist,
-  isForward,
-  nextStatuses,
-  STATUS_LABELS,
+  isLiveStage,
+  STAGES,
   rands,
   type AppRole,
   type ItemStatus,
@@ -27,7 +25,7 @@ import {
   PUBLIC_FIELD_HALO,
 } from "@takemore/ui";
 import { StatusPill, PublishPill } from "@takemore/ui";
-import { setPublished, setStatus, setTags, updateItem, type ItemPatch } from "../actions";
+import { setStage, setTags, updateItem, type ItemPatch } from "../actions";
 import MediaManager from "./MediaManager";
 import CostsPanel from "./CostsPanel";
 
@@ -184,32 +182,25 @@ export default function ItemEditor({
     [form, listPrice, mediaCount]
   );
 
+  // Drawn only as an explanation of why a live-stage machine is not live yet.
+  // Nothing gates on it in the UI any more — the stage button attempts the
+  // publish and the database's own gate decides.
   const checklist = useMemo(() => publishChecklist(candidate), [candidate]);
-  const ready = canPublish(candidate);
 
-  // Split so the panel can show going forward and stepping back as different
-  // things. Both are always offered — every move in the flow has an inverse at
-  // the same role, so nothing here can strand a machine.
-  const moves = nextStatuses(item.status as ItemStatus, role);
-  const forward = moves.filter((m) => isForward(item.status as ItemStatus, m.to));
-  const back = moves.filter((m) => !isForward(item.status as ItemStatus, m.to));
+  // Whether this stage wants the machine on the site at all — which is what
+  // decides between "not live yet, here is what is missing" and "off the site,
+  // and that is correct".
+  const liveStage = isLiveStage(item.status as ItemStatus);
 
   async function onStatus(next: ItemStatus) {
     setError(null);
     setNotice(null);
-    const result = await setStatus(item.id, next);
+    const result = await setStage(item.id, next);
     if (!result.ok) return setError(result.error);
-    // Un-selling puts the machine back on the site, which is a thing that
-    // happened to it without anyone asking — so it is said out loud.
+    // The stage change also puts the machine on or off the website, which is a
+    // thing that happened without anyone asking — so it is said out loud.
     if (result.notice) setNotice(result.notice);
     startTransition(() => router.refresh());
-  }
-
-  async function onPublish(next: boolean) {
-    setError(null);
-    const result = await setPublished(item.id, next);
-    if (!result.ok) setError(result.error);
-    else startTransition(() => router.refresh());
   }
 
   return (
@@ -489,67 +480,68 @@ export default function ItemEditor({
         </div>
       </Panel>
 
+      {/* All four stages, always on screen, current one lit. Nothing is hidden
+          behind "what can I do from here" — the answer is always "any of them",
+          so the buttons are a picker rather than a list of moves. Tapping the
+          stage it is already on is allowed on purpose: that is what retries
+          publishing once a missing photo or price has been added. */}
       <Panel
-        title="Where it is in the process"
-        subtitle={`Currently ${STATUS_LABELS[item.status as ItemStatus]}. One step at a time — and every step can be taken back.`}
+        title="Stage"
+        subtitle="Tap any one. The stage decides whether it is on the website."
       >
-        <div className="space-y-3">
-          {moves.length === 0 ? (
-            <p className="text-sm font-light text-muted">
-              Nothing to do from here with your permissions.
-            </p>
-          ) : (
-            <>
-              {forward.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {forward.map((move) => (
-                    <Button key={move.to} variant="secondary" onClick={() => onStatus(move.to)}>
-                      {move.label}
-                      <iconify-icon
-                        icon="solar:arrow-right-linear"
-                        width="14"
-                        height="14"
-                        noobserver=""
-                      />
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {/* Deliberately quieter than the forward moves and deliberately
-                  always present: the point is that a wrong tap is never a
-                  problem, not that stepping back is an exception. */}
-              {back.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-[11px] font-light text-muted">Or step back:</span>
-                  {back.map((move) => (
-                    <Button key={move.to} variant="ghost" onClick={() => onStatus(move.to)}>
-                      <iconify-icon
-                        icon="solar:arrow-left-linear"
-                        width="14"
-                        height="14"
-                        noobserver=""
-                      />
-                      {move.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          {STAGES.map((stage) => {
+            const current = item.status === stage.status;
+            return (
+              <button
+                key={stage.status}
+                onClick={() => onStatus(stage.status)}
+                aria-pressed={current}
+                className={`text-left rounded-xl border px-3.5 py-3 transition-colors ${
+                  current
+                    ? "border-accent/70 bg-accent/10"
+                    : "border-border hover:border-white/25"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      stage.live ? "bg-accent" : "bg-muted"
+                    }`}
+                  />
+                  <span
+                    className={`text-sm font-medium tracking-tight ${
+                      current ? "text-accent" : "text-white/90"
+                    }`}
+                  >
+                    {stage.label}
+                  </span>
+                </span>
+                <span className="block text-[11px] font-light text-muted mt-1 leading-snug">
+                  {stage.hint}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </Panel>
 
+      {/* No publish button here on purpose. The stage above is the one control,
+          and a second switch that could disagree with it is exactly how sold
+          machines used to end up still listed. This panel reports what happened
+          and, when something is live-stage but not live, says what is missing. */}
       <Panel
         title="The website"
         subtitle={
           item.published_at
-            ? "Live. It stays live when it sells — a SOLD badge appears until you take it down, and you can put it back any time."
-            : "Off the site. Everything below is ticked off, it goes straight back up."
+            ? "Live now. Move it to Reserved or Sold to take it down."
+            : liveStage
+              ? "Not live yet — it needs the rest of this list, then tap its stage again."
+              : "Off the site, because of the stage it is in."
         }
       >
         <div className="space-y-4">
-          {!item.published_at && (
+          {!item.published_at && liveStage && (
             <ul className="space-y-1.5">
               {checklist.map((req) => (
                 <li key={req.id} className="flex items-center gap-2 text-sm font-light">
@@ -571,25 +563,16 @@ export default function ItemEditor({
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            {item.published_at ? (
-              <>
-                <Button variant="secondary" onClick={() => onPublish(false)}>
-                  Take off the site
-                </Button>
-                <a
-                  href={`${process.env.NEXT_PUBLIC_STOREFRONT_URL ?? ""}/stock/${item.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-light text-muted hover:text-accent transition-colors"
-                >
-                  View on site
-                  <iconify-icon icon="solar:arrow-right-up-linear" width="14" height="14" noobserver="" />
-                </a>
-              </>
-            ) : (
-              <Button onClick={() => onPublish(true)} disabled={!ready}>
-                Publish to the website
-              </Button>
+            {item.published_at && (
+              <a
+                href={`${process.env.NEXT_PUBLIC_STOREFRONT_URL ?? ""}/stock/${item.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-light text-muted hover:text-accent transition-colors"
+              >
+                View on site
+                <iconify-icon icon="solar:arrow-right-up-linear" width="14" height="14" noobserver="" />
+              </a>
             )}
 
             <label className="flex items-center gap-2 ml-auto text-sm font-light text-white/80 cursor-pointer">

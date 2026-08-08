@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabase, requireStaff } from "@/lib/supabase";
 import { revalidateStorefront } from "@/lib/storefront";
-import type { CostKind, ItemStatus } from "@takemore/core";
+import { STAGES, type CostKind, type ItemStatus } from "@takemore/core";
 
 /**
  * Every mutation the ops app makes.
@@ -89,47 +89,62 @@ export async function updateItem(id: string, patch: ItemPatch): Promise<ActionRe
 }
 
 /**
- * Move an item along the workshop flow.
+ * Set the stage — which also decides whether the machine is on the website.
  *
- * Un-selling does one thing more than the status change: it puts the machine
- * back on the website. Reversing a sale means it is for sale again, and leaving
- * it invisible would be an undo that only half worked.
+ * One control instead of two. Publication used to be a separate switch a human
+ * had to remember to flip, so sold units sat on the site and repaired ones sat
+ * off it; the stage now carries that decision with it.
  *
- * That re-publish is a SEPARATE write, deliberately. The publish gate lives in
+ * The publish write is SEPARATE from the status write, deliberately, and the
+ * order is load-bearing. The publish gate lives in
  * items_enforce_publish_requirements, which Postgres fires BEFORE
  * items_enforce_status_transition — so a published_at set from inside the status
- * trigger would sail straight past the check meant to validate it. Writing it
- * here means the gate runs properly, and means a machine too incomplete to
- * publish still gets un-sold: the status change has already committed, and the
- * caller is told what stopped the rest rather than losing the whole action.
+ * trigger would sail straight past the check meant to validate it, and a machine
+ * with no photo could reach the website by way of a stage button.
+ *
+ * Doing it as its own write means the gate runs properly, and means an item too
+ * incomplete to publish still CHANGES STAGE: the status has already committed,
+ * and the caller is told what stopped the rest rather than losing the whole
+ * action. Re-tapping the stage it is already on retries the publish, which is
+ * the path back once the missing photo or price has been added.
  */
-export async function setStatus(id: string, status: ItemStatus): Promise<ActionResult> {
+export async function setStage(id: string, status: ItemStatus): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();
 
-  const { data: before } = await client
-    .from("items")
-    .select("status, published_at")
-    .eq("id", id)
-    .maybeSingle();
+  const stage = STAGES.find((s) => s.status === status);
+  if (!stage) return { ok: false, error: "That is not a stage an item can be in." };
 
   const { error } = await client.from("items").update({ status }).eq("id", id);
   if (error) return { ok: false, error: humanise(error.message) };
 
-  const unsold =
-    status === "listed" &&
-    (before?.status === "sold" || before?.status === "handed_over");
+  const { data: after } = await client
+    .from("items")
+    .select("published_at")
+    .eq("id", id)
+    .maybeSingle();
+  const isLive = !!after?.published_at;
 
   let notice: string | undefined;
-  if (unsold && !before?.published_at) {
+
+  if (stage.live && !isLive) {
     const { error: publishError } = await client
       .from("items")
       .update({ published_at: new Date().toISOString() })
       .eq("id", id);
 
     notice = publishError
-      ? `Sale reversed, but it could not go back on the site: ${humanise(publishError.message).toLowerCase()}`
-      : "Sale reversed — back on the website.";
+      ? `Moved to ${stage.label}, but it is not on the website yet — ${humanise(publishError.message).toLowerCase()}`
+      : `${stage.label} — now on the website.`;
+  } else if (!stage.live && isLive) {
+    const { error: hideError } = await client
+      .from("items")
+      .update({ published_at: null })
+      .eq("id", id);
+
+    notice = hideError
+      ? `Moved to ${stage.label}, but it could not be taken off the website: ${humanise(hideError.message)}`
+      : `${stage.label} — taken off the website.`;
   }
 
   revalidatePath(`/items/${id}`);

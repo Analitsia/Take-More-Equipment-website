@@ -129,12 +129,12 @@ async function setup() {
     is_placeholder: true,
     position: 0,
   });
-  // One hop at a time: the trigger enforces intake → ready → listed, and there
-  // is deliberately no shortcut. Doing this the long way here is also a live
-  // check that the legal path works, not just that the illegal one is blocked.
-  for (const status of ["ready", "listed"]) {
-    const { error } = await admin.from("items").update({ status }).eq("id", publishedId);
-    if (error) throw new Error(`transition to ${status}: ${error.message}`);
+  // A draft starts at 'refurbishing' and any stage is one hop from any other, so
+  // this is a single move — and a live check that the legal path works, not only
+  // that the illegal one below is blocked.
+  {
+    const { error } = await admin.from("items").update({ status: "listed" }).eq("id", publishedId);
+    if (error) throw new Error(`transition to listed: ${error.message}`);
   }
 
   const { error: publishError } = await admin
@@ -232,13 +232,18 @@ async function run() {
     : ok("owner can change a role");
 
   console.log("\nDOMAIN RULES");
+  // The four live stages all reach each other, so the illegal move to prove is
+  // one into a RETIRED status. `intake` is still in the Postgres enum — a value
+  // cannot be dropped without rebuilding the type — and the only thing keeping
+  // it unreachable is its absence from item_status_transitions. This asserts
+  // that absence is actually load-bearing.
   const { error: illegal } = await admin
     .from("items")
-    .update({ status: "sold" })
-    .eq("id", draftId); // draft is at 'intake'
+    .update({ status: "intake" })
+    .eq("id", draftId); // draft is at 'refurbishing'
   illegal
-    ? ok(`illegal status transition intake → sold is refused  (${illegal.code || "error"})`)
-    : fail("illegal status transition intake → sold is refused", "the update succeeded");
+    ? ok(`retired status is unreachable: refurbishing → intake refused  (${illegal.code || "error"})`)
+    : fail("retired status is unreachable: refurbishing → intake refused", "the update succeeded");
 
   const { data: cat2 } = await admin.from("categories").select("id").eq("slug", "bakery").single();
   const { data: noPhoto } = await admin

@@ -4,25 +4,25 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  STAGES,
   STATUS_LABELS,
   STATUS_ORDER,
-  nextStatuses,
   rands,
   type AppRole,
   type ItemStatus,
 } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
-import { setStatus } from "../items/actions";
+import { setStage } from "../items/actions";
 import { mediaUrl } from "@/lib/media";
 import type { ItemRow } from "@/lib/queries";
 
 /**
- * The workshop board.
+ * The stock board.
  *
  * Moves are buttons rather than drag-and-drop, deliberately. Dragging a card
- * across seven columns on a phone with one hand and a glove on is worse than
- * tapping, and the legal moves are a short list anyway — the same list the
- * database will enforce, read from packages/core so the two cannot disagree.
+ * across columns on a phone with one hand and a glove on is worse than tapping,
+ * and there are only ever three places a card can go — every stage reaches every
+ * other stage directly, so the buttons are the other three stages, always.
  */
 export default function Board({ items, role }: { items: ItemRow[]; role: AppRole }) {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function Board({ items, role }: { items: ItemRow[]; role: AppRole
   async function move(id: string, to: ItemStatus) {
     setMoving(id);
     setError(null);
-    const result = await setStatus(id, to);
+    const result = await setStage(id, to);
     setMoving(null);
     if (!result.ok) setError(result.error);
     else router.refresh();
@@ -72,7 +72,10 @@ export default function Board({ items, role }: { items: ItemRow[]; role: AppRole
                 ) : (
                   column.map((item) => {
                     const image = item.media?.length ? mediaUrl(item.media[0], "card") : null;
-                    const moves = nextStatuses(item.status, role);
+                    // The other three stages. Not filtered by role — every move
+                    // costs `staff`, so anyone looking at this board can make
+                    // any of them, and anyone who can make one can undo it.
+                    const moves = STAGES.filter((s) => s.status !== item.status);
 
                     return (
                       <article
@@ -110,10 +113,10 @@ export default function Board({ items, role }: { items: ItemRow[]; role: AppRole
 
                         {moves.length > 0 && (
                           <div className="flex flex-wrap gap-1 px-2.5 pb-2.5">
-                            {moves.slice(0, 2).map((m) => (
+                            {moves.map((m) => (
                               <button
-                                key={m.to}
-                                onClick={() => move(item.id, m.to)}
+                                key={m.status}
+                                onClick={() => move(item.id, m.status)}
                                 disabled={moving === item.id}
                                 className="text-[10px] font-light px-2 py-1 rounded-lg border border-border
                                            text-white/70 hover:border-white/25 hover:text-white

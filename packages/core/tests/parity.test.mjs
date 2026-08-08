@@ -18,6 +18,7 @@ import {
   APP_ROLES,
   ITEM_STATUSES,
   SKU_PATTERN,
+  STAGES,
   TRANSITIONS,
   slugify,
 } from "@takemore/core";
@@ -70,37 +71,55 @@ if (onlyDb.length === 0 && onlyTs.length === 0 && fromDb.length === fromTs.lengt
   );
 }
 
-// --- reversibility ----------------------------------------------------------
-// Nothing in the lifecycle may be a one-way door. For every move A -> B there
-// has to be a B -> A costing the same role, so anyone who can create a state can
-// always put it back — a worker exploring the buttons must never strand a
-// machine somewhere only their boss can retrieve it from.
+// --- reachability -----------------------------------------------------------
+// Every stage must reach every other stage DIRECTLY, at one role. That is what
+// makes the four buttons in the ops app honest: they are always all offered, so
+// every one of them has to work from wherever the machine currently is. A gap
+// here would render as a button that silently fails.
+//
+// It also subsumes reversibility — a complete graph is symmetric by definition,
+// so no separate "is there a way back" check is needed.
 //
 // Checked against the DATABASE rows rather than the TypeScript ones: the trigger
 // is what actually decides, and the block above has already proved the two agree.
-const roleOf = new Map(
+const edge = new Map(
   dbTransitions.map((t) => [`${t.from_status}>${t.to_status}`, t.min_role])
 );
-const oneWay = [];
-const mismatched = [];
-for (const t of dbTransitions) {
-  const inverse = `${t.to_status}>${t.from_status}`;
-  if (!roleOf.has(inverse)) oneWay.push(`${t.from_status} -> ${t.to_status}`);
-  else if (roleOf.get(inverse) !== t.min_role)
-    mismatched.push(
-      `${t.from_status} -> ${t.to_status} [${t.min_role}] but back needs [${roleOf.get(inverse)}]`
-    );
+const missing = [];
+for (const from of STAGES) {
+  for (const to of STAGES) {
+    if (from.status === to.status) continue;
+    if (!edge.has(`${from.status}>${to.status}`)) missing.push(`${from.status} -> ${to.status}`);
+  }
 }
 
-if (oneWay.length === 0) ok("every transition has an inverse — no one-way doors");
-else fail("every transition has an inverse", `no way back from:\n          ${oneWay.join("\n          ")}`);
-
-if (mismatched.length === 0) ok("undoing a move costs the same role as making it");
+if (missing.length === 0)
+  ok(`all ${STAGES.length} stages reach each other in one move — no dead ends`);
 else
   fail(
-    "undoing a move costs the same role as making it",
-    `asymmetric:\n          ${mismatched.join("\n          ")}`
+    "all stages reach each other in one move",
+    `no direct move for:\n          ${missing.join("\n          ")}`
   );
+
+const roles = [...new Set(dbTransitions.map((t) => t.min_role))];
+if (roles.length === 1 && roles[0] === "staff")
+  ok("every stage change costs the same role — nobody can strand a machine");
+else
+  fail(
+    "every stage change costs the same role",
+    `expected only [staff], found [${roles.join(", ")}]`
+  );
+
+// Nothing may point at a retired status. They survive in the Postgres enum only
+// because a value cannot be dropped; their absence from this table is the sole
+// thing keeping them unreachable, so a stray row here would quietly revive one.
+const live = new Set(STAGES.map((s) => s.status));
+const revived = dbTransitions
+  .filter((t) => !live.has(t.from_status) || !live.has(t.to_status))
+  .map((t) => `${t.from_status} -> ${t.to_status}`);
+if (revived.length === 0) ok("no transition mentions a retired status");
+else
+  fail("no transition mentions a retired status", `found:\n          ${revived.join("\n          ")}`);
 
 // --- enums ------------------------------------------------------------------
 console.log("\nENUMS");

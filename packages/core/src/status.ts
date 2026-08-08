@@ -33,55 +33,83 @@ export type Transition = {
 };
 
 /**
- * THE RULE: for every transition A -> B there is a B -> A, and both cost the
- * same role. Nothing here is a one-way door.
+ * The four stages a machine can actually be in, and what each one means for the
+ * website.
  *
- * Anyone who can create a given state can always put it back, so a worker
- * exploring the buttons cannot strand a machine somewhere only their boss can
- * retrieve it from. Asymmetric roles were the real bottleneck — a staff member
- * could send a machine to the workshop but needed a manager to bring it back,
- * and in practice the record just stayed wrong.
+ * This list is the whole vocabulary now. It answers the only two questions the
+ * business asks about a unit — can somebody buy this today, and is it on the
+ * site — and it deliberately does not describe a process. The seven-state
+ * lifecycle that came before drew a lovely board and became an obstacle: a
+ * worker had to walk a machine through intermediate states nobody was acting on.
  *
- * A test asserts this symmetry, and it asserts these rows match the database.
+ * `live` is the important column. Publication used to be a separate switch that
+ * a human had to remember to flip, which meant sold machines sat on the site and
+ * repaired ones sat off it. Now the stage decides, and there is one control
+ * instead of two that could disagree.
  */
-export const TRANSITIONS: readonly Transition[] = [
-  { from: "intake", to: "refurbishing", minRole: "staff", label: "Send to workshop" },
-  { from: "refurbishing", to: "intake", minRole: "staff", label: "Back to intake" },
-
-  { from: "intake", to: "ready", minRole: "staff", label: "Already sound — skip workshop" },
-  { from: "ready", to: "intake", minRole: "staff", label: "Back to intake" },
-
-  { from: "refurbishing", to: "ready", minRole: "staff", label: "Workshop complete" },
-  { from: "ready", to: "refurbishing", minRole: "staff", label: "Back to workshop" },
-
-  { from: "ready", to: "listed", minRole: "staff", label: "List for sale" },
-  { from: "listed", to: "ready", minRole: "staff", label: "Withdraw from sale" },
-
-  { from: "listed", to: "reserved", minRole: "staff", label: "Reserve for a buyer" },
-  { from: "reserved", to: "listed", minRole: "staff", label: "Release reservation" },
-
-  // The money moves stay a manager's, on both sides. Staff cannot mark a machine
-  // sold, so they cannot create that particular mess either — which is the same
-  // guarantee as the rule above, arrived at from the other direction.
-  { from: "listed", to: "sold", minRole: "manager", label: "Mark sold" },
-  { from: "sold", to: "listed", minRole: "manager", label: "Reverse sale" },
-
-  { from: "reserved", to: "sold", minRole: "manager", label: "Confirm sale" },
-  { from: "sold", to: "reserved", minRole: "manager", label: "Back to reserved" },
-
-  { from: "sold", to: "handed_over", minRole: "staff", label: "Handed over" },
-  { from: "handed_over", to: "sold", minRole: "staff", label: "Undo handover" },
+export const STAGES = [
+  {
+    status: "listed",
+    label: "For sale",
+    live: true,
+    hint: "On the website, ready to buy",
+  },
+  {
+    status: "refurbishing",
+    label: "In the workshop",
+    live: true,
+    hint: "On the website while we work on it",
+  },
+  {
+    status: "reserved",
+    label: "Reserved",
+    live: false,
+    hint: "Held for a buyer — off the website",
+  },
+  {
+    status: "sold",
+    label: "Sold",
+    live: false,
+    hint: "Gone — off the website",
+  },
 ] as const;
 
+export type Stage = (typeof STAGES)[number];
+
 /**
- * Is this move along the lifecycle, or back up it?
+ * Retired: `intake`, `ready` and `handed_over`.
  *
- * Read straight off ITEM_STATUSES, which is declared in lifecycle order, so
- * there is no second list to keep in step. The ops app uses it to draw going
- * forward and stepping back as visibly different things.
+ * They remain in the Postgres enum because a value cannot be dropped without
+ * rebuilding the type and every column using it, and because the activity log
+ * still names them in old entries. Nothing reaches them — they appear in no
+ * transition and the column default no longer produces one — so this lookup
+ * exists only so an ancient row renders as something rather than crashing.
  */
-export const isForward = (from: ItemStatus, to: ItemStatus) =>
-  ITEM_STATUSES.indexOf(to) > ITEM_STATUSES.indexOf(from);
+export const stageFor = (status: ItemStatus): Stage | undefined =>
+  STAGES.find((s) => s.status === status);
+
+/** Whether a machine at this stage belongs on the public site. */
+export const isLiveStage = (status: ItemStatus) => stageFor(status)?.live ?? false;
+
+/**
+ * Every stage reaches every other stage directly, and every move costs `staff`.
+ *
+ * A complete graph at a single role makes reversibility structural rather than
+ * something a test has to police pair by pair: whatever you can do, you can
+ * undo, in one tap, from wherever you ended up. The labels are the destination
+ * stage's own name because the UI draws them as a set of stage buttons rather
+ * than as a list of verbs.
+ *
+ * A test asserts these rows match the database exactly.
+ */
+export const TRANSITIONS: readonly Transition[] = STAGES.flatMap((from) =>
+  STAGES.filter((to) => to.status !== from.status).map((to) => ({
+    from: from.status,
+    to: to.status,
+    minRole: "staff" as const,
+    label: to.label,
+  }))
+);
 
 export const canTransition = (from: ItemStatus, to: ItemStatus, role: AppRole) => {
   const move = TRANSITIONS.find((t) => t.from === from && t.to === to);
@@ -93,27 +121,39 @@ export const nextStatuses = (from: ItemStatus, role: AppRole) =>
   TRANSITIONS.filter((t) => t.from === from && atLeast(role, t.minRole));
 
 export const STATUS_LABELS: Record<ItemStatus, string> = {
-  intake: "Intake",
-  refurbishing: "In workshop",
-  ready: "Ready",
-  listed: "Listed",
+  refurbishing: "In the workshop",
+  listed: "For sale",
   reserved: "Reserved",
   sold: "Sold",
+  // Retired — kept so an old activity-log entry still renders a name.
+  intake: "Intake",
+  ready: "Ready",
   handed_over: "Handed over",
 };
 
 /**
- * Board order. Also the order the dashboard counts them in, so a single
- * definition keeps the two from drifting apart visually.
+ * Board order, and the order the dashboard counts in — one definition so the
+ * two cannot drift apart visually. Reads left to right the way stock moves:
+ * being worked on, for sale, spoken for, gone.
  */
-export const STATUS_ORDER: readonly ItemStatus[] = ITEM_STATUSES;
+export const STATUS_ORDER: readonly ItemStatus[] = [
+  "refurbishing",
+  "listed",
+  "reserved",
+  "sold",
+];
 
 /**
  * Whether an item in this status is still ours to sell. Drives the dashboard's
- * "stock on hand" figures — a handed-over machine is gone, a sold one is
- * physically still in the warehouse and still occupying shelf space.
+ * "stock on hand" figures.
+ *
+ * `sold` used to count as on-hand, because it meant "paid for but not yet
+ * collected" and the machine was still taking up floor space — `handed_over` was
+ * the state that meant gone. With handover retired there is nothing between the
+ * two, so `sold` now carries that meaning itself.
  */
-export const isOnHand = (status: ItemStatus) => status !== "handed_over";
+export const isOnHand = (status: ItemStatus) =>
+  status !== "sold" && status !== "handed_over";
 
 /** Statuses a buyer can still act on. `reserved` is held for someone else. */
 export const isAvailable = (status: ItemStatus) => status === "listed";
