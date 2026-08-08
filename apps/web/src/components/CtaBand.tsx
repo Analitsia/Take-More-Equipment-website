@@ -2,10 +2,15 @@
 
 import { motion } from "framer-motion";
 import Subheading from "./Subheading";
+import EnquiryForm from "./EnquiryForm";
 import { site, whatsappLink } from "@/data/site";
 
 // Closing CTA — Phase 1 sells by enquiry, so this is the primary conversion point.
-export default function CtaBand() {
+export default function CtaBand({
+  categories = [],
+}: {
+  categories?: { slug: string; name: string }[];
+}) {
   return (
     <section className="py-12 md:py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
       <motion.div
@@ -16,20 +21,19 @@ export default function CtaBand() {
       >
         <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/3 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <div className="relative flex flex-col lg:flex-row justify-between lg:items-end gap-10">
+        <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 lg:items-center">
           <div className="max-w-2xl">
             <Subheading text="Looking For Something Specific?" />
             <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-6">
               Most of our stock sells before it reaches this page.
             </h2>
-            <p className="text-muted font-light text-sm leading-relaxed max-w-lg">
+            <p className="text-muted font-light text-sm leading-relaxed max-w-lg mb-8">
               Tell us the machine and the number you have to hit. If it is not on the floor
               this week, we will find it, rebuild it, and send you photos and a price
               before it goes anywhere near this page.
             </p>
-          </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 shrink-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 shrink-0">
             <a
               href={whatsappLink(
                 "Hi Take More, I'm looking for the following equipment:"
@@ -57,7 +61,16 @@ export default function CtaBand() {
                 <iconify-icon icon="solar:phone-linear" width="20" height="20"></iconify-icon>
               </div>
             </a>
+            </div>
           </div>
+
+          {/*
+            The general capture. This band already carried the copy for it —
+            "tell us the machine and the number you have to hit" — and until now
+            the only way to answer was to start a WhatsApp conversation, which
+            is a much bigger ask than typing an email address.
+          */}
+          <EnquiryForm mode="general" categories={categories} className="bg-background" />
         </div>
       </motion.div>
     </section>

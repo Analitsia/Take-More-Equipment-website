@@ -1,5 +1,6 @@
 import Shell from "@/components/Shell";
 import { requireStaff, supabase } from "@/lib/supabase";
+import { countQueuedOutreach } from "@/lib/leads";
 import { canManageTeam } from "@takemore/core";
 
 /**
@@ -28,8 +29,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     pendingCount = count ?? 0;
   }
 
+  // Everyone sees this one — any staff member may work the queue, because a
+  // one-to-one message about a machine is part of serving a customer they are
+  // already talking to. `head: true` fetches the count without the rows.
+  const queuedCount = await countQueuedOutreach();
+
   return (
-    <Shell staff={staff} pendingCount={pendingCount}>
+    <Shell staff={staff} pendingCount={pendingCount} queuedCount={queuedCount}>
       {children}
     </Shell>
   );

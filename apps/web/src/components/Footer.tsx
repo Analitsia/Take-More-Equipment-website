@@ -24,6 +24,15 @@ export default function Footer() {
         <Link href="/blog" className="hover:text-white transition-colors">
           Journal
         </Link>
+        <Link href="/wanted" className="hover:text-white transition-colors">
+          Wanted
+        </Link>
+        {/* Reachable from every page, not only from the forms that link to it —
+            POPIA s18 is about the person being able to find out what you hold,
+            which is not satisfied by a link they only see once. */}
+        <Link href="/privacy" className="hover:text-white transition-colors">
+          Privacy
+        </Link>
         <a href={`mailto:${site.email}`} className="hover:text-white transition-colors">
           {site.email}
         </a>

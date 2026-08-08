@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { listItems } from "@/lib/queries";
+import { listLeads } from "@/lib/leads";
 import NewItemButton from "@/components/NewItemButton";
+import CounterLookup from "@/components/CounterLookup";
 import { requireStaff } from "@/lib/supabase";
-import { STATUS_LABELS, isOnHand, rands, canSeeCosts, type ItemStatus } from "@takemore/core";
+import {
+  STATUS_LABELS,
+  birthdayThisMonth,
+  isOnHand,
+  rands,
+  canSeeCosts,
+  type ItemStatus,
+} from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
 import { supabase } from "@/lib/supabase";
 
@@ -18,12 +27,14 @@ export const dynamic = "force-dynamic";
  */
 export default async function DashboardPage() {
   const staff = await requireStaff();
-  const items = await listItems();
+  const [items, leads] = await Promise.all([listItems(), listLeads()]);
 
   const byStatus = new Map<ItemStatus, number>();
   for (const item of items) {
     byStatus.set(item.status, (byStatus.get(item.status) ?? 0) + 1);
   }
+
+  const birthdays = leads.filter((l) => birthdayThisMonth(l.birthday));
 
   const live = items.filter((i) => i.published_at).length;
   const onHand = items.filter((i) => isOnHand(i.status));
@@ -61,6 +72,29 @@ export default async function DashboardPage() {
             : `${onHand.length} on hand · ${live} live on the site`}
         </p>
       </header>
+
+      {/* Above everything, because it is used with a customer standing there. */}
+      <CounterLookup leads={leads} />
+
+      {birthdays.length > 0 && (
+        <Link
+          href="/leads"
+          className="flex items-center gap-3 bg-card border border-border rounded-2xl p-4 mb-4
+                     hover:border-white/15 transition-colors"
+        >
+          <span className="w-9 h-9 rounded-xl bg-background border border-border flex items-center justify-center text-accent shrink-0">
+            <iconify-icon icon="solar:cake-linear" width="16" height="16" noobserver="" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-light text-white/85 truncate">
+              {birthdays.length === 1
+                ? `${birthdays[0].full_name ?? "Someone"} has a birthday this month`
+                : `${birthdays.length} customers have birthdays this month`}
+            </p>
+            <p className="text-[11px] font-light text-muted">A message costs nothing.</p>
+          </div>
+        </Link>
+      )}
 
       {items.length === 0 ? (
         <NewItemButton className="block w-full bg-card border border-border rounded-2xl p-10 text-center hover:border-white/15 transition-colors">

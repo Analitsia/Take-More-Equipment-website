@@ -371,11 +371,215 @@ async function run() {
   actions.has("created") && actions.has("published")
     ? ok(`activity logged by trigger  (${[...actions].join(", ")})`)
     : fail("activity logged by trigger", [...actions].join(", ") || "nothing logged");
+
+  await leads();
+}
+
+/**
+ * The lead tables.
+ *
+ * The whole point of the capture design is that `anon` has NO policy and NO
+ * grant on any of these — the storefront reaches them only through
+ * public.capture_lead(), which is SECURITY DEFINER and returns void. That claim
+ * is only worth making if something checks it, so this section is mostly
+ * refusals, each paired with a positive control proving the same query works for
+ * somebody.
+ */
+async function leads() {
+  console.log("\nLEADS — the public may not touch the tables");
+  const staff = users.staff.client;
+  const manager = users.manager.client;
+
+  // The OWNER section above promotes this fixture to manager to prove an owner
+  // can change a role, and app.staff_role() reads the table on every call — so
+  // without this the "staff cannot create a campaign" assertion below is made by
+  // a manager and passes for the wrong reason. Put back where it started.
+  await admin.from("staff_profiles").update({ role: "staff" }).eq("user_id", users.staff.id);
+
+  // Anon has no SELECT grant at all, so these are refusals rather than empty
+  // results — a grant gap and a policy gap look different, and both are wanted.
+  await refused("anon cannot read leads", anon.from("leads").select("id").limit(1));
+  await refused("anon cannot read interests", anon.from("lead_interests").select("id").limit(1));
+  await refused("anon cannot read the timeline", anon.from("lead_events").select("id").limit(1));
+  await refused("anon cannot read the outreach queue", anon.from("outreach_messages").select("id").limit(1));
+  await refused("anon cannot read campaigns", anon.from("outreach_campaigns").select("id").limit(1));
+  await refused(
+    "anon cannot insert a lead directly",
+    anon.from("leads").insert({ email: `direct-${stamp}@rls.test` })
+  );
+
+  console.log("\nLEADS — but the capture function is the way in");
+  const captureEmail = `capture-${stamp}@rls.test`;
+  {
+    const { error } = await anon.rpc("capture_lead", {
+      p_email: captureEmail,
+      p_name: "RLS Capture Person",
+      p_phone: "082 000 4321",
+      p_message: "wants a combi oven for a small bakery",
+      p_from_product: false,
+      p_email_consent: true,
+    });
+    error ? fail("anon may call capture_lead", error.message) : ok("anon may call capture_lead");
+  }
+
+  const { data: captured } = await admin
+    .from("leads")
+    .select("id, phone_e164, email_consent_at, unsubscribe_token, source")
+    .eq("email", captureEmail)
+    .maybeSingle();
+
+  captured?.phone_e164 === "+27820004321"
+    ? ok(`capture normalises the phone number  (${captured.phone_e164})`)
+    : fail("capture normalises the phone number", captured?.phone_e164 ?? "no row");
+
+  captured?.source === "website_general"
+    ? ok("the source is decided server-side, not by the caller")
+    : fail("the source is decided server-side", captured?.source ?? "no row");
+
+  // The same person again, spelled differently, must not become a second row.
+  await anon.rpc("capture_lead", {
+    p_email: captureEmail.toUpperCase(),
+    p_phone: "+27 (0)82 000 4321",
+    p_message: "and a proving oven",
+  });
+  {
+    const { data } = await admin.from("leads").select("id").eq("phone_e164", "+27820004321");
+    (data ?? []).length === 1
+      ? ok("a repeat enquiry enriches the person instead of duplicating them")
+      : fail("repeat enquiry deduplicates", `${(data ?? []).length} rows`);
+  }
+
+  console.log("\nLEADS — staff may work them, and that is the point");
+  await visible("staff read leads", staff.from("leads").select("id").eq("id", captured.id), 1);
+  await visible(
+    "staff read what somebody wants",
+    staff.from("lead_interests").select("id").eq("lead_id", captured.id)
+  );
+  {
+    const { error } = await staff
+      .from("leads")
+      .update({ notes: "Spoke Tuesday." })
+      .eq("id", captured.id);
+    error ? fail("staff may edit a lead", error.message) : ok("staff may edit a lead");
+  }
+  {
+    const { error } = await staff
+      .from("lead_events")
+      .insert({ lead_id: captured.id, kind: "call", body: "Rang about the combi." });
+    error ? fail("staff may log a call", error.message) : ok("staff may log a call");
+  }
+  // The timeline is evidence, so there is no UPDATE policy on it at all.
+  {
+    const { data: event } = await admin
+      .from("lead_events")
+      .select("id")
+      .eq("lead_id", captured.id)
+      .limit(1)
+      .single();
+    const { error } = await staff
+      .from("lead_events")
+      .update({ body: "Never happened." })
+      .eq("id", event.id);
+    error
+      ? ok(`the timeline cannot be rewritten  (${error.code || "error"})`)
+      : fail("the timeline cannot be rewritten", "the update succeeded");
+  }
+
+  console.log("\nLEADS — bulk sending is where the role split lives");
+  await refused(
+    "staff cannot create a campaign",
+    staff.from("outreach_campaigns").insert({ name: "RLS blast", subject: "RLS blast" })
+  );
+  {
+    const { error } = await manager
+      .from("outreach_campaigns")
+      .insert({ name: `RLS campaign ${stamp}`, subject: "RLS test subject" });
+    error ? fail("a manager can create a campaign", error.message) : ok("a manager can create a campaign");
+  }
+
+  console.log("\nLEADS — consent and the opt-out");
+  {
+    const { data: sent } = await anon.rpc("unsubscribe", { p_token: captured.unsubscribe_token });
+    sent === true ? ok("anon may unsubscribe with a token") : fail("anon may unsubscribe", String(sent));
+  }
+  {
+    const { data: bogus } = await anon.rpc("unsubscribe", {
+      p_token: "00000000-0000-0000-0000-000000000000",
+    });
+    bogus === false
+      ? ok("a bogus unsubscribe token reports failure rather than lying")
+      : fail("bogus token reports failure", String(bogus));
+  }
+  {
+    const { data } = await admin
+      .from("lead_events")
+      .select("kind")
+      .eq("lead_id", captured.id)
+      .eq("kind", "unsubscribed");
+    (data ?? []).length === 1
+      ? ok("opting out writes its own audit entry")
+      : fail("opt-out is audited", `${(data ?? []).length} entries`);
+  }
+
+  console.log("\nLEADS — the matcher");
+  // Unsubscribed, so nothing may be queued for them however good the match is.
+  {
+    const { data: queued, error } = await admin.rpc("match_item_to_leads", {
+      p_item_id: publishedId,
+    });
+    if (error) fail("the matcher runs", error.message);
+    else if (queued === 0) ok("an unsubscribed person is never matched");
+    else fail("an unsubscribed person is never matched", `${queued} queued`);
+  }
+  // Back on, with a want that actually matches the published test oven.
+  await admin
+    .from("leads")
+    .update({ unsubscribed_at: null, email_consent_at: new Date().toISOString() })
+    .eq("id", captured.id);
+  {
+    const { data: category } = await admin.from("categories").select("id").eq("slug", "cooking").single();
+    await admin
+      .from("lead_interests")
+      .update({ category_id: category.id, description: "combi oven, renamed after publishing" })
+      .eq("lead_id", captured.id);
+  }
+  let firstRun = 0;
+  {
+    const { data: queued, error } = await admin.rpc("match_item_to_leads", { p_item_id: publishedId });
+    if (error) fail("the matcher queues a real match", error.message);
+    else {
+      firstRun = queued;
+      queued === 1
+        ? ok("a consenting person with a matching want is queued exactly once")
+        : fail("matcher queues a real match", `${queued} queued`);
+    }
+  }
+  // The whole reason outreach_once exists.
+  {
+    const { data: again } = await admin.rpc("match_item_to_leads", { p_item_id: publishedId });
+    again === 0
+      ? ok("running the matcher again queues nothing (outreach_once)")
+      : fail("the matcher is idempotent", `${again} queued on the second run`);
+  }
+  if (firstRun === 1) {
+    // A skipped suggestion must stay skipped, or tonight's sweep re-offers
+    // exactly what a human just rejected.
+    await admin
+      .from("outreach_messages")
+      .update({ state: "skipped" })
+      .eq("lead_id", captured.id);
+    const { data: after } = await admin.rpc("match_item_to_leads", { p_item_id: publishedId });
+    after === 0
+      ? ok("a skipped suggestion is not re-queued")
+      : fail("skipped stays skipped", `${after} queued`);
+  }
 }
 
 async function cleanup() {
   await admin.from("items").delete().ilike("title", "%RLS%");
   await admin.from("items").delete().in("title", ["Staff Test Item", "No Photo Oven", "Renamed After Publishing"]);
+  await admin.from("leads").delete().like("email", "%@rls.test");
+  await admin.from("outreach_campaigns").delete().ilike("name", "%RLS%");
   for (const id of created) await admin.auth.admin.deleteUser(id);
 }
 

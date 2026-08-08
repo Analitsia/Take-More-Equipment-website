@@ -147,35 +147,28 @@ export async function setStage(id: string, status: ItemStatus): Promise<ActionRe
       : `${stage.label} — taken off the website.`;
   }
 
+  // A machine that has just gone on sale is the moment to check who has been
+  // waiting for one. Best effort and after the fact: matching is a suggestion,
+  // and a failure here must not make the stage change look like it failed.
+  // Nothing is lost if it does — run_stock_match() sweeps nightly, and the
+  // unique index means the two paths cannot double up.
+  if (status === "listed") {
+    const { data: matched, error: matchError } = await client.rpc("match_item_to_leads", {
+      p_item_id: id,
+    });
+    if (matchError) {
+      console.warn("match_item_to_leads failed (the nightly sweep will catch it):", matchError.message);
+    } else if (matched && matched > 0) {
+      notice = `${notice ? `${notice} ` : ""}${matched} ${matched === 1 ? "person was" : "people were"} looking for one — see Outreach.`;
+      revalidatePath("/outreach");
+    }
+  }
+
   revalidatePath(`/items/${id}`);
   revalidatePath("/items");
   revalidatePath("/board");
   await revalidateStorefront(id);
   return { ok: true, notice };
-}
-
-/**
- * Publish and unpublish.
- *
- * Separate from status entirely — that independence is what lets a sold machine
- * keep its page with a SOLD badge until a human decides otherwise. The gate is
- * a database trigger, so an incomplete item fails here with the reason.
- */
-export async function setPublished(id: string, published: boolean): Promise<ActionResult> {
-  await requireStaff();
-  const client = await supabase();
-
-  const { error } = await client
-    .from("items")
-    .update({ published_at: published ? new Date().toISOString() : null })
-    .eq("id", id);
-
-  if (error) return { ok: false, error: humanise(error.message) };
-
-  revalidatePath(`/items/${id}`);
-  revalidatePath("/items");
-  await revalidateStorefront(id);
-  return { ok: true };
 }
 
 export async function setTags(id: string, tagIds: string[]): Promise<ActionResult> {

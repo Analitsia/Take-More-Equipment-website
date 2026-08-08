@@ -18,9 +18,23 @@ import SignOutButton from "./SignOutButton";
 
 type NavItem = { href: string; label: string; icon: string; badge?: number };
 
-const navFor = (role: Session["role"], pendingCount: number): NavItem[] => [
+const navFor = (
+  role: Session["role"],
+  pendingCount: number,
+  queuedCount: number
+): NavItem[] => [
   { href: "/", label: "Today", icon: "solar:home-2-linear" },
   { href: "/items", label: "Stock", icon: "solar:box-linear" },
+  { href: "/leads", label: "People", icon: "solar:users-group-two-rounded-linear" },
+  {
+    href: "/outreach",
+    label: "Outreach",
+    icon: "solar:magic-stick-3-linear",
+    // Suggestions the matcher found and nobody has acted on. Unlike the access
+    // badge this is not somebody standing still — but a machine somebody has
+    // been waiting months for goes stale in days, so it earns the interruption.
+    badge: queuedCount,
+  },
   { href: "/board", label: "Board", icon: "solar:widget-4-linear" },
   ...(canSeeCosts(role)
     ? [{ href: "/money", label: "Money", icon: "solar:wallet-linear" }]
@@ -56,14 +70,17 @@ function Badge({ count, className = "" }: { count?: number; className?: string }
 export default function Shell({
   staff,
   pendingCount = 0,
+  queuedCount = 0,
   children,
 }: {
   staff: Session;
   /** Access requests waiting on the owner. Zero for everyone else. */
   pendingCount?: number;
+  /** Stock matches waiting for somebody to send or dismiss. */
+  queuedCount?: number;
   children: React.ReactNode;
 }) {
-  const nav = navFor(staff.role, pendingCount);
+  const nav = navFor(staff.role, pendingCount, queuedCount);
 
   return (
     <div className="min-h-dvh flex flex-col md:flex-row">

@@ -130,6 +130,34 @@ interesting in this schema. Versioned migrations stay authoritative.
 | `…090700_public_views` | `public_items`, `public_item_media`, `public_categories` |
 | `…090800_storage` | the `item-media` bucket and its policies |
 | `…090900_seed_reference_data` | the six categories and nine tags |
+| `…140000_lead_enums_and_helpers` | the lead vocabulary and `app.normalise_za_phone()` |
+| `…140100_leads` | `leads`, `lead_interests`, `lead_interest_tags`, `lead_events` + policies |
+| `…140200_lead_capture` | `capture_lead()` and `unsubscribe()` — the only doors the public site has |
+| `…140300_outreach` | `outreach_campaigns`, `outreach_messages`, `app.lead_is_reachable()` |
+| `…140400_matching` | `match_item_to_leads()`, `run_stock_match()`, `leads_wanting_item()` |
+
+(Only the load-bearing files are listed; the numbered fixes between them are
+titled for what they fix.)
+
+## The CRM
+
+Two tables carry the design and the split between them is the whole thing:
+`leads` is one row per PERSON, `lead_interests` is one row per THING THEY WANT.
+Collapsing them is the obvious shortcut and it breaks on the first real
+customer, who asks about a fryer in March and a cold room in June — either you
+overwrite March or you create a second Sipho.
+
+**Identity is email-or-phone**, enforced by partial unique indexes, so a repeat
+enquiry enriches a row rather than minting a second one. `phone_e164` is a
+generated column over `app.normalise_za_phone()` — that function has a twin in
+`packages/core/src/phone.ts` and `npm run test:parity` fails if they disagree,
+because a disagreement would silently split one customer into two rows without
+erroring anywhere.
+
+**Matching is a join.** Staff already have to pick a category, subcategory and
+tags before an item may be published, and the lead form speaks the same
+vocabulary, so `match_item_to_leads()` is SQL rather than a research project.
+Free text is the fallback, matched on shared lexemes.
 
 ## Things that will bite
 
@@ -150,6 +178,21 @@ interesting in this schema. Versioned migrations stay authoritative.
 - **BEFORE trigger order on `items` is alphabetical** and load-bearing:
   `items_before_write` → `items_enforce_publish_requirements` →
   `items_enforce_status_transition`. Renaming one reorders them.
+- **`anon` has no grant on any lead table, and must not get one.** The storefront
+  reaches them through `capture_lead()` and `unsubscribe()`, both `SECURITY
+  DEFINER`, both returning something other than the row they touched — an
+  anonymous insert that reads its own row back is one `on conflict` away from
+  confirming whether a given email address is in the database.
+- **`outreach_once` is what makes the matcher idempotent.** It is partial on
+  `state <> 'failed'`, not on `('queued','sent')`, and the difference is
+  deliberate: a suggestion a human SKIPPED must keep blocking, or the nightly
+  sweep re-offers exactly what they just rejected.
+- **Changing `app.normalise_za_phone()` does not recompute stored numbers.**
+  `leads.phone_e164` is a generated column, computed on write. After any edit,
+  force it with `update public.leads set phone = phone`. Migration `…140500` is
+  the worked example.
+- **`condition_grade` sorts A, B, C — better is EARLIER.** So "at least a Grade
+  B" is `item.condition_grade <= 'B'`. It reads backwards and it is right.
 
 ### Two things the first run caught
 

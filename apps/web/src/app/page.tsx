@@ -7,7 +7,7 @@ import Benefits from "@/components/Benefits";
 import Testimonials from "@/components/Testimonials";
 import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
-import { getStock, getVocabulary } from "@/lib/stock";
+import { getCategoryChoices, getStock, getVocabulary } from "@/lib/stock";
 
 export default async function Page() {
   // Fetched once here and handed down, rather than each section reaching for
@@ -15,6 +15,10 @@ export default async function Page() {
   // category counts are three views of the same list and must agree.
   const stock = await getStock();
   const vocabulary = await getVocabulary(stock);
+  // Slugs rather than the display names above: the enquiry form sends these
+  // straight through to capture_lead(), which resolves them into a real
+  // category so the stock matcher has something to join on.
+  const categories = await getCategoryChoices();
   const featured = stock.filter((item) => item.featured);
 
   return (
@@ -27,7 +31,7 @@ export default async function Page() {
       <Process />
       <Benefits />
       <Testimonials />
-      <CtaBand />
+      <CtaBand categories={categories} />
       <Footer />
     </div>
   );

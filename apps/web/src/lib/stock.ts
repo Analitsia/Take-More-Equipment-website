@@ -199,6 +199,29 @@ export async function getBySlug(slug: string): Promise<Equipment | undefined> {
 }
 
 /**
+ * Category slugs and names, for the enquiry form's chips.
+ *
+ * Separate from getVocabulary(), which returns display names and counts for the
+ * catalogue tiles. The form needs the SLUG: capture_lead() resolves it into a
+ * real category_id server-side, and a lead filed under a category the matcher
+ * recognises scores thirty points where free text alone scores eight.
+ */
+export const getCategoryChoices = unstable_cache(
+  async (): Promise<{ slug: string; name: string }[]> => {
+    const client = createPublicClient();
+    const { data } = await client
+      .from("public_categories")
+      .select("slug, name, position")
+      .order("position");
+    return (data ?? [])
+      .filter((row): row is { slug: string; name: string; position: number } => !!row.slug && !!row.name)
+      .map(({ slug, name }) => ({ slug, name }));
+  },
+  ["category-choices"],
+  { tags: [STOCK_TAG], revalidate: REVALIDATE_SECONDS }
+);
+
+/**
  * Everything the detail gallery shows — full-size photos AND video.
  *
  * Staff order is respected WITHIN each kind, but video is forced to the tail

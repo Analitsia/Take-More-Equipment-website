@@ -417,6 +417,439 @@ export type Database = {
           },
         ]
       }
+      lead_events: {
+        Row: {
+          actor_id: string | null
+          body: string | null
+          created_at: string
+          id: string
+          item_id: string | null
+          kind: Database["public"]["Enums"]["lead_event_kind"]
+          lead_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          kind: Database["public"]["Enums"]["lead_event_kind"]
+          lead_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          kind?: Database["public"]["Enums"]["lead_event_kind"]
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_interest_tags: {
+        Row: {
+          interest_id: string
+          tag_id: string
+        }
+        Insert: {
+          interest_id: string
+          tag_id: string
+        }
+        Update: {
+          interest_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_interest_tags_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "lead_interests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interest_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_interests: {
+        Row: {
+          active: boolean
+          budget_max_cents: number | null
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          fulfilled_at: string | null
+          fulfilled_by_item_id: string | null
+          id: string
+          item_id: string | null
+          lead_id: string
+          min_grade: Database["public"]["Enums"]["condition_grade"] | null
+          search_vector: unknown
+          subcategory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          budget_max_cents?: number | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          fulfilled_at?: string | null
+          fulfilled_by_item_id?: string | null
+          id?: string
+          item_id?: string | null
+          lead_id: string
+          min_grade?: Database["public"]["Enums"]["condition_grade"] | null
+          search_vector?: unknown
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          budget_max_cents?: number | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          fulfilled_at?: string | null
+          fulfilled_by_item_id?: string | null
+          id?: string
+          item_id?: string | null
+          lead_id?: string
+          min_grade?: Database["public"]["Enums"]["condition_grade"] | null
+          search_vector?: unknown
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "public_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_fulfilled_by_item_id_fkey"
+            columns: ["fulfilled_by_item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_fulfilled_by_item_id_fkey"
+            columns: ["fulfilled_by_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_fulfilled_by_item_id_fkey"
+            columns: ["fulfilled_by_item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_subcategory_matches_category"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          birthday: string | null
+          business_name: string | null
+          consent_source: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          email: string | null
+          email_consent_at: string | null
+          extra: Json
+          full_name: string | null
+          id: string
+          last_contacted_at: string | null
+          notes: string | null
+          owner_id: string | null
+          phone: string | null
+          phone_e164: string | null
+          source: Database["public"]["Enums"]["lead_source"]
+          status: Database["public"]["Enums"]["lead_status"]
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+          updated_at: string
+          whatsapp_consent_at: string | null
+        }
+        Insert: {
+          birthday?: string | null
+          business_name?: string | null
+          consent_source?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          email_consent_at?: string | null
+          extra?: Json
+          full_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          phone_e164?: string | null
+          source?: Database["public"]["Enums"]["lead_source"]
+          status?: Database["public"]["Enums"]["lead_status"]
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+          whatsapp_consent_at?: string | null
+        }
+        Update: {
+          birthday?: string | null
+          business_name?: string | null
+          consent_source?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          email_consent_at?: string | null
+          extra?: Json
+          full_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          phone_e164?: string | null
+          source?: Database["public"]["Enums"]["lead_source"]
+          status?: Database["public"]["Enums"]["lead_status"]
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+          whatsapp_consent_at?: string | null
+        }
+        Relationships: []
+      }
+      outreach_campaigns: {
+        Row: {
+          audience: Json
+          channel: Database["public"]["Enums"]["outreach_channel"]
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          intro: string | null
+          item_ids: string[]
+          name: string
+          recipient_count: number | null
+          sent_at: string | null
+          sent_by: string | null
+          state: Database["public"]["Enums"]["campaign_state"]
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: Json
+          channel?: Database["public"]["Enums"]["outreach_channel"]
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          intro?: string | null
+          item_ids?: string[]
+          name: string
+          recipient_count?: number | null
+          sent_at?: string | null
+          sent_by?: string | null
+          state?: Database["public"]["Enums"]["campaign_state"]
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: Json
+          channel?: Database["public"]["Enums"]["outreach_channel"]
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          intro?: string | null
+          item_ids?: string[]
+          name?: string
+          recipient_count?: number | null
+          sent_at?: string | null
+          sent_by?: string | null
+          state?: Database["public"]["Enums"]["campaign_state"]
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      outreach_messages: {
+        Row: {
+          body: string | null
+          campaign_id: string | null
+          channel: Database["public"]["Enums"]["outreach_channel"]
+          created_at: string
+          error: string | null
+          id: string
+          item_id: string | null
+          lead_id: string
+          match_score: number | null
+          reason: string | null
+          sent_at: string | null
+          sent_by: string | null
+          skipped_reason: string | null
+          state: Database["public"]["Enums"]["outreach_state"]
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          campaign_id?: string | null
+          channel: Database["public"]["Enums"]["outreach_channel"]
+          created_at?: string
+          error?: string | null
+          id?: string
+          item_id?: string | null
+          lead_id: string
+          match_score?: number | null
+          reason?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          skipped_reason?: string | null
+          state?: Database["public"]["Enums"]["outreach_state"]
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          campaign_id?: string | null
+          channel?: Database["public"]["Enums"]["outreach_channel"]
+          created_at?: string
+          error?: string | null
+          id?: string
+          item_id?: string | null
+          lead_id?: string
+          match_score?: number | null
+          reason?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          skipped_reason?: string | null
+          state?: Database["public"]["Enums"]["outreach_state"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_profiles: {
         Row: {
           active: boolean
@@ -620,6 +1053,33 @@ export type Database = {
       }
     }
     Functions: {
+      capture_lead: {
+        Args: {
+          p_budget_max_cents?: number
+          p_category_slug?: string
+          p_email: string
+          p_email_consent?: boolean
+          p_from_product?: boolean
+          p_item_slug?: string
+          p_message?: string
+          p_name?: string
+          p_phone?: string
+          p_whatsapp_consent?: boolean
+        }
+        Returns: undefined
+      }
+      leads_wanting_item: {
+        Args: { p_item_id: string }
+        Returns: {
+          description: string
+          email: string
+          full_name: string
+          lead_id: string
+          phone: string
+          score: number
+        }[]
+      }
+      match_item_to_leads: { Args: { p_item_id: string }; Returns: number }
       record_item_cost: {
         Args: {
           p_amount_cents: number
@@ -631,6 +1091,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      run_stock_match: { Args: never; Returns: number }
       set_item_cost: {
         Args: {
           p_amount_cents: number
@@ -639,6 +1100,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      unsubscribe: { Args: { p_token: string }; Returns: boolean }
     }
     Enums: {
       activity_action:
@@ -650,6 +1112,7 @@ export type Database = {
         | "price_changed"
         | "deleted"
       app_role: "staff" | "manager" | "owner"
+      campaign_state: "draft" | "sending" | "sent" | "failed"
       condition_grade: "A" | "B" | "C"
       cost_kind:
         | "auction"
@@ -667,7 +1130,30 @@ export type Database = {
         | "reserved"
         | "sold"
         | "handed_over"
+      lead_event_kind:
+        | "note"
+        | "enquiry"
+        | "call"
+        | "visit"
+        | "email_sent"
+        | "whatsapp_sent"
+        | "match_sent"
+        | "purchased"
+        | "consent_given"
+        | "unsubscribed"
+      lead_source:
+        | "walk_in"
+        | "phone"
+        | "whatsapp"
+        | "website_product"
+        | "website_general"
+        | "referral"
+        | "auction"
+        | "import"
+      lead_status: "new" | "working" | "customer" | "dormant"
       media_kind: "photo" | "video"
+      outreach_channel: "email" | "whatsapp"
+      outreach_state: "queued" | "sent" | "skipped" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -805,6 +1291,7 @@ export const Constants = {
         "deleted",
       ],
       app_role: ["staff", "manager", "owner"],
+      campaign_state: ["draft", "sending", "sent", "failed"],
       condition_grade: ["A", "B", "C"],
       cost_kind: [
         "auction",
@@ -824,7 +1311,32 @@ export const Constants = {
         "sold",
         "handed_over",
       ],
+      lead_event_kind: [
+        "note",
+        "enquiry",
+        "call",
+        "visit",
+        "email_sent",
+        "whatsapp_sent",
+        "match_sent",
+        "purchased",
+        "consent_given",
+        "unsubscribed",
+      ],
+      lead_source: [
+        "walk_in",
+        "phone",
+        "whatsapp",
+        "website_product",
+        "website_general",
+        "referral",
+        "auction",
+        "import",
+      ],
+      lead_status: ["new", "working", "customer", "dormant"],
       media_kind: ["photo", "video"],
+      outreach_channel: ["email", "whatsapp"],
+      outreach_state: ["queued", "sent", "skipped", "failed"],
     },
   },
 } as const

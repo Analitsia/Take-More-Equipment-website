@@ -17,9 +17,15 @@
 import {
   APP_ROLES,
   ITEM_STATUSES,
+  LEAD_EVENT_KINDS,
+  LEAD_SOURCES,
+  LEAD_STATUSES,
+  OUTREACH_CHANNELS,
+  OUTREACH_STATES,
   SKU_PATTERN,
   STAGES,
   TRANSITIONS,
+  normalisePhone,
   slugify,
 } from "@takemore/core";
 
@@ -126,6 +132,13 @@ console.log("\nENUMS");
 for (const [typeName, tsValues, orderMatters] of [
   ["item_status", ITEM_STATUSES, false],
   ["app_role", APP_ROLES, true],
+  // The lead vocabulary. Order carries no meaning in any of these — unlike
+  // app_role, nothing compares them with `>=` — so they are checked as sets.
+  ["lead_source", LEAD_SOURCES, false],
+  ["lead_status", LEAD_STATUSES, false],
+  ["lead_event_kind", LEAD_EVENT_KINDS, false],
+  ["outreach_channel", OUTREACH_CHANNELS, false],
+  ["outreach_state", OUTREACH_STATES, false],
 ]) {
   const rows = await sql(
     `select e.enumlabel as label
@@ -180,6 +193,58 @@ const sku = generated[0].sku;
 SKU_PATTERN.test(sku)
   ? ok(`app.next_sku() emits ${sku}, which SKU_PATTERN accepts`)
   : fail("SKU_PATTERN accepts what the database generates", sku);
+
+// --- phone ------------------------------------------------------------------
+/**
+ * The one that would hurt most quietly.
+ *
+ * leads.phone_e164 is a GENERATED column over app.normalise_za_phone, and a
+ * partial unique index sits on it — so if the TypeScript copy disagreed, the ops
+ * form would show a worker one number while the database identified them by
+ * another, and the same customer would silently become two rows. Nothing would
+ * error. This is the only thing that would notice.
+ */
+console.log("\nPHONE NUMBERS  (TypeScript vs app.normalise_za_phone)");
+const phones = [
+  "082 123 4567",
+  "0821234567",
+  "+27 82 123 4567",
+  "+27 (0)82 123-4567",
+  "+27(0)821234567",
+  "0027821234567",
+  "27821234567",
+  "821234567",
+  "021 555 0134",
+  "+264 61 123456",
+  "  082 123 4567  ",
+  "082-123-4567",
+  "1234",
+  "",
+];
+
+const phoneRows = await sql(
+  `select ${phones
+    .map((p, i) => `app.normalise_za_phone(${quote(p)}) as p${i}`)
+    .join(", ")}`
+);
+
+phones.forEach((input, i) => {
+  const fromSql = phoneRows[0][`p${i}`] ?? null;
+  const fromTs = normalisePhone(input);
+  fromSql === fromTs
+    ? ok(`${JSON.stringify(input)} → ${fromSql ?? "null"}`)
+    : fail(`normalise ${JSON.stringify(input)}`, `sql=${fromSql}  ts=${fromTs}`);
+});
+
+// Every South African spelling above has to land on ONE string, or the unique
+// index cannot do its job.
+const za = phones
+  .slice(0, 8)
+  .map((p) => normalisePhone(p))
+  .filter(Boolean);
+new Set(za).size === 1
+  ? ok(`all eight spellings of one number collapse to ${za[0]}`)
+  : fail("every spelling collapses to one identity", [...new Set(za)].join(", "));
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);

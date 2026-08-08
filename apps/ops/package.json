@@ -18,7 +18,8 @@
     "iconify-icon": "^2.1.0",
     "next": "^15.1.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "resend": "^6.18.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

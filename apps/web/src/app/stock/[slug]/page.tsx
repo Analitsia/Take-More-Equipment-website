@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Subheading from "@/components/Subheading";
 import EquipmentCard from "@/components/EquipmentCard";
+import EnquiryForm from "@/components/EnquiryForm";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
 import { WARRANTY_MONTHS, cm, deliveryFor, rands, relatedTo } from "@/data/equipment";
@@ -205,6 +206,22 @@ export default async function ProductPage({
                 copy="Parts and labour in writing. If it fails inside six months we collect it, repair it and return it at our cost."
               />
             </div>
+
+            {/*
+              The capture, under the WhatsApp button rather than instead of it.
+              A ready buyer taps WhatsApp; this is for the visitor who is not
+              ready today and would otherwise leave without a trace.
+
+              On a sold unit it is the highest-intent form on the site — they
+              came for a specific machine and it is gone — so it moves up the
+              page and changes its wording.
+            */}
+            <EnquiryForm
+              mode={item.sold ? "sold" : "product"}
+              itemSlug={item.slug}
+              itemTitle={item.title}
+              className="mt-4"
+            />
           </div>
         </div>
 
