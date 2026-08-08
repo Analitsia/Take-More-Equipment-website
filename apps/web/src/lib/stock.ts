@@ -195,8 +195,14 @@ export async function getBySlug(slug: string): Promise<Equipment | undefined> {
 }
 
 /**
- * Everything the detail gallery shows — full-size photos AND video, in the
- * order staff arranged them in the ops app.
+ * Everything the detail gallery shows — full-size photos AND video.
+ *
+ * Staff order is respected WITHIN each kind, but video is forced to the tail
+ * regardless of where it was uploaded. That rule lives here rather than in the
+ * ops app because it is a property of how the storefront plays a gallery — it
+ * runs the photos on a timer and finishes on the clip — and a rule enforced in
+ * the data layer is true for every item that will ever be listed, including the
+ * ones added by someone who never read this comment.
  */
 export async function getGallery(slug: string): Promise<GalleryMedia[]> {
   const client = createPublicClient();
@@ -219,5 +225,7 @@ export async function getGallery(slug: string): Promise<GalleryMedia[]> {
       const url = kind === "video" ? videoUrl(m) : imageUrl(m, 1600);
       return url ? { kind, url } : null;
     })
-    .filter((slot): slot is GalleryMedia => slot !== null);
+    .filter((slot): slot is GalleryMedia => slot !== null)
+    // Stable sort, so photos keep the order staff gave them and video lands last.
+    .sort((a, b) => Number(a.kind === "video") - Number(b.kind === "video"));
 }
