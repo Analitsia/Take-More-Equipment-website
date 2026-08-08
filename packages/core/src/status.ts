@@ -32,34 +32,56 @@ export type Transition = {
   label: string;
 };
 
+/**
+ * THE RULE: for every transition A -> B there is a B -> A, and both cost the
+ * same role. Nothing here is a one-way door.
+ *
+ * Anyone who can create a given state can always put it back, so a worker
+ * exploring the buttons cannot strand a machine somewhere only their boss can
+ * retrieve it from. Asymmetric roles were the real bottleneck — a staff member
+ * could send a machine to the workshop but needed a manager to bring it back,
+ * and in practice the record just stayed wrong.
+ *
+ * A test asserts this symmetry, and it asserts these rows match the database.
+ */
 export const TRANSITIONS: readonly Transition[] = [
   { from: "intake", to: "refurbishing", minRole: "staff", label: "Send to workshop" },
+  { from: "refurbishing", to: "intake", minRole: "staff", label: "Back to intake" },
+
   { from: "intake", to: "ready", minRole: "staff", label: "Already sound — skip workshop" },
+  { from: "ready", to: "intake", minRole: "staff", label: "Back to intake" },
 
   { from: "refurbishing", to: "ready", minRole: "staff", label: "Workshop complete" },
-  { from: "refurbishing", to: "intake", minRole: "manager", label: "Back to intake" },
-
-  { from: "ready", to: "listed", minRole: "staff", label: "List for sale" },
   { from: "ready", to: "refurbishing", minRole: "staff", label: "Back to workshop" },
 
-  { from: "listed", to: "reserved", minRole: "staff", label: "Reserve for a buyer" },
-  { from: "listed", to: "sold", minRole: "manager", label: "Mark sold" },
-  { from: "listed", to: "ready", minRole: "manager", label: "Withdraw from sale" },
+  { from: "ready", to: "listed", minRole: "staff", label: "List for sale" },
+  { from: "listed", to: "ready", minRole: "staff", label: "Withdraw from sale" },
 
-  { from: "reserved", to: "sold", minRole: "manager", label: "Confirm sale" },
+  { from: "listed", to: "reserved", minRole: "staff", label: "Reserve for a buyer" },
   { from: "reserved", to: "listed", minRole: "staff", label: "Release reservation" },
 
-  { from: "sold", to: "handed_over", minRole: "staff", label: "Handed over" },
-  // Every undo costs exactly what its matching action costs. Reversing a sale
-  // does rewrite revenue — which was the old argument for making it owner-only —
-  // but a manager who can mark a machine sold and then cannot unmark it has to
-  // go and find their boss, and in practice the record just stays wrong. The
-  // activity log records who reversed what; a wrong number nobody can correct is
-  // worse than a correction anyone can audit.
+  // The money moves stay a manager's, on both sides. Staff cannot mark a machine
+  // sold, so they cannot create that particular mess either — which is the same
+  // guarantee as the rule above, arrived at from the other direction.
+  { from: "listed", to: "sold", minRole: "manager", label: "Mark sold" },
   { from: "sold", to: "listed", minRole: "manager", label: "Reverse sale" },
 
+  { from: "reserved", to: "sold", minRole: "manager", label: "Confirm sale" },
+  { from: "sold", to: "reserved", minRole: "manager", label: "Back to reserved" },
+
+  { from: "sold", to: "handed_over", minRole: "staff", label: "Handed over" },
   { from: "handed_over", to: "sold", minRole: "staff", label: "Undo handover" },
 ] as const;
+
+/**
+ * Is this move along the lifecycle, or back up it?
+ *
+ * Read straight off ITEM_STATUSES, which is declared in lifecycle order, so
+ * there is no second list to keep in step. The ops app uses it to draw going
+ * forward and stepping back as visibly different things.
+ */
+export const isForward = (from: ItemStatus, to: ItemStatus) =>
+  ITEM_STATUSES.indexOf(to) > ITEM_STATUSES.indexOf(from);
 
 export const canTransition = (from: ItemStatus, to: ItemStatus, role: AppRole) => {
   const move = TRANSITIONS.find((t) => t.from === from && t.to === to);

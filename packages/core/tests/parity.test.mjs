@@ -70,6 +70,38 @@ if (onlyDb.length === 0 && onlyTs.length === 0 && fromDb.length === fromTs.lengt
   );
 }
 
+// --- reversibility ----------------------------------------------------------
+// Nothing in the lifecycle may be a one-way door. For every move A -> B there
+// has to be a B -> A costing the same role, so anyone who can create a state can
+// always put it back — a worker exploring the buttons must never strand a
+// machine somewhere only their boss can retrieve it from.
+//
+// Checked against the DATABASE rows rather than the TypeScript ones: the trigger
+// is what actually decides, and the block above has already proved the two agree.
+const roleOf = new Map(
+  dbTransitions.map((t) => [`${t.from_status}>${t.to_status}`, t.min_role])
+);
+const oneWay = [];
+const mismatched = [];
+for (const t of dbTransitions) {
+  const inverse = `${t.to_status}>${t.from_status}`;
+  if (!roleOf.has(inverse)) oneWay.push(`${t.from_status} -> ${t.to_status}`);
+  else if (roleOf.get(inverse) !== t.min_role)
+    mismatched.push(
+      `${t.from_status} -> ${t.to_status} [${t.min_role}] but back needs [${roleOf.get(inverse)}]`
+    );
+}
+
+if (oneWay.length === 0) ok("every transition has an inverse — no one-way doors");
+else fail("every transition has an inverse", `no way back from:\n          ${oneWay.join("\n          ")}`);
+
+if (mismatched.length === 0) ok("undoing a move costs the same role as making it");
+else
+  fail(
+    "undoing a move costs the same role as making it",
+    `asymmetric:\n          ${mismatched.join("\n          ")}`
+  );
+
 // --- enums ------------------------------------------------------------------
 console.log("\nENUMS");
 for (const [typeName, tsValues, orderMatters] of [

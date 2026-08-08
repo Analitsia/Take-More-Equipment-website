@@ -19,25 +19,24 @@ export type PublishCandidate = {
   grade: string | null;
   listPriceCents: Cents | null;
   photoCount: number;
-  /**
-   * What the machine cost us — and null when the viewer is not allowed to know.
-   *
-   * A `staff` account is refused the cost rows by RLS, so for them these two
-   * requirements are OMITTED rather than drawn as permanently unmet: a checklist
-   * item nobody can satisfy or even verify is a dead end, not a rule.
-   *
-   * DELIBERATE DIVERGENCE from the database trigger, which does not check either
-   * of these. Everything else in this file is mirrored in SQL; these two are
-   * enforced in the app alone, because failing a publish on figures the caller
-   * cannot read produces an error they have no way to diagnose. If this ever
-   * needs to be absolute, it belongs in the trigger — where it can read the
-   * ledger under SECURITY DEFINER — and not here.
-   */
-  costs?: {
-    auctionCents: Cents | null;
-    workshopCents: Cents | null;
-  } | null;
 };
+
+/**
+ * WHAT IS DELIBERATELY NOT HERE: the auction price and the workshop cost.
+ *
+ * They are marked required on the intake form, because every machine has both
+ * and a blank one is usually an oversight. They are not a publish requirement,
+ * and the difference matters.
+ *
+ * This gate exists to stop a machine reaching the WEBSITE half-built — no photo,
+ * no price, no description. Internal bookkeeping is a different question, and
+ * gating the storefront on it produces a trap: take a listing down to fix a typo
+ * and you cannot put it back until somebody fills in what it cost, which may be
+ * a figure the person standing there is not even allowed to read.
+ *
+ * It also made the gate disagree with itself — a staff account cannot see cost
+ * rows, so the same item was publishable by them and blocked for their manager.
+ */
 
 export type PublishRequirement = {
   id: string;
@@ -46,21 +45,6 @@ export type PublishRequirement = {
 };
 
 export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
-  const costs = item.costs
-    ? [
-        {
-          id: "auction-cost",
-          label: "An auction price",
-          met: item.costs.auctionCents !== null && item.costs.auctionCents > 0,
-        },
-        {
-          id: "workshop-cost",
-          label: "A workshop cost",
-          met: item.costs.workshopCents !== null && item.costs.workshopCents > 0,
-        },
-      ]
-    : [];
-
   return [
     {
       id: "photo",
@@ -95,7 +79,6 @@ export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
       label: "A description",
       met: !!item.description && item.description.trim().length >= 40,
     },
-    ...costs,
   ];
 }
 

@@ -8,7 +8,9 @@ import {
   canSeeCosts,
   canPublish,
   publishChecklist,
+  isForward,
   nextStatuses,
+  STATUS_LABELS,
   rands,
   type AppRole,
   type ItemStatus,
@@ -170,10 +172,6 @@ export default function ItemEditor({
   const [auctionCents, setAuctionCents] = useState<number | null>(costOf("auction"));
   const [workshopCents, setWorkshopCents] = useState<number | null>(costOf("workshop"));
 
-  // Null for a staff account, which is refused the cost rows by RLS — the
-  // checklist omits what it cannot see rather than drawing it permanently unmet.
-  const visibleCosts = canSeeCosts(role) ? { auctionCents, workshopCents } : null;
-
   const candidate = useMemo(
     () => ({
       title: form.title,
@@ -182,15 +180,19 @@ export default function ItemEditor({
       grade: form.condition_grade || null,
       listPriceCents: listPrice,
       photoCount: mediaCount,
-      costs: visibleCosts,
     }),
-    [form, listPrice, mediaCount, visibleCosts]
+    [form, listPrice, mediaCount]
   );
 
   const checklist = useMemo(() => publishChecklist(candidate), [candidate]);
   const ready = canPublish(candidate);
 
+  // Split so the panel can show going forward and stepping back as different
+  // things. Both are always offered — every move in the flow has an inverse at
+  // the same role, so nothing here can strand a machine.
   const moves = nextStatuses(item.status as ItemStatus, role);
+  const forward = moves.filter((m) => isForward(item.status as ItemStatus, m.to));
+  const back = moves.filter((m) => !isForward(item.status as ItemStatus, m.to));
 
   async function onStatus(next: ItemStatus) {
     setError(null);
@@ -487,18 +489,53 @@ export default function ItemEditor({
         </div>
       </Panel>
 
-      <Panel title="Where it is" subtitle="Moving an item follows the workshop flow — one step at a time.">
-        <div className="flex flex-wrap gap-2">
+      <Panel
+        title="Where it is in the process"
+        subtitle={`Currently ${STATUS_LABELS[item.status as ItemStatus]}. One step at a time — and every step can be taken back.`}
+      >
+        <div className="space-y-3">
           {moves.length === 0 ? (
             <p className="text-sm font-light text-muted">
               Nothing to do from here with your permissions.
             </p>
           ) : (
-            moves.map((move) => (
-              <Button key={move.to} variant="secondary" onClick={() => onStatus(move.to)}>
-                {move.label}
-              </Button>
-            ))
+            <>
+              {forward.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {forward.map((move) => (
+                    <Button key={move.to} variant="secondary" onClick={() => onStatus(move.to)}>
+                      {move.label}
+                      <iconify-icon
+                        icon="solar:arrow-right-linear"
+                        width="14"
+                        height="14"
+                        noobserver=""
+                      />
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* Deliberately quieter than the forward moves and deliberately
+                  always present: the point is that a wrong tap is never a
+                  problem, not that stepping back is an exception. */}
+              {back.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[11px] font-light text-muted">Or step back:</span>
+                  {back.map((move) => (
+                    <Button key={move.to} variant="ghost" onClick={() => onStatus(move.to)}>
+                      <iconify-icon
+                        icon="solar:arrow-left-linear"
+                        width="14"
+                        height="14"
+                        noobserver=""
+                      />
+                      {move.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </Panel>
@@ -507,8 +544,8 @@ export default function ItemEditor({
         title="The website"
         subtitle={
           item.published_at
-            ? "Live. It stays live when it sells — a SOLD badge appears until you take it down."
-            : "Not on the site yet."
+            ? "Live. It stays live when it sells — a SOLD badge appears until you take it down, and you can put it back any time."
+            : "Off the site. Everything below is ticked off, it goes straight back up."
         }
       >
         <div className="space-y-4">
