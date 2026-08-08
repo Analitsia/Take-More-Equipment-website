@@ -50,6 +50,20 @@ export type Equipment = {
   featured?: boolean;
 };
 
+/**
+ * One slot in the detail-page gallery.
+ *
+ * Photos and video share the strip rather than sitting in separate sections —
+ * a walkaround clip of a fridge running is the same kind of evidence as a photo
+ * of it, and burying it under the specs is how it goes unwatched. `Equipment.images`
+ * above stays photos-only on purpose: it feeds cards, the search overlay and the
+ * OG tag, none of which can render a video.
+ */
+export type GalleryMedia = {
+  kind: "photo" | "video";
+  url: string;
+};
+
 /** The filter vocabulary, derived from the database rather than hardcoded. */
 export type CategoryMeta = {
   name: string;

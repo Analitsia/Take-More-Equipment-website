@@ -59,8 +59,8 @@ export default async function ProductPage({
   const delivery = deliveryFor(item);
   const stock = await getStock();
   const related = relatedTo(stock, item);
-  // Full-size renditions for the gallery; the card-sized ones on `item` are
-  // deliberately smaller.
+  // Full-size renditions plus any video, for the gallery; the card-sized photos
+  // on `item` are deliberately smaller and photos-only.
   const gallery = await getGallery(slug);
   const [width, depth, height] = item.dimensionsMm;
 
@@ -91,7 +91,7 @@ export default async function ProductPage({
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-16">
-          <ProductGallery images={gallery} title={item.title} sold={item.sold} />
+          <ProductGallery media={gallery} title={item.title} sold={item.sold} />
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 flex-wrap">

@@ -32,11 +32,16 @@ export const SIZES = {
  * to remember that.
  */
 export function mediaUrl(
-  media: { storage_path?: string | null; external_url?: string | null },
+  media: { kind?: string | null; storage_path?: string | null; external_url?: string | null },
   size: keyof typeof SIZES = "card"
 ): string | null {
   if (media.external_url) return media.external_url;
   if (!media.storage_path) return null;
+
+  // Video skips the transformer entirely. `renderBase()` is the IMAGE endpoint —
+  // it answers an mp4 with an error rather than a movie, and it would strip the
+  // byte-range support a <video> needs to seek even if it did not.
+  if (media.kind === "video") return `${mediaBase()}/${media.storage_path}`;
 
   const spec = SIZES[size];
   const params = new URLSearchParams({

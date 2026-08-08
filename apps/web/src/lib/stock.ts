@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@takemore/db";
-import type { Equipment, Grade, Vocabulary } from "@/data/equipment";
+import type { Equipment, GalleryMedia, Grade, Vocabulary } from "@/data/equipment";
 
 /**
  * The storefront's data source.
@@ -34,6 +34,23 @@ function imageUrl(
   if (!media.storage_path) return null;
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return `${base}${SUPABASE_RENDER_PREFIX}${media.storage_path}?width=${width}&quality=78&resize=cover`;
+}
+
+/**
+ * Video goes to the plain object endpoint, never the render one.
+ *
+ * The prefix imageUrl() uses is Supabase's IMAGE transformer: hand it an mp4 and
+ * it answers with an error, not a movie. It would be the wrong endpoint even if
+ * it did transcode, because `<video>` seeking needs the byte-range support that
+ * only the object endpoint offers.
+ */
+function videoUrl(media: {
+  storage_path: string | null;
+  external_url: string | null;
+}): string | null {
+  if (media.external_url) return media.external_url;
+  if (!media.storage_path) return null;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}${SUPABASE_PUBLIC_PREFIX}${media.storage_path}`;
 }
 
 type PublicItemRow = {
@@ -119,6 +136,9 @@ async function fetchStock(): Promise<Equipment[]> {
 
   const byItem = new Map<string, string[]>();
   for (const m of media ?? []) {
+    // Photos only, and only here: `images` feeds cards, the search overlay and
+    // the OG tag, and every one of those renders an <img>. Video reaches the
+    // visitor through getGallery() below instead.
     if ((m as any).kind !== "photo") continue;
     const url = imageUrl(m as any);
     if (!url) continue;
@@ -174,8 +194,11 @@ export async function getBySlug(slug: string): Promise<Equipment | undefined> {
   return stock.find((item) => item.slug === slug);
 }
 
-/** Full-size images for the detail gallery. */
-export async function getGallery(slug: string): Promise<string[]> {
+/**
+ * Everything the detail gallery shows — full-size photos AND video, in the
+ * order staff arranged them in the ops app.
+ */
+export async function getGallery(slug: string): Promise<GalleryMedia[]> {
   const client = createPublicClient();
   const { data: item } = await client
     .from("public_items")
@@ -191,7 +214,10 @@ export async function getGallery(slug: string): Promise<string[]> {
     .order("position");
 
   return (media ?? [])
-    .filter((m: any) => m.kind === "photo")
-    .map((m: any) => imageUrl(m, 1600))
-    .filter((url): url is string => !!url);
+    .map((m: any): GalleryMedia | null => {
+      const kind = m.kind === "video" ? "video" : "photo";
+      const url = kind === "video" ? videoUrl(m) : imageUrl(m, 1600);
+      return url ? { kind, url } : null;
+    })
+    .filter((slot): slot is GalleryMedia => slot !== null);
 }

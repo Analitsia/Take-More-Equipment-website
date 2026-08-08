@@ -191,11 +191,24 @@ export default function MediaManager({
         <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
           {ordered.map((m, index) => (
             <li key={m.id} className="relative group">
-              <div className="aspect-square rounded-xl overflow-hidden bg-background border border-border">
+              <div className="relative aspect-square rounded-xl overflow-hidden bg-background border border-border">
                 {m.kind === "video" ? (
-                  <div className="w-full h-full flex items-center justify-center text-muted">
-                    <iconify-icon icon="solar:videocamera-linear" width="22" height="22" noobserver="" />
-                  </div>
+                  <>
+                    {/* `#t=0.1` with preload="metadata" paints the first frame,
+                        so a worker can tell two clips apart at a glance. */}
+                    <video
+                      src={`${mediaUrl(m) ?? ""}#t=0.1`}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="w-7 h-7 rounded-full bg-background/70 border border-border flex items-center justify-center text-white">
+                        <iconify-icon icon="solar:play-bold" width="11" height="11" noobserver="" />
+                      </span>
+                    </span>
+                  </>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
