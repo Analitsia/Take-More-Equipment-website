@@ -16,9 +16,9 @@ import SignOutButton from "./SignOutButton";
  * opens onto an error.
  */
 
-type NavItem = { href: string; label: string; icon: string };
+type NavItem = { href: string; label: string; icon: string; badge?: number };
 
-const navFor = (role: Session["role"]): NavItem[] => [
+const navFor = (role: Session["role"], pendingCount: number): NavItem[] => [
   { href: "/", label: "Today", icon: "solar:home-2-linear" },
   { href: "/items", label: "Stock", icon: "solar:box-linear" },
   { href: "/board", label: "Board", icon: "solar:widget-4-linear" },
@@ -26,18 +26,44 @@ const navFor = (role: Session["role"]): NavItem[] => [
     ? [{ href: "/money", label: "Money", icon: "solar:wallet-linear" }]
     : []),
   ...(canManageTeam(role)
-    ? [{ href: "/team", label: "Team", icon: "solar:users-group-rounded-linear" }]
+    ? [
+        {
+          href: "/team",
+          label: "Team",
+          icon: "solar:users-group-rounded-linear",
+          // The only notification in the app, and it earns the place: somebody
+          // is standing still, unable to work, until the owner taps this.
+          badge: pendingCount,
+        },
+      ]
     : []),
 ];
 
+/** A count that only exists when it is worth interrupting someone for. */
+function Badge({ count, className = "" }: { count?: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <span
+      aria-label={`${count} waiting`}
+      className={`min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-background text-[10px]
+                  font-medium leading-[18px] text-center tabular-nums ${className}`}
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
 export default function Shell({
   staff,
+  pendingCount = 0,
   children,
 }: {
   staff: Session;
+  /** Access requests waiting on the owner. Zero for everyone else. */
+  pendingCount?: number;
   children: React.ReactNode;
 }) {
-  const nav = navFor(staff.role);
+  const nav = navFor(staff.role, pendingCount);
 
   return (
     <div className="min-h-dvh flex flex-col md:flex-row">
@@ -63,6 +89,7 @@ export default function Shell({
             >
               <iconify-icon icon={item.icon} width="18" height="18" noobserver="" />
               {item.label}
+              <Badge count={item.badge} className="ml-auto" />
             </Link>
           ))}
         </nav>
@@ -120,11 +147,16 @@ export default function Shell({
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-light text-white/70
+            className="relative flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-light text-white/70
                        active:text-accent transition-colors"
           >
             <iconify-icon icon={item.icon} width="20" height="20" noobserver="" />
             {item.label}
+            {/* Pinned to the icon rather than laid out in the row: the bottom
+                nav divides the width evenly, so an inline badge would shift
+                every other destination under the thumb that already knows
+                where they are. */}
+            <Badge count={item.badge} className="absolute top-1.5 right-[calc(50%-16px)]" />
           </Link>
         ))}
         <NewItemButton

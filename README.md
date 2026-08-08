@@ -5,12 +5,15 @@ Architecture and build phases: [`docs/architecture.md`](docs/architecture.md).
 
 ## Status
 
-**Phase 1 MVP.** The page is built and styled, but the content is placeholder:
+**Phase 1 MVP.** The page is built and styled, and stock now comes from Supabase.
+Remaining placeholders, all of which must go before the domain is pointed here:
 
-- Testimonials are invented — replace or remove before real traffic.
-- Phone, email and address in `apps/web/src/data/site.ts` are placeholders.
-- Stock in `apps/web/src/data/equipment.ts` is mock data with fictional brands.
-- Stats in `About.tsx` (600+ restored, 50% saving, 6-month warranty) are unverified.
+- Phone, email and address in `apps/web/src/data/site.ts` are placeholders. Every
+  CTA on the site — the WhatsApp link on each item, the number in the footer —
+  currently points at an invented number.
+- Stats in `About.tsx` (600+ restored, 50% saving) are unverified.
+
+Testimonials are real and stay as they are.
 
 ## Layout
 

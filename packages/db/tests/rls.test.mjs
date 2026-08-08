@@ -91,9 +91,16 @@ async function setup() {
     u.id = data.user.id;
     created.push(data.user.id);
 
-    const { error: profileError } = await admin
-      .from("staff_profiles")
-      .insert({ user_id: u.id, full_name: `RLS ${key}`, role: u.role });
+    const { error: profileError } = await admin.from("staff_profiles").insert({
+      user_id: u.id,
+      full_name: `RLS ${key}`,
+      role: u.role,
+      // Approved, because these fixtures stand for people already on the team.
+      // Without it app.staff_role() returns null for every one of them and the
+      // whole suite fails as "not staff" — which is the correct behaviour for
+      // an unactioned request, and is asserted separately below.
+      approved_at: new Date().toISOString(),
+    });
     if (profileError) throw new Error(`staff_profiles ${key}: ${profileError.message}`);
 
     u.client = createClient(url, publishable, { auth: { persistSession: false } });
@@ -201,6 +208,82 @@ async function run() {
     check.role === "staff"
       ? ok("staff cannot promote itself to owner  (no rows matched)")
       : fail("staff cannot promote itself to owner", `role is now ${check.role}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // A request that nobody has approved yet
+  // -------------------------------------------------------------------------
+  // The whole request-access flow rests on one claim: an account can exist, be
+  // confirmed, hold a valid session, and still be able to do NOTHING until an
+  // owner sets approved_at. That is enforced in a single place — the
+  // `approved_at is not null` clause in app.staff_role() — and everything else
+  // in the schema inherits it, which is exactly the kind of load-bearing
+  // one-liner that deserves its own test rather than trust.
+  //
+  // The positive control is the block above: the same queries against the same
+  // rows return data for an approved staff account.
+  console.log("\nPENDING (requested access, not yet approved)");
+  const pendingEmail = `rls-pending-${stamp}@takemore.test`;
+  const { data: pendingUser, error: pendingCreateError } = await admin.auth.admin.createUser({
+    email: pendingEmail,
+    password: "test-password-1234",
+    email_confirm: true,
+  });
+  if (pendingCreateError) throw new Error(`createUser pending: ${pendingCreateError.message}`);
+  created.push(pendingUser.user.id);
+
+  // Exactly what requestAccess() writes: a real profile, no approval.
+  await admin.from("staff_profiles").insert({
+    user_id: pendingUser.user.id,
+    full_name: "RLS pending",
+    role: "staff",
+    active: true,
+  });
+
+  const pending = createClient(url, publishable, { auth: { persistSession: false } });
+  const { error: pendingSignIn } = await pending.auth.signInWithPassword({
+    email: pendingEmail,
+    password: "test-password-1234",
+  });
+  pendingSignIn
+    ? fail("a pending account can still sign in", pendingSignIn.message)
+    : ok("a pending account can still sign in");
+
+  await denied("pending cannot read items", pending.from("items").select("id").eq("id", draftId));
+  await refused(
+    "pending cannot create an item",
+    pending.from("items").insert({ title: "Pending Test Item" }).select("id")
+  );
+  await denied("pending cannot read item_costs", pending.from("item_costs").select("amount_cents"));
+
+  // Sees its own row and no one else's — which is what the waiting screen
+  // reads, and the reason that policy exists at all.
+  await visible(
+    "pending reads its own profile",
+    pending.from("staff_profiles").select("user_id").eq("user_id", pendingUser.user.id),
+    1
+  );
+  await visible(
+    "pending sees only itself, not the team",
+    pending.from("staff_profiles").select("user_id"),
+    1
+  );
+
+  // The escalation that would make the whole gate decorative.
+  const { error: selfApprove } = await pending
+    .from("staff_profiles")
+    .update({ approved_at: new Date().toISOString(), role: "owner" })
+    .eq("user_id", pendingUser.user.id);
+  if (selfApprove) ok(`pending cannot approve itself  (${selfApprove.code || "error"})`);
+  else {
+    const { data: check } = await admin
+      .from("staff_profiles")
+      .select("approved_at")
+      .eq("user_id", pendingUser.user.id)
+      .single();
+    check?.approved_at
+      ? fail("pending cannot approve itself", "it set its own approved_at")
+      : ok("pending cannot approve itself  (no rows matched)");
   }
 
   console.log("\nMANAGER");

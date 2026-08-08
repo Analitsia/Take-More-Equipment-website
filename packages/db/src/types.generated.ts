@@ -420,6 +420,7 @@ export type Database = {
       staff_profiles: {
         Row: {
           active: boolean
+          approved_at: string | null
           created_at: string
           full_name: string
           role: Database["public"]["Enums"]["app_role"]
@@ -428,6 +429,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          approved_at?: string | null
           created_at?: string
           full_name: string
           role?: Database["public"]["Enums"]["app_role"]
@@ -436,6 +438,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          approved_at?: string | null
           created_at?: string
           full_name?: string
           role?: Database["public"]["Enums"]["app_role"]

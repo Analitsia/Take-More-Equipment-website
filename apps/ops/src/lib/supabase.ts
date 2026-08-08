@@ -26,7 +26,31 @@ export type Session = {
 };
 
 /**
- * The signed-in staff member, or null.
+ * Signing in and being allowed in are two different things.
+ *
+ * Anyone who has requested access has a real, working auth account from the
+ * moment they ask — that is what lets approval take effect without a password
+ * being reissued or an email being clicked. So a valid session no longer means
+ * a user of this application, and the difference has to be a state rather than
+ * a null:
+ *
+ *   anonymous  no session at all                         → /login
+ *   pending    signed in, nobody has approved them yet   → /pending
+ *   revoked    approved once, since deactivated          → /login, told why
+ *   active     approved and not deactivated              → the app
+ *
+ * Collapsing `pending` into `anonymous` is what produces the bug this replaces:
+ * the person signs in successfully, lands on /login again because they are not
+ * staff, and concludes the password is wrong.
+ */
+export type StaffState =
+  | { state: "anonymous" }
+  | { state: "pending"; email: string; fullName: string; requestedAt: string }
+  | { state: "revoked" }
+  | { state: "active"; session: Session };
+
+/**
+ * Who this request belongs to, and what they are allowed to be shown.
  *
  * Authentication comes from `getClaims()`, which verifies the JWT signature
  * against the project's published keys. `getSession()` is never used here —
@@ -37,36 +61,68 @@ export type Session = {
  * The ROLE, though, comes from staff_profiles rather than the token, matching
  * what the RLS policies do. A token is only reissued on refresh, so a role read
  * from it can be an hour stale — long enough for someone who has just been
- * removed to keep working.
+ * removed to keep working. The same property is what makes approval feel
+ * instant: it is a column read on every request, not a claim baked into a token
+ * an hour ago.
  */
-export async function currentStaff(): Promise<Session | null> {
+export async function staffState(): Promise<StaffState> {
   const client = await supabase();
 
   const { data: claimsData } = await client.auth.getClaims();
   const claims = claimsData?.claims;
-  if (!claims?.sub) return null;
+  if (!claims?.sub) return { state: "anonymous" };
 
+  // Readable even while pending, through the "a person may read their own
+  // profile" policy — otherwise the waiting screen could not read the row it
+  // is waiting on.
   const { data: profile } = await client
     .from("staff_profiles")
-    .select("full_name, role, active")
+    .select("full_name, role, active, approved_at, created_at")
     .eq("user_id", claims.sub)
     .maybeSingle();
 
-  // Authenticated but not staff — or deactivated. Either way, not a user of
-  // this application.
-  if (!profile || !profile.active) return null;
+  // A session with no profile row at all. Our own request flow always writes
+  // one, so this is an account created some other way — the bootstrap script
+  // mid-run, or a row an owner deleted while the person was signed in.
+  if (!profile) return { state: "revoked" };
+
+  if (!profile.approved_at) {
+    return {
+      state: "pending",
+      email: (claims.email as string) ?? "",
+      fullName: profile.full_name,
+      requestedAt: profile.created_at,
+    };
+  }
+
+  if (!profile.active) return { state: "revoked" };
 
   return {
-    userId: claims.sub as string,
-    email: (claims.email as string) ?? "",
-    fullName: profile.full_name,
-    role: profile.role,
+    state: "active",
+    session: {
+      userId: claims.sub as string,
+      email: (claims.email as string) ?? "",
+      fullName: profile.full_name,
+      role: profile.role,
+    },
   };
 }
 
-/** For pages that must not render at all without a session. */
+/** The signed-in staff member, or null. Kept for callers that only need that. */
+export async function currentStaff(): Promise<Session | null> {
+  const state = await staffState();
+  return state.state === "active" ? state.session : null;
+}
+
+/**
+ * For pages that must not render at all without an approved session.
+ *
+ * Someone waiting on approval is sent to the screen that explains that, rather
+ * than to a login form they have already successfully used.
+ */
 export async function requireStaff(): Promise<Session> {
-  const staff = await currentStaff();
-  if (!staff) redirect("/login");
-  return staff;
+  const state = await staffState();
+  if (state.state === "active") return state.session;
+  if (state.state === "pending") redirect("/pending");
+  redirect("/login");
 }

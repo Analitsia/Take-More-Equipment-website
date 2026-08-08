@@ -4,19 +4,23 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { APP_ROLES, ROLE_LABELS, type AppRole } from "@takemore/core";
 import { Button, Field, Input, Panel, Select } from "@takemore/ui";
-import { inviteStaff, setActive, setRole } from "./actions";
+import { approveRequest, inviteStaff, rejectRequest, setActive, setRole } from "./actions";
 
 type Member = {
   user_id: string;
   full_name: string;
   role: AppRole;
   active: boolean;
+  approved_at: string | null;
+  created_at: string;
 };
 
 export default function TeamManager({
+  requests,
   members,
   currentUserId,
 }: {
+  requests: Member[];
   members: Member[];
   currentUserId: string;
 }) {
@@ -42,6 +46,28 @@ export default function TeamManager({
 
   return (
     <div className="space-y-4">
+      {/* Requests lead the page when there are any, and vanish entirely when
+          there are not — a permanently visible empty queue trains an owner to
+          scroll past the one place that needs them. */}
+      {requests.length > 0 && (
+        <Panel
+          title="Asking to join"
+          subtitle="They already have a password. Approving is all that is left."
+          className="border-accent/40"
+        >
+          <ul className="divide-y divide-white/5">
+            {requests.map((request) => (
+              <AccessRequest
+                key={request.user_id}
+                request={request}
+                onError={setError}
+                onDone={() => router.refresh()}
+              />
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <Panel title="Everyone">
         <ul className="divide-y divide-white/5">
           {members.map((member) => (
@@ -148,5 +174,98 @@ export default function TeamManager({
         </div>
       </Panel>
     </div>
+  );
+}
+
+/**
+ * One person waiting at the door.
+ *
+ * The role picker sits next to Approve rather than appearing after it, because
+ * choosing what someone can see is part of the decision to let them in — and
+ * because the difference between staff and manager here is whether they can
+ * read what every machine cost.
+ *
+ * Reject asks first. It deletes the account, which is the one irreversible
+ * button on this screen, and it sits two centimetres from Approve.
+ */
+function AccessRequest({
+  request,
+  onError,
+  onDone,
+}: {
+  request: Member;
+  onError: (message: string | null) => void;
+  onDone: () => void;
+}) {
+  const [role, setRole] = useState<AppRole>("staff");
+  const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
+
+  const asked = new Date(request.created_at);
+
+  async function run(action: "approve" | "reject") {
+    if (action === "reject") {
+      const sure = window.confirm(
+        `Turn away ${request.full_name}? Their account is deleted and they would have to ask again.`
+      );
+      if (!sure) return;
+    }
+
+    setBusy(action);
+    onError(null);
+    const result =
+      action === "approve"
+        ? await approveRequest(request.user_id, role)
+        : await rejectRequest(request.user_id);
+    setBusy(null);
+
+    if (!result.ok) onError(result.error);
+    else onDone();
+  }
+
+  return (
+    <li className="py-3 space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-light truncate">{request.full_name}</p>
+        <p className="text-[11px] font-light text-muted shrink-0">
+          {asked.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as AppRole)}
+          disabled={busy !== null}
+          className="bg-card border border-border rounded-lg px-2 py-1.5 text-xs font-light
+                     text-white/90 hover:border-white/20 focus:border-accent focus:outline-none
+                     transition-colors disabled:opacity-40"
+        >
+          {APP_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
+        </select>
+
+        <Button
+          onClick={() => run("approve")}
+          loading={busy === "approve"}
+          disabled={busy !== null}
+          className="px-3 py-1.5 text-xs"
+        >
+          Let them in
+        </Button>
+
+        <Button
+          variant="danger"
+          onClick={() => run("reject")}
+          loading={busy === "reject"}
+          disabled={busy !== null}
+          className="px-3 py-1.5 text-xs"
+        >
+          Reject
+        </Button>
+      </div>
+    </li>
   );
 }
