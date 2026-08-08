@@ -19,10 +19,10 @@ export default async function LeadsPage() {
       <div className="mb-5">
         <div className="flex items-center space-x-3 mb-1">
           <div className="w-5 h-1 rounded-full bg-accent" />
-          <span className="text-accent uppercase text-[11px] tracking-wider">Customers</span>
+          <span className="text-accent uppercase text-[11px] tracking-wider">Clients</span>
         </div>
         <h1 className="text-xl font-medium tracking-tight">
-          {leads.length} {leads.length === 1 ? "person" : "people"}
+          {leads.length} {leads.length === 1 ? "client" : "clients"}
         </h1>
         <p className="text-xs font-light text-muted mt-1">
           {reachable} we may message about new stock.

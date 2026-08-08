@@ -140,6 +140,8 @@ async function run(cookie) {
   await visit(cookie, "/money");
   await visit(cookie, "/team");
   await visit(cookie, "/account");
+  // The iframe's title, which only exists if the storefront frame rendered.
+  await visit(cookie, "/website", { contains: "Take More website" });
 
   console.log("\nTHE CRM");
   await visit(cookie, "/leads", { contains: "Add someone" });

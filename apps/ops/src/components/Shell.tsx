@@ -25,7 +25,7 @@ const navFor = (
 ): NavItem[] => [
   { href: "/", label: "Today", icon: "solar:home-2-linear" },
   { href: "/items", label: "Stock", icon: "solar:box-linear" },
-  { href: "/leads", label: "People", icon: "solar:users-group-two-rounded-linear" },
+  { href: "/leads", label: "Clients", icon: "solar:users-group-two-rounded-linear" },
   {
     href: "/outreach",
     label: "Outreach",
@@ -52,6 +52,22 @@ const navFor = (
       ]
     : []),
 ];
+
+/**
+ * The storefront, seen from inside the tool that fills it.
+ *
+ * Deliberately not in the list above, because that list is also the phone's
+ * bottom bar and it is already full — a ninth destination there would shrink
+ * every other target under a thumb that has learnt where they are. On a desk
+ * it sits with the rest of the rail, where there is room; on a phone it is the
+ * globe in the header. Both go to the same in-app page rather than off to the
+ * live site, so checking the website never costs you your place in the app.
+ */
+const WEBSITE: NavItem = {
+  href: "/website",
+  label: "Website",
+  icon: "solar:global-linear",
+};
 
 /** A count that only exists when it is worth interrupting someone for. */
 function Badge({ count, className = "" }: { count?: number; className?: string }) {
@@ -97,7 +113,7 @@ export default function Shell({
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          {nav.map((item) => (
+          {[...nav, WEBSITE].map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -142,6 +158,13 @@ export default function Shell({
           <span className="text-sm font-medium tracking-tight">Ops</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={WEBSITE.href}
+            aria-label="View the website"
+            className="text-muted active:text-accent transition-colors flex items-center"
+          >
+            <iconify-icon icon={WEBSITE.icon} width="18" height="18" noobserver="" />
+          </Link>
           <Link
             href="/account"
             className="text-[11px] text-muted hover:text-white transition-colors"

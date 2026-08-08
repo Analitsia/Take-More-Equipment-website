@@ -1,6 +1,24 @@
 import "server-only";
 
 /**
+ * Where the storefront lives, for looking at rather than for linking to.
+ *
+ * Same chain the outbound links use (see `itemUrl` in lib/message), with one
+ * difference at the end: with nothing configured this answers localhost:3000,
+ * because in development the storefront is a second dev server rather than a
+ * domain. A message going to a customer must never guess that way — a frame we
+ * are looking at ourselves is the one place where guessing is the right answer.
+ */
+export function storefrontOrigin(): string {
+  const configured =
+    process.env.NEXT_PUBLIC_STOREFRONT_URL ?? process.env.STOREFRONT_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  return process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://takemoreequipment.co.za";
+}
+
+/**
  * Tell the storefront that stock changed.
  *
  * The public site renders statically and caches aggressively, which is most of
