@@ -1,13 +1,17 @@
-import { createDraft } from "../actions";
+import { redirect } from "next/navigation";
 
 /**
- * "New item" is not a blank form — it is a row.
+ * A tombstone.
  *
- * Creating the draft immediately and redirecting into the editor is what makes
- * autosave possible from the very first keystroke, and it means the first thing
- * a worker does is photograph the machine rather than fill in a form header.
- * The cost is the occasional abandoned draft, which is cheap and visible.
+ * This route used to create a draft item during its own render and redirect
+ * into the editor. Next.js refuses that — revalidatePath() during a render
+ * throws — and a write on a GET was the wrong shape regardless, since anything
+ * that can prefetch or reload a URL could mint drafts. Creation now happens in
+ * the createDraft server action behind the button; see components/NewItemButton.
+ *
+ * The path survives only so the URL still sitting in a history entry or an
+ * address bar lands on the stock list rather than a 404. It must never mutate.
  */
-export default async function NewItemPage() {
-  await createDraft(); // redirects to /items/<id>
+export default function NewItemPage(): never {
+  redirect("/items");
 }

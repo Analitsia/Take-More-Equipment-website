@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { listItems } from "@/lib/queries";
+import NewItemButton from "@/components/NewItemButton";
 import ItemsBrowser from "./ItemsBrowser";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +18,14 @@ export default async function ItemsPage() {
               : `${items.length} unit${items.length === 1 ? "" : "s"}, newest first.`}
           </p>
         </div>
-        <Link
-          href="/items/new"
-          className="hidden md:inline-flex items-center gap-2 bg-accent text-background rounded-xl
-                     px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
+        <NewItemButton
+          formClassName="hidden md:block shrink-0"
+          className="inline-flex items-center gap-2 bg-accent text-background rounded-xl
+                     px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
         >
           <iconify-icon icon="solar:add-circle-linear" width="18" height="18" noobserver="" />
           New item
-        </Link>
+        </NewItemButton>
       </header>
 
       {items.length === 0 ? (
@@ -38,12 +38,9 @@ export default async function ItemsPage() {
             Photograph a machine, price it and publish it. It appears on the
             website within seconds.
           </p>
-          <Link
-            href="/items/new"
-            className="inline-flex items-center gap-2 bg-accent text-background rounded-xl px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
-          >
+          <NewItemButton className="inline-flex items-center gap-2 bg-accent text-background rounded-xl px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity">
             Take in the first item
-          </Link>
+          </NewItemButton>
         </div>
       ) : (
         <ItemsBrowser items={items} />

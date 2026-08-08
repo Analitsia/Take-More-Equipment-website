@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listItems } from "@/lib/queries";
+import NewItemButton from "@/components/NewItemButton";
 import { requireStaff } from "@/lib/supabase";
 import { STATUS_LABELS, isOnHand, rands, canSeeCosts, type ItemStatus } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
@@ -62,10 +63,7 @@ export default async function DashboardPage() {
       </header>
 
       {items.length === 0 ? (
-        <Link
-          href="/items/new"
-          className="block bg-card border border-border rounded-2xl p-10 text-center hover:border-white/15 transition-colors"
-        >
+        <NewItemButton className="block w-full bg-card border border-border rounded-2xl p-10 text-center hover:border-white/15 transition-colors">
           <div className="w-12 h-12 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mx-auto mb-4">
             <iconify-icon icon="solar:add-circle-linear" width="22" height="22" noobserver="" />
           </div>
@@ -73,7 +71,7 @@ export default async function DashboardPage() {
           <p className="text-sm font-light text-muted">
             Photograph it, price it, publish it.
           </p>
-        </Link>
+        </NewItemButton>
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Session } from "@/lib/supabase";
 import { canManageTeam, canSeeCosts, ROLE_LABELS } from "@takemore/core";
+import NewItemButton from "./NewItemButton";
 import SignOutButton from "./SignOutButton";
 
 /**
@@ -67,18 +68,24 @@ export default function Shell({
         </nav>
 
         <div className="px-3 pb-4">
-          <Link
-            href="/items/new"
-            className="flex items-center justify-center gap-2 bg-accent text-background rounded-xl
-                       px-4 py-3 text-sm font-medium hover:opacity-90 transition-opacity mb-4"
+          <NewItemButton
+            formClassName="mb-4"
+            className="w-full flex items-center justify-center gap-2 bg-accent text-background rounded-xl
+                       px-4 py-3 text-sm font-medium hover:opacity-90 transition-opacity"
           >
             <iconify-icon icon="solar:add-circle-linear" width="18" height="18" noobserver="" />
             New item
-          </Link>
+          </NewItemButton>
 
           <div className="border-t border-white/5 pt-4 px-2">
-            <p className="text-sm font-light truncate">{staff.fullName}</p>
-            <p className="text-[11px] text-muted mb-2">{ROLE_LABELS[staff.role]}</p>
+            {/* The name is the way in to your own account — the convention
+                everywhere else, and it costs no room in a nav that has none. */}
+            <Link href="/account" className="block mb-2 group">
+              <p className="text-sm font-light truncate text-white/90 group-hover:text-white transition-colors">
+                {staff.fullName}
+              </p>
+              <p className="text-[11px] text-muted">{ROLE_LABELS[staff.role]}</p>
+            </Link>
             <SignOutButton />
           </div>
         </div>
@@ -91,7 +98,12 @@ export default function Shell({
           <span className="text-sm font-medium tracking-tight">Ops</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-muted">{staff.fullName}</span>
+          <Link
+            href="/account"
+            className="text-[11px] text-muted hover:text-white transition-colors"
+          >
+            {staff.fullName}
+          </Link>
           <SignOutButton compact />
         </div>
       </header>
@@ -115,13 +127,13 @@ export default function Shell({
             {item.label}
           </Link>
         ))}
-        <Link
-          href="/items/new"
-          className="flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium text-accent"
+        <NewItemButton
+          formClassName="flex-1 flex"
+          className="w-full flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium text-accent"
         >
           <iconify-icon icon="solar:add-circle-linear" width="20" height="20" noobserver="" />
           New
-        </Link>
+        </NewItemButton>
       </nav>
     </div>
   );
