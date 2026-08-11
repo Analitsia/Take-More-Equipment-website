@@ -13,7 +13,7 @@ import {
 } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
 import { setStage } from "../items/actions";
-import { mediaUrl } from "@/lib/media";
+import ItemThumb from "@/components/ItemThumb";
 import type { ItemRow } from "@/lib/queries";
 
 /**
@@ -71,7 +71,6 @@ export default function Board({ items, role }: { items: ItemRow[]; role: AppRole
                   <p className="text-[11px] font-light text-muted text-center py-6">Empty</p>
                 ) : (
                   column.map((item) => {
-                    const image = item.media?.length ? mediaUrl(item.media[0], "card") : null;
                     // The other three stages. Not filtered by role — every move
                     // costs `staff`, so anyone looking at this board can make
                     // any of them, and anyone who can make one can undo it.
@@ -86,16 +85,11 @@ export default function Board({ items, role }: { items: ItemRow[]; role: AppRole
                       >
                         <Link href={`/items/${item.id}`} className="block">
                           <div className="flex gap-2.5 p-2.5">
-                            <div className="w-11 h-11 rounded-lg overflow-hidden bg-background border border-border shrink-0">
-                              {image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={image} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-muted">
-                                  <iconify-icon icon="solar:camera-linear" width="14" height="14" noobserver="" />
-                                </div>
-                              )}
-                            </div>
+                            <ItemThumb
+                              media={item.media}
+                              className="w-11 h-11 rounded-lg"
+                              icon={14}
+                            />
                             <div className="min-w-0 flex-1">
                               <h3 className="text-xs font-medium tracking-tight leading-snug line-clamp-2">
                                 {item.title}

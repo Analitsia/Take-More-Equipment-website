@@ -85,6 +85,12 @@ export default function MediaManager({
 
   const ordered = [...media].sort((a, b) => a.position - b.position);
   const photos = ordered.filter((m) => m.kind === "photo");
+  // What every list and the catalogue will actually use — the first PHOTOGRAPH,
+  // which is not always the first row. An item filmed before it was
+  // photographed has a clip at position 0, and the badge below used to mark
+  // nothing at all on one, leaving the workshop unable to see which frame the
+  // world was seeing. Same rule as coverPhoto() in lib/media.
+  const cover = photos[0];
 
   useEffect(() => {
     onCountChange(photos.length);
@@ -300,7 +306,7 @@ export default function MediaManager({
                 )}
               </div>
 
-              {index === 0 && m.kind === "photo" && (
+              {m.id === cover?.id && (
                 <span className="absolute top-1.5 left-1.5 bg-accent text-background text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full">
                   Card
                 </span>

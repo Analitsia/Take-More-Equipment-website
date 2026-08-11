@@ -9,7 +9,7 @@ import {
   senderIdentity,
 } from "@/lib/email";
 import { itemUrl } from "@/lib/message";
-import { mediaUrl } from "@/lib/media";
+import { coverImage, type MediaRef } from "@/lib/media";
 import { atLeast, rands } from "@takemore/core";
 import { reportError } from "@takemore/observability";
 
@@ -114,7 +114,7 @@ export async function previewCampaign(id: string): Promise<CampaignPreview> {
   const { data: chosen } = await client
     .from("items")
     .select(
-      "id, title, brand, slug, status, published_at, deleted_at, list_price_cents, media:item_media(storage_path, external_url)"
+      "id, title, brand, slug, status, published_at, deleted_at, list_price_cents, media:item_media(kind, storage_path, external_url, position)"
     )
     .in("id", campaign.item_ids);
 
@@ -127,7 +127,7 @@ export async function previewCampaign(id: string): Promise<CampaignPreview> {
     published_at: string | null;
     deleted_at: string | null;
     list_price_cents: number | null;
-    media: { storage_path: string | null; external_url: string | null }[];
+    media: MediaRef[];
   }[];
 
   const isLive = (row: (typeof all)[number]) =>
@@ -142,6 +142,12 @@ export async function previewCampaign(id: string): Promise<CampaignPreview> {
     .is("unsubscribed_at", null)
     .not("email_consent_at", "is", null)
     .not("email", "is", null);
+
+  // Read once, so the warning below and the hero the send actually uses cannot
+  // disagree. They used to: the warning asked whether there was any media, the
+  // hero asked for a picture. An item whose only media is a clip has the first
+  // and not the second, and the preview called that fine.
+  const hero = coverImage(live[0]?.media) ?? undefined;
 
   const warnings: string[] = [];
   const goneCount = all.length - live.length;
@@ -158,14 +164,13 @@ export async function previewCampaign(id: string): Promise<CampaignPreview> {
   if (live.length === 0) {
     warnings.push("None of these machines are still for sale, so this cannot send.");
   }
-  if (!live[0]?.media?.length) {
+  if (live.length > 0 && !hero) {
     warnings.push("No photograph — this will go out as text only.");
   }
   if (campaign.state !== "draft") {
     warnings.push(`This campaign is already "${campaign.state}" and cannot be sent again.`);
   }
 
-  const hero = live[0]?.media?.length ? mediaUrl(live[0].media[0], "card") : undefined;
   // "there" is the fallback the real send uses for a lead with no name, so the
   // preview shows the least personalised version rather than the best case.
   const body = bodyFor("there", campaign.intro, live);
@@ -274,7 +279,7 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
   // machine that sold yesterday is worse than no newsletter.
   const { data: items } = await client
     .from("items")
-    .select("id, title, brand, slug, list_price_cents, media:item_media(storage_path, external_url)")
+    .select("id, title, brand, slug, list_price_cents, media:item_media(kind, storage_path, external_url, position)")
     .in("id", campaign.item_ids)
     .eq("status", "listed")
     .not("published_at", "is", null)
@@ -285,7 +290,7 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
     brand: string | null;
     slug: string;
     list_price_cents: number | null;
-    media: { storage_path: string | null; external_url: string | null }[];
+    media: MediaRef[];
   }[];
 
   if (live.length === 0) {
@@ -315,7 +320,7 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
     return { ok: false, error: "Nobody has agreed to emails yet." };
   }
 
-  const hero = live[0].media?.length ? mediaUrl(live[0].media[0], "card") : undefined;
+  const hero = coverImage(live[0].media) ?? undefined;
 
   const result = await sendMarketingBatch(
     recipients.map((lead) => ({

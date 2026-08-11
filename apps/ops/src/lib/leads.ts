@@ -7,6 +7,7 @@ import type {
   OutreachChannel,
   OutreachState,
 } from "@takemore/core";
+import type { MediaRef } from "./media";
 
 /**
  * Reads for the CRM.
@@ -158,7 +159,7 @@ export type QueuedMessage = {
     brand: string | null;
     slug: string;
     list_price_cents: number | null;
-    media: { storage_path: string | null; external_url: string | null }[];
+    media: MediaRef[];
   } | null;
 };
 
@@ -171,7 +172,7 @@ export async function getQueuedOutreach(): Promise<QueuedMessage[]> {
       `id, channel, state, reason, body, match_score, created_at,
        lead:leads(id, full_name, email, phone, phone_e164),
        item:items(id, title, brand, slug, list_price_cents,
-                  media:item_media(storage_path, external_url))`
+                  media:item_media(kind, storage_path, external_url, position))`
     )
     .eq("state", "queued")
     .order("match_score", { ascending: false })

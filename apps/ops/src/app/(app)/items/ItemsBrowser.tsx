@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ITEM_STATUSES, STATUS_LABELS, rands, type ItemStatus } from "@takemore/core";
 import { StatusPill, PublishPill } from "@takemore/ui";
-import { mediaUrl } from "@/lib/media";
+import ItemThumb from "@/components/ItemThumb";
 import type { ItemRow } from "@/lib/queries";
 
 /**
@@ -87,70 +87,56 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
         </p>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((item) => {
-            const image = item.media?.length ? mediaUrl(item.media[0], "card") : null;
-            return (
-              <li key={item.id}>
-                <Link
-                  href={`/items/${item.id}`}
-                  className="flex items-center gap-3 sm:gap-4 bg-card border border-border rounded-2xl
-                             p-3 hover:border-white/15 transition-colors group"
-                >
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-background border border-border shrink-0">
-                    {image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={image}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          {filtered.map((item) => (
+            <li key={item.id}>
+              <Link
+                href={`/items/${item.id}`}
+                className="flex items-center gap-3 sm:gap-4 bg-card border border-border rounded-2xl
+                           p-3 hover:border-white/15 transition-colors group"
+              >
+                <ItemThumb
+                  media={item.media}
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl"
+                  imageClassName="group-hover:scale-105 transition-transform duration-500"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-sm font-medium tracking-tight truncate">{item.title}</h3>
+                    {item.featured && (
+                      <iconify-icon
+                        icon="solar:star-bold"
+                        width="12"
+                        height="12"
+                        noobserver=""
+                        className="text-accent shrink-0"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted">
-                        <iconify-icon icon="solar:camera-linear" width="18" height="18" noobserver="" />
-                      </div>
                     )}
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-medium tracking-tight truncate">
-                        {item.title}
-                      </h3>
-                      {item.featured && (
-                        <iconify-icon
-                          icon="solar:star-bold"
-                          width="12"
-                          height="12"
-                          noobserver=""
-                          className="text-accent shrink-0"
-                        />
-                      )}
-                    </div>
-                    <p className="text-[11px] font-light text-muted truncate">
-                      {[item.sku, item.brand, item.category?.name, item.location_code]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <StatusPill status={item.status} size="sm" />
-                      <PublishPill publishedAt={item.published_at} />
-                    </div>
+                  <p className="text-[11px] font-light text-muted truncate">
+                    {[item.sku, item.brand, item.category?.name, item.location_code]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <StatusPill status={item.status} size="sm" />
+                    <PublishPill publishedAt={item.published_at} />
                   </div>
+                </div>
 
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-medium tracking-tight whitespace-nowrap">
-                      {item.list_price_cents ? rands(item.list_price_cents) : "—"}
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-medium tracking-tight whitespace-nowrap">
+                    {item.list_price_cents ? rands(item.list_price_cents) : "—"}
+                  </p>
+                  {item.condition_grade && (
+                    <p className="text-[11px] font-light text-muted mt-0.5">
+                      Grade {item.condition_grade}
                     </p>
-                    {item.condition_grade && (
-                      <p className="text-[11px] font-light text-muted mt-0.5">
-                        Grade {item.condition_grade}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </>

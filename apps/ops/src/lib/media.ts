@@ -27,12 +27,27 @@ export const SIZES = {
 } as const;
 
 /**
+ * A media row as the list queries select it.
+ *
+ * `kind` and `position` are not decoration. Without `kind` a caller cannot tell
+ * a clip from a photograph; without `position` it cannot tell which photograph
+ * the workshop put first. Both are optional here only so that a query which
+ * genuinely needs neither still type-checks.
+ */
+export type MediaRef = {
+  kind?: string | null;
+  storage_path?: string | null;
+  external_url?: string | null;
+  position?: number | null;
+};
+
+/**
  * A media row carries EITHER a storage path (real photography) or an external
  * URL (a placeholder from the mock catalogue). One function so no call site has
  * to remember that.
  */
 export function mediaUrl(
-  media: { kind?: string | null; storage_path?: string | null; external_url?: string | null },
+  media: MediaRef,
   size: keyof typeof SIZES = "card"
 ): string | null {
   if (media.external_url) return media.external_url;
@@ -52,6 +67,48 @@ export function mediaUrl(
   if ("height" in spec) params.set("height", String(spec.height));
 
   return `${renderBase()}/${media.storage_path}?${params}`;
+}
+
+/** The workshop's own order — the one MediaManager's arrows write. */
+const byPosition = (media: readonly MediaRef[]): MediaRef[] =>
+  [...media].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+/**
+ * The photograph that stands for an item wherever it appears in a list.
+ *
+ * Deliberately NOT `media[0]`. Every list here used to take that, which was
+ * wrong twice over. An embedded select comes back in no guaranteed order, so
+ * "first" was not the first — reordering photos in the editor changed nothing
+ * on the stock list. And when that arbitrary row happened to be a clip, its URL
+ * still went to the image transformer, which answers an mp4 with
+ * `400 InvalidRequest` — the broken thumbnail on the stock list, and on a
+ * campaign a broken hero image in every recipient's inbox.
+ *
+ * So: order by position, then take the first thing that is actually a picture.
+ */
+export function coverPhoto(media: readonly MediaRef[] | null | undefined): MediaRef | null {
+  if (!media?.length) return null;
+  return byPosition(media).find((m) => m.kind !== "video") ?? null;
+}
+
+/** The cover photo's URL, or null when an item has no photograph at all. */
+export function coverImage(
+  media: readonly MediaRef[] | null | undefined,
+  size: keyof typeof SIZES = "card"
+): string | null {
+  const photo = coverPhoto(media);
+  return photo ? mediaUrl(photo, size) : null;
+}
+
+/**
+ * The first clip, for a thumbnail that would otherwise be an empty icon.
+ *
+ * Only ever a fallback: a still frame is a worse cover than a photograph, and
+ * an email cannot show one at all.
+ */
+export function coverVideo(media: readonly MediaRef[] | null | undefined): MediaRef | null {
+  if (!media?.length) return null;
+  return byPosition(media).find((m) => m.kind === "video") ?? null;
 }
 
 /** items/<item_id>/<random>.<ext> — one prefix per machine. */

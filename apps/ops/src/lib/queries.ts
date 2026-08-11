@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { reportError } from "@takemore/observability";
 import type { ConditionGrade, ItemStatus } from "@takemore/core";
+import type { MediaRef } from "./media";
 
 /**
  * Reads for the ops app.
@@ -48,14 +49,21 @@ export type ItemRow = {
   created_at: string;
   location_code: string | null;
   category: { name: string; slug: string } | null;
-  media: { storage_path: string | null; external_url: string | null }[];
+  media: MediaRef[];
 };
 
+/**
+ * `kind` and `position` are load-bearing, not padding. A list picks the cover
+ * photograph with coverImage(), which needs `kind` to skip clips — the image
+ * transformer refuses an mp4 — and `position` to honour the order the workshop
+ * arranged the photos in. Selecting neither is what made every thumbnail here a
+ * coin toss.
+ */
 const ITEM_LIST_SELECT = `
   id, sku, slug, title, brand, status, condition_grade, list_price_cents,
   published_at, featured, created_at, location_code,
   category:categories(name, slug),
-  media:item_media(storage_path, external_url)
+  media:item_media(kind, storage_path, external_url, position)
 `;
 
 export async function listItems(): Promise<ItemRow[]> {

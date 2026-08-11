@@ -129,14 +129,40 @@ async function visit(cookie, path, expect = {}) {
   }
 
   ok(`GET ${path}`, expect.contains ? `found "${expect.contains}"` : `${body.length} bytes`);
+  return body;
+}
+
+/**
+ * No <img> on a list may point at a clip.
+ *
+ * The stock list used to take `media[0]` out of an embed that selected neither
+ * `kind` nor `position` — so "first" was whatever PostgREST happened to return,
+ * and when that was an mp4 the URL still went to Storage's IMAGE transformer,
+ * which answers `400 InvalidRequest`. The result was a broken-image glyph on
+ * the one item in the database with photographs on it.
+ *
+ * Nothing else catches this. It typechecks, it builds, and the page returns
+ * 200 — the failure is a second request the browser makes afterwards. So the
+ * assertion is made here, on the HTML, where it is cheap.
+ */
+const VIDEO_SRC = /\.(mp4|mov|webm|m4v)(\?|#|$)/i;
+
+function thumbnailsAreStills(path, body) {
+  if (!body) return;
+  const sources = [...body.matchAll(/<img\b[^>]*?\bsrc="([^"]+)"/gi)].map((m) => m[1]);
+  const clips = sources.filter((src) => VIDEO_SRC.test(src));
+  if (clips.length > 0) {
+    return fail(`${path} thumbnails`, `${clips.length} <img> pointing at a clip: ${clips[0]}`);
+  }
+  ok(`${path} thumbnails`, `${sources.length} <img>, none of them a clip`);
 }
 
 async function run(cookie) {
   console.log(`\nOPS PAGES  (${base})`);
 
   await visit(cookie, "/", { contains: "Somebody at the counter?" });
-  await visit(cookie, "/items");
-  await visit(cookie, "/board");
+  thumbnailsAreStills("/items", await visit(cookie, "/items"));
+  thumbnailsAreStills("/board", await visit(cookie, "/board"));
   await visit(cookie, "/money");
   await visit(cookie, "/team");
   await visit(cookie, "/account");

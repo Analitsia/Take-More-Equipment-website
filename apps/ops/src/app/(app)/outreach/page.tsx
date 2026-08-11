@@ -3,7 +3,7 @@ import { requireStaff } from "@/lib/supabase";
 import { getQueuedOutreach } from "@/lib/leads";
 import { emailIsConfigured } from "@/lib/email";
 import { draftMatchMessage, itemUrl } from "@/lib/message";
-import { mediaUrl } from "@/lib/media";
+import { coverImage } from "@/lib/media";
 import { atLeast } from "@takemore/core";
 import OutreachQueue, { type QueueEntry } from "./OutreachQueue";
 
@@ -44,7 +44,7 @@ export default async function OutreachPage() {
         itemTitle: item.title,
         itemSlug: item.slug,
         itemUrl: itemUrl(item.slug),
-        itemImage: item.media?.length ? mediaUrl(item.media[0], "card") : null,
+        itemImage: coverImage(item.media),
         itemPriceCents: item.list_price_cents,
         draft:
           message.body ??
