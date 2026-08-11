@@ -28,6 +28,7 @@ import { StatusPill, PublishPill } from "@takemore/ui";
 import { setStage, setTags, updateItem, type ItemPatch } from "../actions";
 import MediaManager from "./MediaManager";
 import CostsPanel from "./CostsPanel";
+import DeleteItem from "./DeleteItem";
 
 /**
  * The item editor.
@@ -605,6 +606,10 @@ export default function ItemEditor({
           </ol>
         </Panel>
       )}
+
+      {/* Last on the page on purpose. Nothing routine lives below it, so the
+          scroll that reaches it is one somebody meant to make. */}
+      <DeleteItem id={item.id} title={form.title} live={!!item.published_at} />
     </div>
   );
 }

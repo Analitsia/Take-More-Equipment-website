@@ -348,19 +348,45 @@ export async function reorderMedia(
   return { ok: true };
 }
 
+/**
+ * Delete an item: off the website, out of the stock list, in one action.
+ *
+ * Soft, always. Not as a hedge — as the only version of this that is safe to
+ * offer. A hard DELETE would take the item's costs and its activity log with it
+ * (both cascade), orphan any outreach that named the machine, and free the slug
+ * for the next item to claim — so a URL a customer has in a WhatsApp thread
+ * would one day answer with a different fryer. `deleted_at` costs a row and
+ * avoids all four.
+ *
+ * What a worker sees is a real delete regardless, because every read filters it:
+ * the stock list and getItem() exclude it, the public views require
+ * `deleted_at is null`, and the storefront loses it twice over since
+ * `published_at` is cleared in the same statement. Nothing in the app can reach
+ * it afterwards — the row is a record, not a hiding place.
+ *
+ * `.is("deleted_at", null)` makes it idempotent: a double tap on a slow
+ * connection matches nothing the second time rather than re-stamping the
+ * timestamp and writing a second 'deleted' line into the history.
+ */
 export async function softDeleteItem(id: string): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();
 
-  // Soft, always: an item that was live has been indexed and linked to.
   const { error } = await client
     .from("items")
     .update({ deleted_at: new Date().toISOString(), published_at: null })
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null);
 
   if (error) return { ok: false, error: humanise(error.message) };
 
+  // Every surface that counts stock. The dashboard and the board both read from
+  // the same undeleted set, and a machine that lingers on either after being
+  // deleted is the bug this is most likely to grow.
   revalidatePath("/items");
+  revalidatePath("/board");
+  revalidatePath("/");
+  revalidatePath("/activity");
   await revalidateStorefront(id);
   return { ok: true };
 }
