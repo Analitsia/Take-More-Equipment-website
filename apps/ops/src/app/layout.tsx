@@ -10,6 +10,23 @@ const figtree = Figtree({
   variable: "--font-figtree",
 });
 
+/**
+ * Warm the connection to Supabase before anything needs it.
+ *
+ * The first thumbnail, the first search keystroke and the first realtime
+ * frame all pay DNS + TCP + TLS to this host mid-interaction unless the
+ * browser has already opened it. Two variants because browsers key
+ * connections by credentials mode: the bare one serves <img> loads, the
+ * crossorigin one serves the supabase-js fetch() calls.
+ */
+const supabaseOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const metadata: Metadata = {
   title: "Take More Ops",
   description: "Stock intake, workshop and publishing for Take More Equipment.",
@@ -28,6 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-ZA" className={`dark ${figtree.variable}`}>
       <body className="bg-background text-foreground antialiased selection:bg-accent selection:text-black">
+        {supabaseOrigin && (
+          <>
+            <link rel="preconnect" href={supabaseOrigin} />
+            <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
+          </>
+        )}
         <IconifyLoader />
         {children}
       </body>
