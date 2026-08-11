@@ -1,5 +1,5 @@
 import type { Fact, Media } from "@/data/launch";
-import { publishedValue } from "@/data/launch";
+import { launchState, publishedValue } from "@/data/launch";
 
 /**
  * A photograph of this business, or a deliberate-looking absence of one.
@@ -9,7 +9,22 @@ import { publishedValue } from "@/data/launch";
  * of text. So this keeps the box exactly the same size either way and swaps the
  * photograph for a flat surface carrying the site's own texture.
  *
- * It works because the compositions already survive it. The hero's scrim is
+ * WHICH ONE YOU GET turns on `launchState`, the same switch the contact gate
+ * reads — because withholding has two different costs on either side of it:
+ *
+ *   · pre-launch — the mockup photograph renders. It is stock imagery and it is
+ *     not this workshop, which is precisely why it must not survive cutover.
+ *     But the only people looking at the site today are the ones building it,
+ *     and to them a hero with no photograph in it reads as a broken page rather
+ *     than as a principled blank.
+ *   · live — unverified photography is withheld and the textured surface takes
+ *     its place, so a stock kitchen is never implied to be ours in front of a
+ *     customer.
+ *
+ * Verified photography renders in both. Filling in `media` in the manifest is
+ * what makes this distinction stop mattering.
+ *
+ * The stand-in works because the compositions already survive it. The hero's scrim is
  * `from-background/70 via-background/50 to-background/95`; over a flat card
  * colour that reads as an intentional dark hero rather than a failed image. The
  * caption under the /about panel still says what the picture would have shown.
@@ -32,7 +47,7 @@ export default function SiteImage({
   /** Applied to the stand-in surface. Must occupy the same box. */
   fallbackClassName?: string;
 }) {
-  const image = publishedValue(fact);
+  const image = publishedValue(fact) ?? (launchState === "live" ? null : fact.value);
 
   if (!image) {
     return (
