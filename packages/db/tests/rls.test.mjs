@@ -203,6 +203,12 @@ async function run() {
   await refused("anon cannot read staff_profiles", anon.from("staff_profiles").select("user_id"));
   await refused("anon cannot read activity_log", anon.from("activity_log").select("id"));
   await refused("anon cannot read item_economics", anon.from("item_economics").select("margin_cents"));
+  // The Dashboard's two views. item_analytics carries the whole cost ledger
+  // split by kind, which makes it the widest cost surface in the schema — it
+  // gets the same no-grant treatment as item_economics, checked here so a
+  // future `create or replace` that drops the revoke fails a test.
+  await refused("anon cannot read item_analytics", anon.from("item_analytics").select("cost_cents"));
+  await refused("anon cannot read lead_demand", anon.from("lead_demand").select("lead_id"));
   await refused("anon cannot select the location_code column", anon.from("items").select("location_code"));
   await refused("anon cannot insert an item", anon.from("items").insert({ title: "hacked" }));
 
@@ -211,6 +217,12 @@ async function run() {
   await visible("staff reads every item, drafts included", staff.from("items").select("id").eq("id", draftId), 1);
   await denied("staff cannot read item_costs", staff.from("item_costs").select("amount_cents"));
   await denied("staff cannot read item_economics", staff.from("item_economics").select("margin_cents"));
+  // Empty, not partial. If the can_see_costs() guard were ever dropped from
+  // item_analytics, a staff account would read every machine with a cost of
+  // zero and therefore a margin equal to the whole asking price — and the
+  // Dashboard would render that as fact. This assertion is what stands between
+  // that and a deploy.
+  await denied("staff cannot read item_analytics", staff.from("item_analytics").select("cost_cents"));
   await visible(
     "staff records a cost through the RPC",
     staff.rpc("record_item_cost", { p_item_id: publishedId, p_kind: "parts", p_amount_cents: 150_000 }).then((r) => ({ data: [r.error ?? "ok"], error: r.error })),
@@ -328,6 +340,40 @@ async function run() {
   } else {
     fail("margin arithmetic is right", `got ${JSON.stringify(econ)}`);
   }
+
+  // The Dashboard reads item_analytics, not item_economics, so the split has to
+  // be checked on its own terms: the same R21 500 has to land in the right two
+  // buckets, and an unsold machine's margin has to sit in unrealised_ rather
+  // than in margin_ where it would be counted as money earned.
+  await visible(
+    "manager reads item_analytics",
+    manager.from("item_analytics").select("cost_cents").eq("item_id", publishedId),
+    1
+  );
+  const { data: split } = await manager
+    .from("item_analytics")
+    .select("cost_cents, cost_auction_cents, cost_parts_cents, margin_cents, unrealised_margin_cents, tied_up_cents")
+    .eq("item_id", publishedId)
+    .single();
+  const expected = {
+    cost_cents: 2_150_000,
+    cost_auction_cents: 2_000_000,
+    cost_parts_cents: 150_000,
+    // Not sold, so nothing is realised and the whole R28 500 is a hope.
+    margin_cents: 0,
+    unrealised_margin_cents: 2_850_000,
+    tied_up_cents: 2_150_000,
+  };
+  const wrong = Object.entries(expected).filter(
+    ([key, value]) => Number(split?.[key]) !== value
+  );
+  wrong.length === 0
+    ? ok("the cost ledger splits by kind, and an unsold margin stays unrealised")
+    : fail(
+        "the cost ledger splits by kind, and an unsold margin stays unrealised",
+        `${wrong.map(([k, v]) => `${k}: expected ${v}, got ${split?.[k]}`).join("; ")}`
+      );
+
 
   console.log("\nOWNER");
   const owner = users.owner.client;
@@ -480,6 +526,15 @@ async function leads() {
   await visible(
     "staff read what somebody wants",
     staff.from("lead_interests").select("id").eq("lead_id", captured.id)
+  );
+  // The Dashboard's demand chart. Unlike item_analytics this view carries no
+  // extra guard, deliberately — every approved staff member may already read
+  // every lead two lines above, and there is nothing in here they cannot see on
+  // the Clients page. Asserted so "staff cannot read it" is never added by
+  // analogy with the cost views, which would silently empty a chart.
+  await visible(
+    "staff read lead_demand",
+    staff.from("lead_demand").select("lead_id, category, is_customer").eq("lead_id", captured.id)
   );
   {
     const { error } = await staff

@@ -167,6 +167,11 @@ export async function setStage(id: string, status: ItemStatus): Promise<ActionRe
   revalidatePath(`/items/${id}`);
   revalidatePath("/items");
   revalidatePath("/board");
+  // The Dashboard reads every stage count and, once a machine reaches `sold`,
+  // every margin and rotation number on the page. It used to be a small "Today"
+  // that a stale render cost nothing; it is now the page this change is most
+  // visible on.
+  revalidatePath("/");
   await revalidateStorefront(id);
   return { ok: true, notice };
 }

@@ -133,6 +133,29 @@ async function visit(cookie, path, expect = {}) {
 }
 
 /**
+ * A retired URL that has to keep landing somewhere sensible.
+ *
+ * /money was folded into the Dashboard, and the redirect lives in
+ * next.config.mjs where nothing else would notice it going missing. People have
+ * it in pinned tabs; a 404 there reads as the numbers having been deleted.
+ */
+async function redirects(cookie, path, to) {
+  let res;
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { cookie, "user-agent": "takemore-page-smoke" },
+      redirect: "manual",
+    });
+  } catch (error) {
+    return fail(`GET ${path}`, `could not reach ${base} (${error.message})`);
+  }
+  const location = res.headers.get("location");
+  if (res.status < 300 || res.status >= 400) return fail(`GET ${path}`, `http ${res.status}, expected a redirect`);
+  if (new URL(location, base).pathname !== to) return fail(`GET ${path}`, `redirected to ${location}, expected ${to}`);
+  ok(`GET ${path}`, `redirects to ${to}`);
+}
+
+/**
  * No <img> on a list may point at a clip.
  *
  * The stock list used to take `media[0]` out of an embed that selected neither
@@ -160,10 +183,14 @@ function thumbnailsAreStills(path, body) {
 async function run(cookie) {
   console.log(`\nOPS PAGES  (${base})`);
 
-  await visit(cookie, "/", { contains: "Somebody at the counter?" });
+  // Signed in as an owner, so / is the Dashboard rather than the worker's page.
+  // "Tied up now" is a tile only the Dashboard renders, and only once
+  // item_analytics has come back with rows — so this one assertion covers the
+  // role branch, the view, the RLS guard and the render in a single request.
+  await visit(cookie, "/", { contains: "Tied up now" });
   thumbnailsAreStills("/items", await visit(cookie, "/items"));
   thumbnailsAreStills("/board", await visit(cookie, "/board"));
-  await visit(cookie, "/money");
+  await redirects(cookie, "/money", "/");
   await visit(cookie, "/team");
   await visit(cookie, "/account");
   // Joins activity_log to staff_profiles for actor names — another embed that

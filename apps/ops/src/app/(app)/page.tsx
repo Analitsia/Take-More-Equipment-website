@@ -4,74 +4,188 @@ import { listLeads } from "@/lib/leads";
 import { reportError } from "@takemore/observability";
 import NewItemButton from "@/components/NewItemButton";
 import CounterLookup from "@/components/CounterLookup";
-import { requireStaff } from "@/lib/supabase";
+import { requireStaff, supabase } from "@/lib/supabase";
 import {
   STATUS_LABELS,
+  STATUS_ORDER,
   birthdayThisMonth,
   isOnHand,
-  rands,
   canSeeCosts,
   type ItemStatus,
 } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
-import { supabase } from "@/lib/supabase";
+import Dashboard from "./dashboard/Dashboard";
+import { normaliseItem, normaliseLead } from "./dashboard/metrics";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Today.
+ * The one place the business is looked at.
  *
- * Deliberately small. A dashboard that answers five questions well is used; one
- * that answers thirty is scrolled past. The full KPI set — days-to-sale,
- * sell-through, margin by category — comes once there is enough history for the
- * numbers to mean anything.
+ * Today, Board and Money used to be three nav entries. Between them they
+ * answered "how many machines are there", "which bench is one on" and "what did
+ * we make last month" — and none of them answered the question the people
+ * scaling this business actually ask, which is some version of "is
+ * refrigeration worth buying more of". That needs rotation, margin and cost in
+ * the same view, sliced by category and subcategory, and it needed a dashboard
+ * rather than a third table.
+ *
+ * ── Two different pages behind one URL ────────────────────────────────────
+ *
+ * A `staff` account cannot read the cost ledger — that is the point of the
+ * item_costs design, not an oversight — so every money view returns nothing to
+ * them. Rendering the manager's dashboard anyway would show a floor worth R0
+ * with 100% margin, which is the worst class of bug this app has: a confidently
+ * wrong number nobody flags.
+ *
+ * So staff get the operational page they always had, with the counter lookup
+ * they use with a customer standing in front of them. Managers and the owner
+ * get the dashboard. The role check here is a courtesy; RLS is the control.
  */
 export default async function DashboardPage() {
   const staff = await requireStaff();
-  const [items, leads] = await Promise.all([listItems(), listLeads()]);
+  const lastSweep = await getLastCronRun();
+  const firstName = staff.fullName.split(" ")[0];
 
-  const byStatus = new Map<ItemStatus, number>();
-  for (const item of items) {
-    byStatus.set(item.status, (byStatus.get(item.status) ?? 0) + 1);
+  if (canSeeCosts(staff.role)) {
+    return <ManagerDashboard greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />;
+  }
+  return <StaffToday greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />;
+}
+
+/**
+ * Cape Town, not wherever Vercel happens to run this.
+ *
+ * The server is in Europe and the reader is in the Western Cape, so an
+ * unqualified `new Date().getHours()` greets somebody with "Evening" over lunch
+ * for half the year. Computed on the server and passed down as a string, which
+ * also keeps it out of the hydration diff.
+ */
+function timeOfDay(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date())
+  );
+  if (hour < 12) return "Morning";
+  if (hour < 18) return "Afternoon";
+  return "Evening";
+}
+
+type Sweep = Awaited<ReturnType<typeof getLastCronRun>>;
+
+// ---------------------------------------------------------------------------
+// Managers and the owner
+// ---------------------------------------------------------------------------
+
+async function ManagerDashboard({ greeting, sweep }: { greeting: string; sweep: Sweep }) {
+  const client = await supabase();
+
+  const [items, leads, categories, subcategories] = await Promise.all([
+    client.from("item_analytics").select("*"),
+    client.from("lead_demand").select("*"),
+    client.from("categories").select("id, name").eq("active", true).order("position"),
+    client
+      .from("subcategories")
+      .select("id, name, category_id")
+      .eq("active", true)
+      .order("position"),
+  ]);
+
+  // Said out loud rather than swallowed. The alternative is a dashboard of
+  // zeros that looks exactly like an answer — see the Money page header this
+  // inherited the habit from.
+  const failures = (
+    [
+      ["item_analytics", items.error],
+      ["lead_demand", leads.error],
+      ["categories", categories.error],
+      ["subcategories", subcategories.error],
+    ] as [string, { message: string } | null][]
+  ).filter(([, error]) => error);
+
+  for (const [view, error] of failures) {
+    reportError(error!, { where: "ops/dashboard", view });
   }
 
-  const birthdays = leads.filter((l) => birthdayThisMonth(l.birthday));
+  const itemRows = (items.data ?? []).map((row) =>
+    normaliseItem(row as Record<string, unknown>)
+  );
+  const leadRows = (leads.data ?? []).map((row) =>
+    normaliseLead(row as Record<string, unknown>)
+  );
 
-  const live = items.filter((i) => i.published_at).length;
-  const onHand = items.filter((i) => isOnHand(i.status));
-  const askingTotal = onHand.reduce((sum, i) => sum + (i.list_price_cents ?? 0), 0);
-
-  const weekAgo = Date.now() - 7 * 86_400_000;
-  const publishedThisWeek = items.filter(
-    (i) => i.published_at && new Date(i.published_at).getTime() > weekAgo
-  ).length;
-
-  // Oldest unsold unit — the one quietly costing shelf space.
-  const oldest = [...onHand]
-    .filter((i) => i.status !== "sold")
-    .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))[0];
-
-  let costTotal: number | null = null;
-  if (canSeeCosts(staff.role)) {
-    const client = await supabase();
-    const { data, error } = await client.from("item_economics").select("total_cost_cents");
-    // Reported rather than swallowed: a failed read here used to render as
-    // "R0 tied up", which is a number somebody would act on.
-    if (error) reportError(error, { where: "ops/dashboard", view: "item_economics" });
-    costTotal = (data ?? []).reduce(
-      (sum, row: any) => sum + Number(row.total_cost_cents ?? 0),
-      0
+  if (itemRows.length === 0 && failures.length === 0) {
+    return (
+      <div className="max-w-5xl">
+        <header className="mb-6">
+          <h1 className="text-xl md:text-2xl font-medium tracking-tight">{greeting}</h1>
+          <p className="text-sm font-light text-muted mt-1">No stock yet.</p>
+        </header>
+        <SweepStatus run={sweep} />
+        <FirstItemPrompt />
+      </div>
     );
   }
 
-  const lastSweep = await getLastCronRun();
+  return (
+    <>
+      {failures.length > 0 && (
+        <p className="max-w-6xl mb-4 text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
+          Some of these numbers could not be loaded ({failures.map(([v]) => v).join(", ")}),
+          so what is shown below is incomplete. This has been reported. Refresh
+          in a moment, and tell Carlo if it keeps happening.
+        </p>
+      )}
+      <div className="max-w-6xl">
+        <SweepStatus run={sweep} />
+      </div>
+      <Dashboard
+        greeting={greeting}
+        items={itemRows}
+        leads={leadRows}
+        categories={categories.data ?? []}
+        subcategories={subcategories.data ?? []}
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Everyone else
+// ---------------------------------------------------------------------------
+
+/**
+ * Deliberately small, and unchanged in spirit from the Today page it replaces.
+ *
+ * A worker's landing page answers "who is this in front of me" and "what needs
+ * doing", and nothing here needs a chart. The counter lookup stays at the top
+ * because it is used with a customer standing there.
+ */
+async function StaffToday({ greeting, sweep }: { greeting: string; sweep: Sweep }) {
+  const [items, leads] = await Promise.all([listItems(), listLeads()]);
+
+  const onHand = items.filter((item) => isOnHand(item.status));
+  const live = items.filter((item) => item.published_at).length;
+  const birthdays = leads.filter((lead) => birthdayThisMonth(lead.birthday));
+
+  const counts = new Map<ItemStatus, number>();
+  for (const item of items) {
+    if (item.status === "sold") continue;
+    counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+  }
+
+  // The one quietly costing shelf space.
+  const oldest = [...onHand]
+    .filter((item) => item.status !== "sold")
+    .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))[0];
 
   return (
     <div className="max-w-5xl">
       <header className="mb-6">
-        <h1 className="text-xl md:text-2xl font-medium tracking-tight">
-          Afternoon, {staff.fullName.split(" ")[0]}
-        </h1>
+        <h1 className="text-xl md:text-2xl font-medium tracking-tight">{greeting}</h1>
         <p className="text-sm font-light text-muted mt-1">
           {items.length === 0
             ? "No stock yet. Take in the first machine."
@@ -79,10 +193,8 @@ export default async function DashboardPage() {
         </p>
       </header>
 
-      {/* Above everything, because it is used with a customer standing there. */}
       <CounterLookup leads={leads} />
-
-      <SweepStatus run={lastSweep} />
+      <SweepStatus run={sweep} />
 
       {birthdays.length > 0 && (
         <Link
@@ -105,48 +217,40 @@ export default async function DashboardPage() {
       )}
 
       {items.length === 0 ? (
-        <NewItemButton className="block w-full bg-card border border-border rounded-2xl p-10 text-center hover:border-white/15 transition-colors">
-          <div className="w-12 h-12 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mx-auto mb-4">
-            <iconify-icon icon="solar:add-circle-linear" width="22" height="22" noobserver="" />
-          </div>
-          <p className="text-base font-medium tracking-tight mb-1">Take in your first item</p>
-          <p className="text-sm font-light text-muted">
-            Photograph it, price it, publish it.
-          </p>
-        </NewItemButton>
+        <FirstItemPrompt />
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <Stat label="On hand" value={String(onHand.length)} />
-            <Stat label="Live on site" value={String(live)} accent />
-            <Stat label="Published this week" value={String(publishedThisWeek)} />
-            <Stat
-              label={costTotal === null ? "Stock at asking" : "Stock value"}
-              value={rands(askingTotal)}
-              sub={costTotal === null ? undefined : `${rands(costTotal)} at cost`}
-            />
-          </div>
-
-          <section className="bg-card border border-border rounded-2xl p-5 mb-4">
-            <h2 className="text-sm font-medium tracking-tight mb-4">Where everything is</h2>
+          <Link
+            href="/board"
+            className="block bg-card border border-border rounded-2xl p-5 mb-3 hover:border-white/15 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h2 className="text-sm font-medium tracking-tight">Where everything is</h2>
+              <iconify-icon
+                icon="solar:arrow-right-linear"
+                width="18"
+                height="18"
+                noobserver=""
+                className="text-muted shrink-0"
+              />
+            </div>
             <ul className="space-y-2">
-              {[...byStatus.entries()].map(([status, count]) => (
-                <li key={status}>
-                  <Link
-                    href="/board"
-                    className="flex items-center gap-3 group"
-                  >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_CLASSES[status].dot}`} />
-                    <span className="text-sm font-light text-white/80 group-hover:text-white transition-colors">
-                      {STATUS_LABELS[status]}
-                    </span>
-                    <span className="flex-1 h-px bg-white/5" />
-                    <span className="text-sm font-light tabular-nums">{count}</span>
-                  </Link>
+              {STATUS_ORDER.map((status) => (
+                <li key={status} className="flex items-center gap-3">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${STATUS_CLASSES[status].dot}`}
+                  />
+                  <span className="text-sm font-light text-white/80">
+                    {STATUS_LABELS[status]}
+                  </span>
+                  <span className="flex-1 h-px bg-white/5" />
+                  <span className="text-sm font-light tabular-nums">
+                    {counts.get(status) ?? 0}
+                  </span>
                 </li>
               ))}
             </ul>
-          </section>
+          </Link>
 
           {oldest && (
             <Link
@@ -163,7 +267,13 @@ export default async function DashboardPage() {
                   {STATUS_LABELS[oldest.status]}
                 </p>
               </div>
-              <iconify-icon icon="solar:arrow-right-linear" width="18" height="18" noobserver="" className="text-muted shrink-0" />
+              <iconify-icon
+                icon="solar:arrow-right-linear"
+                width="18"
+                height="18"
+                noobserver=""
+                className="text-muted shrink-0"
+              />
             </Link>
           )}
         </>
@@ -172,29 +282,15 @@ export default async function DashboardPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: boolean;
-}) {
+function FirstItemPrompt() {
   return (
-    <div className="bg-card border border-border rounded-2xl p-4">
-      <p className="text-[10px] uppercase tracking-wider text-muted mb-1.5">{label}</p>
-      <p
-        className={`text-2xl font-light tracking-tighter tabular-nums ${
-          accent ? "text-accent" : ""
-        }`}
-      >
-        {value}
-      </p>
-      {sub && <p className="text-[11px] font-light text-muted mt-0.5">{sub}</p>}
-    </div>
+    <NewItemButton className="block w-full bg-card border border-border rounded-2xl p-10 text-center hover:border-white/15 transition-colors">
+      <div className="w-12 h-12 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mx-auto mb-4">
+        <iconify-icon icon="solar:add-circle-linear" width="22" height="22" noobserver="" />
+      </div>
+      <p className="text-base font-medium tracking-tight mb-1">Take in your first item</p>
+      <p className="text-sm font-light text-muted">Photograph it, price it, publish it.</p>
+    </NewItemButton>
   );
 }
 
@@ -210,17 +306,7 @@ function Stat({
  * Shown only when there is something to say. A sweep that ran last night and
  * queued nothing is the normal case and does not need a row on the dashboard.
  */
-function SweepStatus({
-  run,
-}: {
-  run: {
-    started_at: string;
-    finished_at: string | null;
-    ok: boolean | null;
-    result: unknown;
-    error: string | null;
-  } | null;
-}) {
+function SweepStatus({ run }: { run: Sweep }) {
   // Never run at all is normal on a fresh deployment, and there is nothing
   // useful to say about it until 04:00 has come around once.
   if (!run) return null;

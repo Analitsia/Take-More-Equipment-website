@@ -192,6 +192,13 @@ export type Database = {
             foreignKeyName: "item_costs_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "item_costs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -259,6 +266,13 @@ export type Database = {
             foreignKeyName: "item_media_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "item_media_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -313,6 +327,13 @@ export type Database = {
           tag_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "item_tags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
           {
             foreignKeyName: "item_tags_item_id_fkey"
             columns: ["item_id"]
@@ -462,6 +483,13 @@ export type Database = {
             foreignKeyName: "items_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "money_by_category"
             referencedColumns: ["category_id"]
           },
@@ -521,6 +549,13 @@ export type Database = {
             foreignKeyName: "lead_events_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -537,6 +572,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_events_lead_id_fkey"
@@ -561,6 +603,13 @@ export type Database = {
           tag_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_interest_tags_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["interest_id"]
+          },
           {
             foreignKeyName: "lead_interest_tags_interest_id_fkey"
             columns: ["interest_id"]
@@ -641,6 +690,13 @@ export type Database = {
             foreignKeyName: "lead_interests_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "money_by_category"
             referencedColumns: ["category_id"]
           },
@@ -655,6 +711,13 @@ export type Database = {
             foreignKeyName: "lead_interests_fulfilled_by_item_id_fkey"
             columns: ["fulfilled_by_item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_fulfilled_by_item_id_fkey"
+            columns: ["fulfilled_by_item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -676,6 +739,13 @@ export type Database = {
             foreignKeyName: "lead_interests_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -692,6 +762,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_interests_lead_id_fkey"
@@ -902,6 +979,13 @@ export type Database = {
             foreignKeyName: "outreach_messages_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
             referencedRelation: "item_economics"
             referencedColumns: ["item_id"]
           },
@@ -918,6 +1002,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "outreach_messages_lead_id_fkey"
@@ -995,6 +1086,13 @@ export type Database = {
             foreignKeyName: "subcategories_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "money_by_category"
             referencedColumns: ["category_id"]
           },
@@ -1033,6 +1131,40 @@ export type Database = {
       }
     }
     Views: {
+      item_analytics: {
+        Row: {
+          arrived_at: string | null
+          category: string | null
+          category_id: string | null
+          cost_auction_cents: number | null
+          cost_cents: number | null
+          cost_delivery_cents: number | null
+          cost_labour_cents: number | null
+          cost_other_cents: number | null
+          cost_parts_cents: number | null
+          cost_premium_cents: number | null
+          cost_workshop_cents: number | null
+          created_at: string | null
+          days_on_shelf: number | null
+          days_to_sale: number | null
+          is_sold: boolean | null
+          item_id: string | null
+          labour_hours: number | null
+          margin_cents: number | null
+          price_cents: number | null
+          published_at: string | null
+          revenue_cents: number | null
+          sku: string | null
+          sold_at: string | null
+          status: Database["public"]["Enums"]["item_status"] | null
+          subcategory: string | null
+          subcategory_id: string | null
+          tied_up_cents: number | null
+          title: string | null
+          unrealised_margin_cents: number | null
+        }
+        Relationships: []
+      }
       item_economics: {
         Row: {
           arrived_at: string | null
@@ -1050,6 +1182,61 @@ export type Database = {
           total_cost_cents: number | null
         }
         Relationships: []
+      }
+      lead_demand: {
+        Row: {
+          budget_max_cents: number | null
+          category: string | null
+          category_id: string | null
+          contactable: boolean | null
+          interest_id: string | null
+          is_customer: boolean | null
+          last_contacted_at: string | null
+          lead_created_at: string | null
+          lead_id: string | null
+          lead_source: Database["public"]["Enums"]["lead_source"] | null
+          lead_status: Database["public"]["Enums"]["lead_status"] | null
+          subcategory: string | null
+          subcategory_id: string | null
+          unsubscribed: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "lead_interests_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "public_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interests_subcategory_matches_category"
+            columns: ["subcategory_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id", "category_id"]
+          },
+        ]
       }
       money_by_category: {
         Row: {
@@ -1121,6 +1308,13 @@ export type Database = {
           width: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "item_media_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
           {
             foreignKeyName: "item_media_item_id_fkey"
             columns: ["item_id"]

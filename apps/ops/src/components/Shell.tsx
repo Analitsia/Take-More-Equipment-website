@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Session } from "@/lib/supabase";
-import { canManageTeam, canSeeCosts, ROLE_LABELS } from "@takemore/core";
+import { canManageTeam, ROLE_LABELS } from "@takemore/core";
 import ConnectionBanner from "./ConnectionBanner";
 import GlobalSearch from "./GlobalSearch";
 import NewItemButton from "./NewItemButton";
@@ -20,12 +20,27 @@ import SignOutButton from "./SignOutButton";
 
 type NavItem = { href: string; label: string; icon: string; badge?: number };
 
+/**
+ * Today, Board and Money were three entries for one job.
+ *
+ * A manager opened Today for the counts, Money for the margin and Board to see
+ * where a machine was, and had to hold all three in their head to answer any
+ * question worth asking. Dashboard is all of it, filtered by category and
+ * period — see the header on app/(app)/page.tsx.
+ *
+ * The board itself still exists at /board, because moving a machine between
+ * stages is a real thing somebody does with a phone in one hand and it is not a
+ * chart. It is reached from the stage strip at the bottom of the Dashboard
+ * rather than from here: it is somewhere you go to DO something, not somewhere
+ * you check. /money is gone entirely — the dashboard supersedes it, and the
+ * per-machine numbers live on the machine's own page where the edit is.
+ */
 const navFor = (
   role: Session["role"],
   pendingCount: number,
   queuedCount: number
 ): NavItem[] => [
-  { href: "/", label: "Today", icon: "solar:home-2-linear" },
+  { href: "/", label: "Dashboard", icon: "solar:chart-square-linear" },
   { href: "/items", label: "Stock", icon: "solar:box-linear" },
   { href: "/leads", label: "Clients", icon: "solar:users-group-two-rounded-linear" },
   {
@@ -37,10 +52,6 @@ const navFor = (
     // been waiting months for goes stale in days, so it earns the interruption.
     badge: queuedCount,
   },
-  { href: "/board", label: "Board", icon: "solar:widget-4-linear" },
-  ...(canSeeCosts(role)
-    ? [{ href: "/money", label: "Money", icon: "solar:wallet-linear" }]
-    : []),
   ...(canManageTeam(role)
     ? [
         {
