@@ -181,8 +181,24 @@ scrubbing configured.
 
 ### The nightly cron
 
-- `CRON_SECRET` — Vercel sets this itself when the cron in `apps/ops/vercel.json`
-  is registered. Nothing to do beyond confirming the cron exists.
+- `CRON_SECRET` — **you set this**, on the ops project, production scope. Vercel
+  does not create it for you, and confirming the cron exists is not enough: the
+  cron was registered and correct for three days while every nightly run was
+  refused, because without this variable Vercel sends no `Authorization` header
+  and `/api/match` answers 401. Any long random string (`openssl rand -hex 32`).
+  Set it, then redeploy — env changes only reach a deployment that is built
+  after them.
+
+  To check it is actually working, rather than merely present:
+
+  ```bash
+  OPS_URL=https://takemore-ops.vercel.app CRON_SECRET=… npm run test:match
+  ```
+
+  `the scheduler's own request is accepted` is the assertion that matters. If it
+  skips, nothing has verified the path Vercel actually uses. A refused scheduler
+  request now also raises a Sentry error naming this variable, so the next time
+  it happens it says so instead of showing up as a stale banner three days later.
 
 ---
 

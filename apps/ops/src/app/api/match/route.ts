@@ -74,11 +74,44 @@ function authorised(request: NextRequest): boolean {
   return false;
 }
 
+/**
+ * Vercel's scheduler identifies itself, and that turns out to matter.
+ *
+ * This job did not run for the first three days it existed. The cron was
+ * registered, the route was correct, and every test was green — because
+ * CRON_SECRET had never been set on the project, so Vercel sent its nightly
+ * request with NO Authorization header at all and got a 401. The suite's
+ * "no credential is refused" assertion was passing on exactly the request the
+ * scheduler makes.
+ *
+ * Nothing anywhere said so. cron_runs cannot record a run that was rejected
+ * before it started, the dashboard could only say "has not run for 72 hours",
+ * and a 401 in a function log is indistinguishable from a bored scanner.
+ *
+ * So a refusal that came from the scheduler is now an error worth waking
+ * somebody for, while a refusal that came from anyone else stays silent. This
+ * is the only thing in the system that can tell the difference between "the job
+ * is broken" and "the job has not been due yet".
+ */
+const isScheduler = (request: NextRequest): boolean =>
+  (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron");
+
 async function run(request: NextRequest) {
   if (!process.env.CRON_SECRET && !process.env.REVALIDATE_SECRET) {
     return NextResponse.json({ error: "not configured" }, { status: 503 });
   }
   if (!authorised(request)) {
+    if (isScheduler(request)) {
+      reportError(
+        new Error(
+          "Vercel's cron was refused by /api/match. CRON_SECRET is almost " +
+            "certainly missing from the ops project's production environment — " +
+            "Vercel only sends the Bearer header when that variable is set, and " +
+            "does NOT create it for you. Nobody is being told about matching stock."
+        ),
+        { where: "api/match", stage: "scheduler-refused" }
+      );
+    }
     return NextResponse.json({ error: "unauthorised" }, { status: 401 });
   }
 

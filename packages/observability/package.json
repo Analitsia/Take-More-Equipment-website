@@ -11,9 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@sentry/core": "^10.0.0",
     "@sentry/nextjs": "^10.0.0"
   },
   "devDependencies": {
+    "@sentry/core": "^10.69.0",
     "@sentry/nextjs": "^10.69.0",
     "@types/node": "^22.10.1",
     "typescript": "^5.7.2"

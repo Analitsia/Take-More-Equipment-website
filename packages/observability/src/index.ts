@@ -29,6 +29,25 @@
  */
 
 import * as Sentry from "@sentry/nextjs";
+/**
+ * captureCheckIn comes from @sentry/core, not from @sentry/nextjs.
+ *
+ * It used to be imported off the Sentry namespace above, and in SDK v10 that
+ * export does not exist — so `Sentry.captureCheckIn(...)` threw a TypeError on
+ * every call, cronStart()'s catch swallowed it and returned null, and cronFinish
+ * returned early on the null. The cron monitor described below as "the only
+ * mechanism that alerts on ABSENCE" had therefore never sent a single check-in.
+ *
+ * The build said so the whole time — `Attempted import error: 'captureCheckIn'
+ * is not exported from '@sentry/nextjs'` — as a warning, in a build that
+ * succeeded. That is the entire failure: a monitor that reports nothing looks
+ * exactly like a system with nothing to report.
+ *
+ * @sentry/nextjs depends on @sentry/core, so this is the same instance and the
+ * same client; it is named as a direct dependency so the resolution is not
+ * hoisting luck.
+ */
+import { captureCheckIn } from "@sentry/core";
 
 export type ErrorContext = {
   /** Where this happened, in words a person can grep for: "api/match". */
@@ -196,7 +215,7 @@ const CRON_SCHEDULE = {
  */
 export function cronStart(monitorSlug: string): string | null {
   try {
-    return Sentry.captureCheckIn({ monitorSlug, status: "in_progress" }, CRON_SCHEDULE);
+    return captureCheckIn({ monitorSlug, status: "in_progress" }, CRON_SCHEDULE);
   } catch {
     return null;
   }
@@ -209,7 +228,7 @@ export function cronFinish(
 ): void {
   if (!checkInId) return;
   try {
-    Sentry.captureCheckIn({ checkInId, monitorSlug, status }, CRON_SCHEDULE);
+    captureCheckIn({ checkInId, monitorSlug, status }, CRON_SCHEDULE);
   } catch {
     // See rule 1.
   }

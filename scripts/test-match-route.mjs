@@ -21,16 +21,30 @@
  * a cron nobody will notice has stopped: an authorised run must leave a
  * cron_runs row behind, or /api/health and the dashboard strip are both lying.
  *
- * NOT ASSERTED, deliberately: the CRON_SECRET path. Vercel sets that variable
- * itself and it is not present locally, so a test for it would either be
- * skipped everywhere or would need the secret handed to it — which is exactly
- * the thing not to make routine.
+ * ── The assertion this file used to be missing ────────────────────────────
+ *
+ * This header used to say the CRON_SECRET path was deliberately not asserted,
+ * "because Vercel sets that variable itself". Vercel does not. Nothing did, and
+ * so for the first three nights of its life the job fired on schedule, arrived
+ * with no Authorization header, and was refused — while this suite reported
+ * green, because "no credential at all is refused" is a PASS and is also
+ * exactly the request the scheduler was making.
+ *
+ * A test that covers every way in except the one the caller actually uses is
+ * worse than no test, because it is believed. So the scheduler's own request
+ * shape is asserted below whenever CRON_SECRET is in the environment, and the
+ * skip that stands in for it when it is not says plainly what has not been
+ * checked.
  */
 
 import { createClient } from "@supabase/supabase-js";
 
 const base = (process.env.OPS_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const secret = process.env.REVALIDATE_SECRET;
+// The one Vercel puts in the Bearer header. Absent locally unless somebody
+// pulls it down on purpose, which is why its absence is a loud skip and not a
+// silent one — see the header.
+const cronSecret = process.env.CRON_SECRET;
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SECRET_KEY;
 
@@ -111,6 +125,49 @@ section("Who is turned away");
   const { status } = await hit("/api/match", { headers: { authorization: "Bearer wrong" } });
   if (status === 401 || status === 503) ok("a wrong bearer token is refused", String(status));
   else fail("a wrong bearer token is refused", `got ${status}`);
+}
+
+// ── The caller that actually matters ───────────────────────────────────────
+// Everything above is a stranger being turned away. This is the scheduler being
+// let in, which is the only one of the two that has ever been broken.
+
+section("Vercel's scheduler");
+
+{
+  // The exact request Vercel makes when CRON_SECRET is NOT set: its user-agent,
+  // and no credential. It must be refused — but a refusal here is the failure
+  // mode that went unnoticed for three days, so the route reports it to Sentry
+  // and this assertion exists to say out loud that a 401 is what production
+  // gets when the variable is missing.
+  const { status } = await hit("/api/match", {
+    headers: { "user-agent": "vercel-cron/1.0" },
+  });
+  if (status === 401 || status === 503) {
+    ok("an unconfigured scheduler request is refused", `${status} — and reported`);
+  } else {
+    fail("an unconfigured scheduler request is refused", `got ${status}`);
+  }
+}
+
+if (!cronSecret) {
+  console.log(
+    "  \x1b[33mSKIP\x1b[0m  CRON_SECRET is not in this environment, so the path Vercel\n" +
+      "        actually uses at 04:00 has NOT been checked. Set it and re-run\n" +
+      "        against the deployment before believing this cron works."
+  );
+} else {
+  const { status, body } = await hit("/api/match", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${cronSecret}`,
+      "user-agent": "vercel-cron/1.0",
+    },
+  });
+  if (status === 200 && typeof body?.queued === "number") {
+    ok("the scheduler's own request is accepted", `queued ${body.queued}`);
+  } else {
+    fail("the scheduler's own request is accepted", `got ${status} ${JSON.stringify(body)}`);
+  }
 }
 
 // ── The real thing ─────────────────────────────────────────────────────────
