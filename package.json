@@ -29,7 +29,7 @@
     "test:email": "node --env-file-if-exists=.env.local scripts/test-email.mjs",
     "test:publish": "node --env-file-if-exists=.env.local scripts/test-publish-loop.mjs",
     "test": "npm run test:rls && npm run test:parity && npm run test:leads && npm run test:email",
-    "prepare": "husky"
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "devDependencies": {
     "husky": "^9.1.7",
