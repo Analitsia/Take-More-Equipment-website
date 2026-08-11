@@ -80,7 +80,19 @@ export default async function ItemPage({
           already being made, not a control. It renders nothing when nobody is
           waiting, which is most of the time. */}
       <div className="mt-4">
-        <WhoWantsThis leads={wanting} />
+        <WhoWantsThis
+          itemId={id}
+          // The same three conditions match_item_to_leads() checks before it
+          // will queue anything about a machine, and deliverEmail() re-checks
+          // at the moment of sending. Withholding the button is the courtesy;
+          // those two are the rule.
+          sellable={
+            item.status === "listed" &&
+            item.published_at !== null &&
+            (item.list_price_cents ?? 0) > 0
+          }
+          leads={wanting}
+        />
       </div>
     </div>
   );

@@ -128,7 +128,25 @@ export type CampaignState = (typeof CAMPAIGN_STATES)[number];
  * paragraph of copy is how the two come apart.
  */
 export const MATCH_SCORE_FLOOR = 40;
+/**
+ * Days between messages about THE SAME WANT.
+ *
+ * Per want rather than per person, which is the whole point of lead_interests
+ * being its own table. Somebody who asked for a fryer in March and a cold room
+ * in June has had two conversations with us, and one of them going out on
+ * Tuesday is not a reason to hold the other until the following week.
+ */
 export const FREQUENCY_CAP_DAYS = 7;
+/**
+ * However many wants somebody has recorded, this many unsolicited messages in
+ * a rolling week is the ceiling.
+ *
+ * The backstop for the line above. "Per want" is only as sane as the wants
+ * staff type in, and a customer with six interests on file is not getting six
+ * emails on the same afternoon however well each one matches. Mirrored by the
+ * `< 3` in match_item_to_leads(); change both or neither.
+ */
+export const OUTREACH_WEEKLY_CEILING = 3;
 /** How far over a stated budget a machine may be and still be worth mentioning. */
 export const BUDGET_GRACE = 0.1;
 

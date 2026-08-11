@@ -1,6 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@takemore/ui";
 import { formatPhone } from "@takemore/core";
 import type { WantingLead } from "@/lib/leads";
+import { emailLeadAboutItem } from "../../outreach/actions";
 
 /**
  * Who has been waiting for one of these.
@@ -10,12 +15,32 @@ import type { WantingLead } from "@/lib/leads";
  * fryer last month is a pricing input, not just a mailing list.
  *
  * Deliberately looser than the outreach queue: no consent filter and no
- * frequency cap, because this is not a send button. It answers "who did we
- * promise to keep an eye out for", and a customer who never ticked a marketing
- * box is still somebody to phone — a call is a conversation, not direct
- * marketing by electronic communication.
+ * frequency cap in the QUERY, because this is not only a send button. It answers
+ * "who did we promise to keep an eye out for", and a customer who never ticked a
+ * marketing box is still somebody to phone — a call is a conversation, not
+ * direct marketing by electronic communication.
+ *
+ * What the send button adds is the deliberate half of that. Every row carries
+ * the want it matched on, so an email from here is about THIS machine answering
+ * THAT want — the same (person, want, machine) triple the queue works in, and
+ * rate-limited against the same thing. Somebody who wanted two different
+ * machines and is emailed from two different item pages gets two emails, each
+ * quoting the sentence it belongs to.
  */
-export default function WhoWantsThis({ leads }: { leads: WantingLead[] }) {
+export default function WhoWantsThis({
+  itemId,
+  sellable,
+  leads,
+}: {
+  itemId: string;
+  /** Live, listed and priced. An email about anything else is an apology. */
+  sellable: boolean;
+  leads: WantingLead[];
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [sent, setSent] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+
   if (leads.length === 0) return null;
 
   return (
@@ -30,6 +55,12 @@ export default function WhoWantsThis({ leads }: { leads: WantingLead[] }) {
           </p>
         </div>
       </header>
+
+      {error && (
+        <p className="px-5 py-2.5 text-[11px] text-status-sold bg-status-sold/10 border-b border-status-sold/20">
+          {error}
+        </p>
+      )}
 
       <ul className="divide-y divide-white/5">
         {leads.slice(0, 8).map((lead) => (
@@ -55,6 +86,33 @@ export default function WhoWantsThis({ leads }: { leads: WantingLead[] }) {
                 “{lead.description}”
               </p>
             )}
+
+            {sent[lead.lead_id] ? (
+              <p className="text-[11px] font-light text-accent mt-1.5">{sent[lead.lead_id]}</p>
+            ) : lead.can_email && sellable ? (
+              <Button
+                variant="secondary"
+                loading={busy === lead.lead_id}
+                className="text-[11px] px-3 py-1.5 mt-2"
+                onClick={async () => {
+                  setBusy(lead.lead_id);
+                  setError(null);
+                  const result = await emailLeadAboutItem(
+                    lead.lead_id,
+                    lead.interest_id,
+                    itemId
+                  );
+                  if (result.ok) {
+                    setSent((s) => ({ ...s, [lead.lead_id]: result.notice ?? "Sent." }));
+                  } else {
+                    setError(result.error);
+                  }
+                  setBusy(null);
+                }}
+              >
+                Email them about this one
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>

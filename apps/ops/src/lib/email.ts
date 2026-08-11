@@ -66,17 +66,79 @@ const linkify = (text: string) =>
   );
 
 /**
+ * The pictures and clips an email carries.
+ *
+ * Photographs are EMBEDDED BY URL, not attached. The bucket is public and
+ * CDN-backed, so a referenced image costs the recipient one cached request and
+ * costs us nothing; four attached JPEGs would be a few megabytes on every send,
+ * and mailbox providers treat large attachments from a bulk sender as a
+ * deliverability problem rather than a courtesy.
+ *
+ * Clips are LINKED, and that is not a shortcut either. No mail client plays
+ * video inline — Gmail, Outlook and Apple Mail all strip a <video> tag — and a
+ * 30-second workshop clip is tens of megabytes, over Resend's own attachment
+ * ceiling before anybody's inbox quota is considered. A labelled link to the
+ * file plays on one tap in every browser on every phone, which is what somebody
+ * standing in a kitchen is actually going to do.
+ */
+export type EmailMedia = {
+  /** Photograph URLs, in the workshop's own order. The first becomes the hero. */
+  photos: string[];
+  /** Clips, as a link and the words to put on it. */
+  videos: { url: string; label: string }[];
+};
+
+/** The campaign template's single hero, expressed in the shape above. */
+export const heroOnly = (url: string | null | undefined): EmailMedia | undefined =>
+  url ? { photos: [url], videos: [] } : undefined;
+
+/**
+ * Ceilings, so a machine photographed twenty times does not produce an email
+ * nobody scrolls to the bottom of. The rest are on the item's own page, which
+ * every one of these emails links to.
+ */
+const MAX_PHOTOS = 4;
+const MAX_VIDEOS = 2;
+
+const photoTag = (url: string, width: string, margin: string, display: string) =>
+  `<img src="${escape(url)}" alt="" style="width:${width};max-width:100%;height:auto;border-radius:10px;margin:${margin};display:${display}">`;
+
+/**
  * The one email template.
  *
  * Deliberately plain. This business sells second-hand machines to kitchens; an
  * email that looks like a newsletter template looks like an advert, and an email
  * that looks like a person typed it gets read. Everything is inline-styled and
  * table-free, which is the only thing every mail client agrees on.
+ *
+ * The media is split around the words on purpose: one photograph above, so the
+ * machine is the first thing seen, and the rest below, so the sentence that
+ * says why we are writing is not buried under a contact sheet.
  */
-function wrap(body: string, token: string, heroImageUrl?: string): string {
+function wrap(body: string, token: string, media?: EmailMedia): string {
   const paragraphs = body
     .split(/\n{2,}/)
     .map((block) => `<p style="margin:0 0 16px">${linkify(block).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+  const photos = (media?.photos ?? []).filter(Boolean).slice(0, MAX_PHOTOS);
+  const videos = (media?.videos ?? []).slice(0, MAX_VIDEOS);
+  const [hero, ...rest] = photos;
+
+  // inline-block rather than a grid or a flex row: Outlook's Word rendering
+  // engine understands neither, and its fallback for this is to stack the
+  // pictures full width, which is a worse layout and not a broken one.
+  const thumbnails = rest
+    .map((url) => photoTag(url, "31%", "0 1.5% 8px 0", "inline-block"))
+    .join("");
+
+  const clips = videos
+    .map(
+      (video) =>
+        `<a href="${escape(video.url)}" style="display:block;margin:0 0 8px;padding:12px 14px;border:1px solid #e8e8e2;border-radius:10px;color:#1a1a17;text-decoration:none;font-size:14px">
+           <span style="color:#7a7a0a">&#9654;</span>&nbsp; ${escape(video.label)}
+         </a>`
+    )
     .join("");
 
   return `<!doctype html>
@@ -85,12 +147,10 @@ function wrap(body: string, token: string, heroImageUrl?: string): string {
     <p style="margin:0 0 20px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a8a80">
       Take More Catering Equipment
     </p>
-    ${
-      heroImageUrl
-        ? `<img src="${escape(heroImageUrl)}" alt="" width="504" style="width:100%;max-width:504px;height:auto;border-radius:10px;margin:0 0 20px;display:block">`
-        : ""
-    }
+    ${hero ? photoTag(hero, "504px", "0 0 20px", "block") : ""}
     <div style="font-size:15px;line-height:1.6;color:#1a1a17">${paragraphs}</div>
+    ${thumbnails ? `<div style="margin:4px 0 16px">${thumbnails}</div>` : ""}
+    ${clips ? `<div style="margin:4px 0 16px">${clips}</div>` : ""}
     <hr style="border:none;border-top:1px solid #e8e8e2;margin:28px 0 16px">
     <p style="margin:0;font-size:12px;line-height:1.6;color:#8a8a80">
       You are getting this because you asked us to tell you when we get equipment
@@ -122,13 +182,13 @@ export async function sendMarketingEmail({
   subject,
   body,
   unsubscribeToken,
-  heroImageUrl,
+  media,
 }: {
   to: string;
   subject: string;
   body: string;
   unsubscribeToken: string;
-  heroImageUrl?: string;
+  media?: EmailMedia;
 }): Promise<SendResult> {
   const resend = client();
   if (!resend) {
@@ -148,7 +208,7 @@ export async function sendMarketingEmail({
       subject,
       replyTo: REPLY_TO,
       text: `${body}\n\n---\nStop these: ${url}`,
-      html: wrap(body, unsubscribeToken, heroImageUrl),
+      html: wrap(body, unsubscribeToken, media),
       headers: {
         "List-Unsubscribe": `<${url}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -167,7 +227,7 @@ export type BatchRecipient = {
   subject: string;
   body: string;
   unsubscribeToken: string;
-  heroImageUrl?: string;
+  media?: EmailMedia;
 };
 
 /**
@@ -202,7 +262,7 @@ export async function sendMarketingBatch(
             subject: recipient.subject,
             replyTo: REPLY_TO,
             text: `${recipient.body}\n\n---\nStop these: ${url}`,
-            html: wrap(recipient.body, recipient.unsubscribeToken, recipient.heroImageUrl),
+            html: wrap(recipient.body, recipient.unsubscribeToken, recipient.media),
             headers: {
               "List-Unsubscribe": `<${url}>`,
               "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -244,8 +304,8 @@ export const emailIsConfigured = () => !!KEY;
  */
 export const PREVIEW_TOKEN = "preview-token-not-a-real-unsubscribe";
 
-export function renderPreview(body: string, heroImageUrl?: string): string {
-  return wrap(body, PREVIEW_TOKEN, heroImageUrl);
+export function renderPreview(body: string, media?: EmailMedia): string {
+  return wrap(body, PREVIEW_TOKEN, media);
 }
 
 /** The plain-text half, which is what many people actually see. */

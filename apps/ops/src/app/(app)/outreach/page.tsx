@@ -2,8 +2,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/supabase";
 import { getQueuedOutreach } from "@/lib/leads";
 import { emailIsConfigured } from "@/lib/email";
-import { draftMatchMessage, itemUrl } from "@/lib/message";
-import { coverImage } from "@/lib/media";
+import { draftMatchMessage, itemUrl, wantWords } from "@/lib/message";
+import { coverImage, photoUrls, videoClips } from "@/lib/media";
 import { atLeast } from "@takemore/core";
 import OutreachQueue, { type QueueEntry } from "./OutreachQueue";
 
@@ -32,6 +32,10 @@ export default async function OutreachPage() {
     .map((message) => {
       const lead = message.lead!;
       const item = message.item!;
+      // Only email carries the gallery, so only email's copy should promise it.
+      const photos = message.channel === "email" ? photoUrls(item.media).length : 0;
+      const clips = message.channel === "email" ? videoClips(item.media).length : 0;
+
       return {
         id: message.id,
         channel: message.channel,
@@ -51,16 +55,17 @@ export default async function OutreachPage() {
           draftMatchMessage(
             {
               leadName: lead.full_name,
-              // The reason string already carries their own words in quotes;
-              // pulling the interest row again just to re-read them would be a
-              // second query per suggestion for the same sentence.
-              want: extractQuoted(message.reason),
-              wantCategory: null,
+              // The want itself, now that the message row records which one it
+              // answers. wantWords() falls back to the quoted fragment in the
+              // reason string for suggestions queued before that column existed.
+              ...wantWords(message.interest, message.reason),
               itemTitle: item.title,
               itemBrand: item.brand,
               itemSlug: item.slug,
               itemPriceCents: item.list_price_cents,
-              itemGrade: null,
+              itemGrade: item.condition_grade,
+              photoCount: photos,
+              videoCount: clips,
             },
             message.channel
           ),
@@ -81,7 +86,8 @@ export default async function OutreachPage() {
         </h1>
         <p className="text-sm font-light text-muted mt-1">
           Machines that match what somebody told us they were looking for. Read it, change
-          anything, send it.
+          anything, send it. One message is about one machine, and somebody who asked for two
+          different things gets two separate messages.
         </p>
         {atLeast(staff.role, "manager") && (
           <Link
@@ -121,16 +127,4 @@ export default async function OutreachPage() {
       )}
     </div>
   );
-}
-
-/**
- * The customer's own words, back out of the reason string the matcher built.
- *
- * A small piece of string handling in exchange for not running a second query
- * per suggestion. If the reason format ever changes, the draft quietly falls
- * back to the category phrasing rather than breaking.
- */
-function extractQuoted(reason: string | null): string | null {
-  const match = reason?.match(/"([^"]+)"/);
-  return match ? match[1] : null;
 }

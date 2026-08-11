@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabase, requireStaff } from "@/lib/supabase";
 import {
+  heroOnly,
   renderPreview,
   renderPreviewText,
   sendMarketingBatch,
@@ -181,7 +182,7 @@ export async function previewCampaign(id: string): Promise<CampaignPreview> {
     subject: campaign.subject,
     from,
     replyTo,
-    html: renderPreview(body, hero ?? undefined),
+    html: renderPreview(body, heroOnly(hero)),
     text: renderPreviewText(body),
     recipientCount: recipientCount ?? 0,
     items: all.map((row) => ({
@@ -332,7 +333,7 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
         live
       ),
       unsubscribeToken: lead.unsubscribe_token,
-      heroImageUrl: hero ?? undefined,
+      media: heroOnly(hero),
     }))
   );
 

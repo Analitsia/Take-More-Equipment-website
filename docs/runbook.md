@@ -74,6 +74,46 @@ curl -s -H "x-revalidate-secret: $REVALIDATE_SECRET" https://<ops-host>/api/matc
 
 ---
 
+## Telling one person about one machine
+
+Everything below is per **want**, not per person. Somebody who asked for a fryer
+in March and a cold room in June has two wants on their record, and the system
+treats them as two separate conversations.
+
+**Where the button is:**
+
+| You are looking at | Where |
+|---|---|
+| A customer | Ops → Everyone → their page. Each want lists the stock that answers it, with *Email them about it* |
+| A machine you are pricing | Ops → Stock → the item → *who wants one of these*, with *Email them about this one* |
+| The queue the matcher built | Ops → Outreach. Same email, drafted for you, editable before it goes |
+
+All three send the identical email through the identical code path, so the
+deliberate route is never the lenient one. It carries the machine's photographs
+inline, a link to each of its clips, and a link to its page on the website.
+
+**One email is about one machine, always.** Two matching machines for two
+different wants produce two emails, each quoting the sentence it answers. That
+is deliberate: "we also have this other thing" is a catalogue.
+
+**How often somebody can be written to:**
+
+| Rule | Number |
+|---|---|
+| Messages about the same want | One every 7 days |
+| Messages of any kind, per person | 3 in a rolling 7 days |
+| Drafts waiting in the queue, per want | 1 |
+
+The newsletter counts against all three, so a customer who got the monthly list
+on Monday will not also get a match email on Tuesday. The numbers live in
+`match_item_to_leads()` and in `packages/core/src/leads.ts`; changing one without
+the other means the queue and the send button disagree.
+
+When somebody is blocked, the app says so and tells you to phone them instead —
+which is not marketing and has no cap on it.
+
+---
+
 ## When the website looks wrong
 
 **Stock is stale.** The storefront caches for 300 seconds and ops pings

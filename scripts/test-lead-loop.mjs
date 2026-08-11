@@ -55,21 +55,39 @@ const fail = (n, d) => {
 const check = (n, condition, d) => (condition ? ok(n, d) : fail(n, d));
 
 const MARK = "@leadloop.test";
+const TITLE_PREFIX = "Lead Loop Test ";
 const cleanup = async () => {
   await sql(`delete from public.leads where email like '%${MARK}'`);
-  await sql(`delete from public.items where title = 'Lead Loop Test Fridge'`);
+  await sql(`delete from public.items where title like '${TITLE_PREFIX}%'`);
 };
 
 let itemId;
+/** A second machine, answering a completely different want. */
+let stoveId;
+/** A third, answering the SAME want as the first. */
+let secondFridgeId;
 
-async function setup() {
-  await cleanup();
-
-  // A real, publishable machine: the publish gate wants a category, a grade, a
-  // price, forty characters of description and a photo, so building one the
-  // long way is also a check that the gate has not moved.
+/**
+ * A real, publishable machine.
+ *
+ * The publish gate wants a category, a grade, a price, forty characters of
+ * description and a photo, so building one the long way is also a check that
+ * the gate has not moved.
+ *
+ * The photo row is REAL, not a placeholder. This fixture used to attach
+ * `is_placeholder: true` and publish on it, which the schema allowed because
+ * the publish gate counted any photo at all. It no longer does —
+ * 20260809090000_no_placeholders_on_published.sql requires a storage_path, so
+ * an item cannot go live on a stock image.
+ *
+ * No object is uploaded to Storage for it: nothing in this suite fetches the
+ * image, the row is deleted at the end of the run, and the publish gate cares
+ * that a real photograph was recorded, not that the bytes are reachable.
+ * `npm run check:launch:db` is the check that asserts bytes are reachable.
+ */
+async function makeItem({ title, categorySlug, description, priceCents }) {
   const [{ id: categoryId }] = await sql(
-    "select id from public.categories where slug = 'refrigeration'"
+    `select id from public.categories where slug = '${categorySlug}'`
   );
   const [{ id: subcategoryId }] = await sql(
     `select id from public.subcategories where category_id = '${categoryId}' order by position limit 1`
@@ -79,28 +97,47 @@ async function setup() {
     insert into public.items
       (title, brand, category_id, subcategory_id, condition_grade, description, list_price_cents)
     values
-      ('Lead Loop Test Fridge', 'Blue Seal', '${categoryId}', '${subcategoryId}', 'A',
-       'An under counter fridge created by the lead loop suite, long enough to clear the publish gate.',
-       2500000)
+      ('${TITLE_PREFIX}${title}', 'Blue Seal', '${categoryId}', '${subcategoryId}', 'A',
+       '${description}', ${priceCents})
     returning id`);
-  itemId = item.id;
 
-  // A REAL photo row, not a placeholder.
-  //
-  // This fixture used to attach `is_placeholder: true` and publish on it, which
-  // the schema allowed because the publish gate counted any photo at all. It no
-  // longer does — 20260809090000_no_placeholders_on_published.sql requires a
-  // storage_path, so an item cannot go live on a stock image. The fixture now
-  // follows the same path the ops app does, which is what a fixture should have
-  // been doing anyway.
-  //
-  // No object is uploaded to Storage for it: nothing in this suite fetches the
-  // image, the row is deleted at the end of the run, and the publish gate cares
-  // that a real photograph was recorded, not that the bytes are reachable.
-  // `npm run check:launch:db` is the check that asserts bytes are reachable.
   await sql(`
     insert into public.item_media (item_id, kind, storage_path, is_placeholder, position)
-    values ('${itemId}', 'photo', 'items/${itemId}/lead-loop-fixture.webp', false, 0)`);
+    values ('${item.id}', 'photo', 'items/${item.id}/lead-loop-fixture.webp', false, 0)`);
+
+  return item.id;
+}
+
+/** Live and for sale, which is the only state the matcher will speak about. */
+const publish = (id) =>
+  sql(`update public.items set status = 'listed', published_at = now() where id = '${id}'`);
+
+async function setup() {
+  await cleanup();
+
+  itemId = await makeItem({
+    title: "Fridge",
+    categorySlug: "refrigeration",
+    description:
+      "An under counter fridge created by the lead loop suite, long enough to clear the publish gate.",
+    priceCents: 2500000,
+  });
+
+  stoveId = await makeItem({
+    title: "Stove",
+    categorySlug: "cooking",
+    description:
+      "A six burner gas stove created by the lead loop suite, long enough to clear the publish gate.",
+    priceCents: 1800000,
+  });
+
+  secondFridgeId = await makeItem({
+    title: "Second Fridge",
+    categorySlug: "refrigeration",
+    description:
+      "Another under counter fridge from the lead loop suite, long enough to clear the publish gate.",
+    priceCents: 2400000,
+  });
 }
 
 async function run() {
@@ -179,8 +216,7 @@ async function run() {
   let matched = await sql(`select public.match_item_to_leads('${itemId}') as n`);
   check("a draft machine is never matched", matched[0].n === 0, "not published yet");
 
-  await sql(`update public.items set status = 'listed' where id = '${itemId}'`);
-  await sql(`update public.items set published_at = now() where id = '${itemId}'`);
+  await publish(itemId);
 
   matched = await sql(`select public.match_item_to_leads('${itemId}') as n`);
   check("a live machine matching their category queues one suggestion", matched[0].n === 1, `${matched[0].n} queued`);
@@ -198,6 +234,77 @@ async function run() {
     `select count(*)::int as n from public.outreach_messages where lead_id = '${leadId}'`
   );
   check("still exactly one message row", rows[0].n === 1, `${rows[0].n} rows`);
+
+  rows = await sql(`
+    select m.interest_id, i.description
+    from public.outreach_messages m
+    join public.lead_interests i on i.id = m.interest_id
+    where m.lead_id = '${leadId}'`);
+  check(
+    "the suggestion records WHICH want it answers",
+    rows.length === 1 && !!rows[0].interest_id,
+    rows[0]?.description
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log("\nTWO WANTS  (a fryer in March, a cold room in June)");
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // The reason lead_interests is its own table, finally carried through to
+  // outreach. This person is still waiting on the fridge draft above. A second
+  // machine answering a DIFFERENT want must not be silenced by it, and a second
+  // machine answering the SAME want must be — one message about one machine,
+  // one pending draft per thing they asked for.
+  //
+  // Both halves are asserted, because getting either one alone is easy and
+  // getting both is the whole feature: relax the guard and a delivery of six
+  // fridges puts six drafts in front of staff for the same customer; leave it
+  // per-person and somebody who asked for two different machines only ever
+  // hears about one of them.
+  const [{ id: cookingId }] = await sql(
+    "select id from public.categories where slug = 'cooking'"
+  );
+  await sql(`
+    insert into public.lead_interests (lead_id, category_id, description)
+    values ('${leadId}', '${cookingId}',
+            'six burner gas stove for the new kitchen in Woodstock')`);
+
+  await publish(stoveId);
+  matched = await sql(`select public.match_item_to_leads('${stoveId}') as n`);
+  check(
+    "a machine answering their OTHER want still gets through",
+    matched[0].n === 1,
+    "a pending fridge draft does not silence the stove"
+  );
+
+  await publish(secondFridgeId);
+  matched = await sql(`select public.match_item_to_leads('${secondFridgeId}') as n`);
+  check(
+    "but a second machine answering the SAME want does not",
+    matched[0].n === 0,
+    "one pending draft per want, not per delivery"
+  );
+
+  rows = await sql(`
+    select count(*)::int as messages,
+           count(distinct interest_id)::int as wants,
+           count(distinct item_id)::int as machines
+    from public.outreach_messages
+    where lead_id = '${leadId}' and state = 'queued'`);
+  check(
+    "so they have two drafts waiting, one machine each",
+    rows[0].messages === 2 && rows[0].wants === 2 && rows[0].machines === 2,
+    `${rows[0].messages} messages · ${rows[0].wants} wants · ${rows[0].machines} machines`
+  );
+
+  // Back to one machine, one want and one message, so everything below reads
+  // the same as it did before this section existed — including the final
+  // assertion, which counts what the nightly sweep queues across ALL stock.
+  // Dropping the two extra machines takes the stove's draft with it, because
+  // outreach_messages.item_id cascades.
+  await sql(`
+    delete from public.items where id in ('${stoveId}', '${secondFridgeId}');
+    delete from public.lead_interests where lead_id = '${leadId}' and category_id = '${cookingId}'`);
 
   console.log("\nJUDGEMENT  (a human says no)");
   await sql(`update public.outreach_messages set state = 'skipped' where lead_id = '${leadId}'`);

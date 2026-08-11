@@ -39,6 +39,8 @@ export type MediaRef = {
   storage_path?: string | null;
   external_url?: string | null;
   position?: number | null;
+  /** Clips only, and optional even then — the uploader records it when it can. */
+  duration_seconds?: number | null;
 };
 
 /**
@@ -109,6 +111,49 @@ export function coverImage(
 export function coverVideo(media: readonly MediaRef[] | null | undefined): MediaRef | null {
   if (!media?.length) return null;
   return byPosition(media).find((m) => m.kind === "video") ?? null;
+}
+
+/**
+ * Every photograph, in the workshop's order, as URLs.
+ *
+ * The gallery an email carries. `full` rather than `card`, because the hero
+ * renders at 504 CSS pixels and a retina phone asks for twice that — a card-size
+ * source there is visibly soft, and the transformer is caching either way.
+ */
+export function photoUrls(
+  media: readonly MediaRef[] | null | undefined,
+  size: keyof typeof SIZES = "full"
+): string[] {
+  if (!media?.length) return [];
+  return byPosition(media)
+    .filter((m) => m.kind !== "video")
+    .map((m) => mediaUrl(m, size))
+    .filter((url): url is string => !!url);
+}
+
+/**
+ * Every clip, in the workshop's order, with the words to put on the link.
+ *
+ * The label is built here rather than in the template so the email and any
+ * other caller describe the same clip the same way. mm:ss because "0:32" is
+ * instantly readable and "32 seconds" is a sentence.
+ */
+export function videoClips(
+  media: readonly MediaRef[] | null | undefined
+): { url: string; label: string }[] {
+  if (!media?.length) return [];
+  return byPosition(media)
+    .filter((m) => m.kind === "video")
+    .map((m) => {
+      const url = mediaUrl(m);
+      if (!url) return null;
+      const seconds = m.duration_seconds ? Math.round(m.duration_seconds) : null;
+      const stamp = seconds
+        ? ` (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")})`
+        : "";
+      return { url, label: `Watch it running${stamp}` };
+    })
+    .filter((clip): clip is { url: string; label: string } => clip !== null);
 }
 
 /** items/<item_id>/<random>.<ext> — one prefix per machine. */

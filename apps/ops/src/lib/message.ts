@@ -19,7 +19,15 @@ import { rands, type OutreachChannel } from "@takemore/core";
  * No photos are attached. On WhatsApp the link preview renders the item's own
  * OG image — which the storefront already generates from its first photo — so
  * the picture arrives without a 4 MB upload through somebody's phone data. On
- * email the template embeds it properly.
+ * email the template embeds the item's photographs and links its clips; see
+ * EmailMedia in lib/email.ts for why embedded and linked rather than attached.
+ *
+ * ONE MESSAGE IS ABOUT ONE MACHINE, ALWAYS. A customer with two recorded wants
+ * and two matching machines gets two emails, each quoting the want it answers,
+ * because "we also have this other thing" is a catalogue and "you asked for a
+ * cold room, here is a cold room" is a reason to reply. The database enforces
+ * the same shape: outreach_messages carries a single item_id and a single
+ * interest_id.
  */
 
 export type MatchContext = {
@@ -33,6 +41,10 @@ export type MatchContext = {
   itemSlug: string;
   itemPriceCents: number | null;
   itemGrade: "A" | "B" | "C" | null;
+  /** How many photographs the email will carry, so the copy can point at them. */
+  photoCount?: number;
+  /** How many clips, same reason. */
+  videoCount?: number;
 };
 
 const firstName = (full: string | null): string => {
@@ -68,6 +80,27 @@ const because = (context: MatchContext): string => {
 const describe = (context: MatchContext): string =>
   [context.itemBrand, context.itemTitle].filter(Boolean).join(" ");
 
+/**
+ * A sentence pointing at what the template is about to render below.
+ *
+ * Email only. Somebody who scrolls past the first photograph should know there
+ * is more to scroll to, and a clip of the machine actually running is the
+ * single most persuasive thing this business owns — it is the difference
+ * between "second-hand" and "tested". Silent when there is nothing to point at,
+ * rather than promising photographs that are not there.
+ */
+const showing = (context: MatchContext): string | null => {
+  const photos = context.photoCount ?? 0;
+  const clips = context.videoCount ?? 0;
+
+  if (clips > 0 && photos > 1) {
+    return "The photographs are below, and there is a clip of it actually running.";
+  }
+  if (clips > 0) return "There is a clip of it actually running below.";
+  if (photos > 1) return "A few more photographs are below.";
+  return null;
+};
+
 export function draftMatchMessage(
   context: MatchContext,
   channel: OutreachChannel
@@ -90,6 +123,8 @@ export function draftMatchMessage(
     ].join("\n");
   }
 
+  const media = showing(context);
+
   return [
     `Hi ${firstName(context.leadName)},`,
     "",
@@ -97,6 +132,7 @@ export function draftMatchMessage(
     "",
     `${describe(context)}${spec ? ` — ${spec}` : ""}`,
     itemUrl(context.itemSlug),
+    ...(media ? ["", media] : []),
     "",
     "Everything we list is stripped, tested and graded before it goes up, and you are welcome to come and watch it run in Montague Gardens before you pay anything.",
     "",
@@ -104,6 +140,32 @@ export function draftMatchMessage(
     "",
     "— Take More Catering Equipment",
   ].join("\n");
+}
+
+/**
+ * A want, as every caller that has one selects it.
+ *
+ * The interest row itself is the truth. The reason string is the fallback, and
+ * only for rows queued before outreach_messages knew which want it was
+ * answering — the matcher already puts the customer's own words in there, in
+ * quotes, so pulling them back out is lossy but never wrong.
+ */
+export type WantRef = {
+  description: string;
+  category: { name: string } | null;
+  subcategory: { name: string } | null;
+} | null;
+
+export function wantWords(
+  interest: WantRef,
+  reason: string | null
+): Pick<MatchContext, "want" | "wantCategory"> {
+  const wantCategory = interest?.subcategory?.name ?? interest?.category?.name ?? null;
+  const description = interest?.description?.trim();
+  if (description) return { want: description, wantCategory };
+
+  const quoted = reason?.match(/"([^"]+)"/)?.[1] ?? null;
+  return { want: quoted, wantCategory };
 }
 
 /** wa.me with the draft pre-filled. The staff member is the sender. */

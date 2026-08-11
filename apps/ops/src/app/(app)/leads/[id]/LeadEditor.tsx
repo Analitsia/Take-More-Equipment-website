@@ -22,12 +22,14 @@ import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
   formatPhone,
+  isReachable,
   lawfulBasis,
   normalisePhone,
   whatsappDigits,
   type AppRole,
 } from "@takemore/core";
-import type { LeadEventRow, LeadInterestRow, LeadRow } from "@/lib/leads";
+import type { LeadEventRow, LeadInterestRow, LeadRow, MatchingItem } from "@/lib/leads";
+import StockForWant from "./StockForWant";
 import {
   addEvent,
   addInterest,
@@ -61,6 +63,7 @@ export default function LeadEditor({
   categories,
   subcategories,
   tags,
+  stock,
   role,
 }: {
   lead: LeadRow;
@@ -68,6 +71,8 @@ export default function LeadEditor({
   categories: { id: string; name: string }[];
   subcategories: { id: string; name: string; category_id: string }[];
   tags: { id: string; name: string }[];
+  /** Live stock answering each active want, keyed by interest id. */
+  stock: Record<string, MatchingItem[]>;
   role: AppRole;
 }) {
   const router = useRouter();
@@ -138,6 +143,20 @@ export default function LeadEditor({
   const waDigits = whatsappDigits(lead.phone);
   const active = lead.interests.filter((i) => i.active);
   const found = lead.interests.filter((i) => !i.active);
+
+  // Whether the "email them about it" buttons below may appear at all. The same
+  // rule as app.lead_is_reachable() in SQL, which is what would refuse the send
+  // anyway — this only decides between a button and an explanation.
+  const canEmail = isReachable(
+    {
+      emailConsentAt: lead.email_consent_at,
+      whatsappConsentAt: lead.whatsapp_consent_at,
+      unsubscribedAt: lead.unsubscribed_at,
+      email: lead.email,
+      phoneE164: lead.phone_e164,
+    },
+    "email"
+  );
 
   return (
     <div className="space-y-4">
@@ -282,7 +301,7 @@ export default function LeadEditor({
       {/* ---------------------------------------------------------------- */}
       <Panel
         title="What they are looking for"
-        subtitle="This is what the stock matcher reads. The more of it that is filled in, the better it works."
+        subtitle="This is what the stock matcher reads. The more of it that is filled in, the better it works. Each want is watched on its own, and each one gets its own message."
         actions={
           <Button
             variant="secondary"
@@ -308,6 +327,8 @@ export default function LeadEditor({
               categories={categories}
               subcategories={subcategories}
               tags={tags}
+              matches={stock[interest.id] ?? []}
+              canEmail={canEmail}
               onResult={report}
             />
           ))}
@@ -393,6 +414,8 @@ function InterestCard({
   categories,
   subcategories,
   tags,
+  matches,
+  canEmail,
   onResult,
 }: {
   leadId: string;
@@ -400,6 +423,8 @@ function InterestCard({
   categories: { id: string; name: string }[];
   subcategories: { id: string; name: string; category_id: string }[];
   tags: { id: string; name: string }[];
+  matches: MatchingItem[];
+  canEmail: boolean;
   onResult: (result: ActionResult) => void;
 }) {
   const [description, setDescription] = useState(interest.description);
@@ -506,6 +531,14 @@ function InterestCard({
           <span className="text-white/70">{interest.item.title}</span> on the website.
         </p>
       )}
+
+      <StockForWant
+        leadId={leadId}
+        interestId={interest.id}
+        canEmail={canEmail}
+        matches={matches}
+        onResult={onResult}
+      />
 
       <div className="flex items-center gap-3 mt-4 pt-3 border-t border-white/5">
         <button

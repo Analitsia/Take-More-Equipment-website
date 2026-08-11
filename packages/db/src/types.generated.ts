@@ -923,6 +923,7 @@ export type Database = {
           created_at: string
           error: string | null
           id: string
+          interest_id: string | null
           item_id: string | null
           lead_id: string
           match_score: number | null
@@ -940,6 +941,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          interest_id?: string | null
           item_id?: string | null
           lead_id: string
           match_score?: number | null
@@ -957,6 +959,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          interest_id?: string | null
           item_id?: string | null
           lead_id?: string
           match_score?: number | null
@@ -973,6 +976,20 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["interest_id"]
+          },
+          {
+            foreignKeyName: "outreach_messages_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "lead_interests"
             referencedColumns: ["id"]
           },
           {
@@ -1401,9 +1418,11 @@ export type Database = {
       leads_wanting_item: {
         Args: { p_item_id: string }
         Returns: {
+          can_email: boolean
           description: string
           email: string
           full_name: string
+          interest_id: string
           lead_id: string
           phone: string
           score: number
@@ -1444,6 +1463,19 @@ export type Database = {
       settle_access_request: {
         Args: { p_request_id: string; p_succeeded: boolean }
         Returns: undefined
+      }
+      stock_matching_interest: {
+        Args: { p_interest_id: string }
+        Returns: {
+          already_told: boolean
+          brand: string
+          condition_grade: Database["public"]["Enums"]["condition_grade"]
+          item_id: string
+          list_price_cents: number
+          score: number
+          slug: string
+          title: string
+        }[]
       }
       unsubscribe: { Args: { p_token: string }; Returns: boolean }
     }

@@ -7,7 +7,7 @@ import type {
   OutreachChannel,
   OutreachState,
 } from "@takemore/core";
-import type { MediaRef } from "./media";
+import { coverImage, type MediaRef } from "./media";
 
 /**
  * Reads for the CRM.
@@ -153,12 +153,26 @@ export type QueuedMessage = {
     phone: string | null;
     phone_e164: string | null;
   } | null;
+  /**
+   * The want this suggestion answers.
+   *
+   * Null only for a row written before outreach_messages had the column, or one
+   * whose interest has since been deleted. Everything downstream falls back to
+   * the reason string when it is missing rather than refusing to draft.
+   */
+  interest: {
+    id: string;
+    description: string;
+    category: { name: string } | null;
+    subcategory: { name: string } | null;
+  } | null;
   item: {
     id: string;
     title: string;
     brand: string | null;
     slug: string;
     list_price_cents: number | null;
+    condition_grade: "A" | "B" | "C" | null;
     media: MediaRef[];
   } | null;
 };
@@ -171,8 +185,12 @@ export async function getQueuedOutreach(): Promise<QueuedMessage[]> {
     .select(
       `id, channel, state, reason, body, match_score, created_at,
        lead:leads(id, full_name, email, phone, phone_e164),
-       item:items(id, title, brand, slug, list_price_cents,
-                  media:item_media(kind, storage_path, external_url, position))`
+       interest:lead_interests(id, description,
+                               category:categories(name),
+                               subcategory:subcategories(name)),
+       item:items(id, title, brand, slug, list_price_cents, condition_grade,
+                  media:item_media(kind, storage_path, external_url, position,
+                                   duration_seconds))`
     )
     .eq("state", "queued")
     .order("match_score", { ascending: false })
@@ -194,11 +212,15 @@ export async function countQueuedOutreach(): Promise<number> {
 
 export type WantingLead = {
   lead_id: string;
+  /** Which of their wants this score came from, so an email can quote it. */
+  interest_id: string;
   full_name: string | null;
   phone: string | null;
   email: string | null;
   description: string;
   score: number;
+  /** Whether an unsolicited email is allowed — consent, address, no opt-out. */
+  can_email: boolean;
 };
 
 /**
@@ -218,6 +240,88 @@ export async function getLeadsWantingItem(itemId: string): Promise<WantingLead[]
     return [];
   }
   return (data ?? []) as WantingLead[];
+}
+
+export type MatchingItem = {
+  item_id: string;
+  title: string;
+  brand: string | null;
+  slug: string;
+  list_price_cents: number | null;
+  condition_grade: "A" | "B" | "C" | null;
+  score: number;
+  /** We have already queued, sent or deliberately skipped this pairing. */
+  already_told: boolean;
+  /** Filled in by getStockForWants(), not by the RPC. */
+  image: string | null;
+};
+
+/**
+ * What we have in stock for one recorded want.
+ *
+ * The mirror of getLeadsWantingItem(): that one is read while pricing a machine
+ * and asks "who wanted one of these"; this one is read while looking at a
+ * person and asks "what have we got for them". Both are needed, because the two
+ * moments are different — a delivery arriving, and a customer on the phone.
+ */
+export async function getStockMatchingInterest(interestId: string): Promise<MatchingItem[]> {
+  const client = await supabase();
+  const { data, error } = await client.rpc("stock_matching_interest", {
+    p_interest_id: interestId,
+  });
+
+  if (error) {
+    // A missing panel is survivable; a 500 on somebody's customer page is not.
+    reportError(error, { where: "ops/getStockMatchingInterest", interestId });
+    return [];
+  }
+
+  return ((data ?? []) as Omit<MatchingItem, "image">[]).map((row) => ({
+    ...row,
+    image: null,
+  }));
+}
+
+/**
+ * The same thing for every one of a person's active wants, with thumbnails.
+ *
+ * One RPC per want — they are independent questions and each is a single
+ * indexed scan — then ONE query for the photographs of everything that came
+ * back. Fetching media inside the RPC would mean either a fourth join in a
+ * function that is already doing text search, or N more round trips; this is
+ * the version that stays one query however many wants somebody has.
+ */
+export async function getStockForWants(
+  interestIds: string[]
+): Promise<Record<string, MatchingItem[]>> {
+  if (interestIds.length === 0) return {};
+
+  const lists = await Promise.all(interestIds.map(getStockMatchingInterest));
+  const byInterest = Object.fromEntries(
+    interestIds.map((id, index) => [id, lists[index]])
+  ) as Record<string, MatchingItem[]>;
+
+  const itemIds = [...new Set(lists.flat().map((row) => row.item_id))];
+  if (itemIds.length === 0) return byInterest;
+
+  const client = await supabase();
+  const { data } = await client
+    .from("item_media")
+    .select("item_id, kind, storage_path, external_url, position")
+    .in("item_id", itemIds);
+
+  const media = new Map<string, MediaRef[]>();
+  for (const row of (data ?? []) as unknown as ({ item_id: string } & MediaRef)[]) {
+    media.set(row.item_id, [...(media.get(row.item_id) ?? []), row]);
+  }
+
+  for (const list of Object.values(byInterest)) {
+    for (const row of list) {
+      row.image = coverImage(media.get(row.item_id));
+    }
+  }
+
+  return byInterest;
 }
 
 export type CampaignRow = {
