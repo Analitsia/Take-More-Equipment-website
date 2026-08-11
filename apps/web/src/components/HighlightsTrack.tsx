@@ -58,11 +58,19 @@ import type { Equipment } from "@/data/equipment";
  * seam, and with a short enough set they stop being off-screen padding and
  * become the row.
  *
- * So the row loops only while the real set is wider than the viewport it
- * crosses. Below that it stands still, centred, each machine once — which is
- * also the first paint, and the whole of the markup when JavaScript never
- * arrives. Both states are measured against the viewport, whose width is
- * identical in each, so the decision settles instead of oscillating.
+ * So the row loops only while the real set is wider than the page's own content
+ * column. Below that it stands still, each machine once, left-aligned to start
+ * exactly where the heading above it starts — a short row then reads as a row
+ * that begins at the first position rather than as a carousel that ran out
+ * halfway. It is also the first paint, and the whole of the markup when
+ * JavaScript never arrives.
+ *
+ * The width it is measured against comes from a zero-height ruler carrying the
+ * page container's own classes, rather than from a constant. That leaves the
+ * gutter and the max-width written once, in CSS, where the heading already gets
+ * them — and because the ruler is in the DOM in both states, the measurement
+ * never depends on the state it decides, which is what stops the two flipping
+ * back and forth forever.
  */
 
 /** Seconds a card takes to travel its own width — keeps the pace even across breakpoints. */
@@ -77,11 +85,12 @@ const DRAG_SLOP = 8;
 /** Copy 0 is the real row; the rest are the loop's padding. */
 const COPIES = [0, 1, 2];
 /**
- * Least air a still row keeps at each screen edge. A set that only fits by
- * touching both edges is better off looping, and reading the page's own gutter
- * back out of the DOM would make the measurement depend on the state it decides.
+ * The page's content column, repeated from the section heading in
+ * FeaturedStock so a still row lines up with the words above it. Carried by a
+ * zero-height ruler rather than applied to the track, because the track is
+ * full-bleed while it is looping and only adopts this when it stops.
  */
-const STILL_MARGIN = 24;
+const COLUMN = "w-full max-w-[1440px] mx-auto px-6 md:px-12";
 
 const clamp = (value: number, limit: number) =>
   Math.max(-limit, Math.min(limit, value));
@@ -89,6 +98,7 @@ const clamp = (value: number, limit: number) =>
 export default function HighlightsTrack({ items }: { items: Equipment[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
 
   // Starts still, which is the honest first paint: no duplicate cards in the
   // markup, and for a handful of highlights it is the final state too, so the
@@ -98,7 +108,8 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
   useEffect(() => {
     const viewport = viewportRef.current;
     const track = trackRef.current;
-    if (!viewport || !track) return;
+    const ruler = rulerRef.current;
+    if (!viewport || !track || !ruler) return;
 
     // One copy's width: the distance from a card to where its own duplicate
     // would begin. Read as the last card's right edge plus one gap rather than
@@ -122,8 +133,15 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
       );
     };
 
-    /** Wide enough to loop without ever showing the same machine twice at once. */
-    const overflows = () => measure() + STILL_MARGIN * 2 > viewport.clientWidth;
+    /**
+     * Wide enough to loop without ever showing the same machine twice at once.
+     *
+     * `clientWidth` on the ruler is its width inside the gutter, which is
+     * exactly the room a still row has to stand in. `measure()` carries a
+     * trailing gap the visible row does not, so equality still leaves the row a
+     * gap of air rather than landing it flush against the column edge.
+     */
+    const overflows = () => measure() > ruler.clientWidth;
 
     // ---- still --------------------------------------------------------------
     // None of the machinery below is built: there is nothing to animate, and a
@@ -437,13 +455,18 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
         looping ? "touch-pan-y select-none cursor-grab active:cursor-grabbing" : ""
       }`}
     >
+      {/* The ruler. Draws nothing and takes no height; it exists so the code
+          can ask CSS how wide the page's content column currently is, in both
+          states, without hard-coding the gutter or the max-width. */}
+      <div ref={rulerRef} aria-hidden="true" className={`${COLUMN} h-0`} />
+
       <div
         ref={trackRef}
-        // Centred rather than padded when still: the gutter would have to be
-        // read back out of the DOM to be measured against, and a measurement
-        // that depends on the state it decides is one that can flip forever.
+        // Full-bleed while it loops, so cards run off both edges the way a
+        // marquee should. Standing still it takes the page's column instead and
+        // starts where the heading starts.
         className={`flex gap-4 md:gap-6 ${
-          looping ? "w-max will-change-transform" : "w-full justify-center"
+          looping ? "w-max will-change-transform" : COLUMN
         }`}
       >
         {looping ? (
