@@ -5,10 +5,11 @@
  * anybody has verified them. This module is the flat, convenient shape — and
  * the place the production gate fires, because every page imports it.
  *
- * assertProductionReady() throws during a production build while any contact
- * detail is still the mockup placeholder. That is intentional: a storefront
- * whose every CTA points at an invented number should not be capable of
- * deploying. Local and preview builds are unaffected.
+ * assertProductionReady() runs here, at module load, because every page imports
+ * this file. While `launchState` is "pre-launch" it warns and the build
+ * proceeds; once that is flipped to "live" it throws, so a storefront whose
+ * CTAs point at an invented number cannot deploy. Local and preview builds are
+ * unaffected either way.
  */
 import { assertProductionReady, contact, claims, publishedValue } from "./launch.ts";
 

@@ -38,12 +38,16 @@
  * TWO KINDS OF FACT, AND THE DIFFERENCE MATTERS
  * ---------------------------------------------
  *   BLOCKING (`contact` below). The site cannot honestly function without
- *   these — a storefront with no phone number is broken, not "degraded". So a
- *   PRODUCTION BUILD FAILS while any of them is unverified. See
- *   assertProductionReady() at the bottom of this file: it runs at module load
- *   in site.ts, and every page imports site.ts, so there is no route to a
- *   production bundle carrying an invented number. This is deliberate. If a
- *   deploy fails with a message pointing here, that is the system working.
+ *   these — a storefront with no phone number is broken, not "degraded". So
+ *   ONCE `launchState` IS "live", a production build FAILS while any of them is
+ *   unverified. See assertProductionReady() at the bottom of this file: it runs
+ *   at module load in site.ts, and every page imports site.ts, so there is no
+ *   route to a production bundle that skips the check.
+ *
+ *   While `launchState` is "pre-launch" the same check warns in the build log
+ *   and lets the deploy through, so unrelated work is never held hostage to
+ *   data only the owner can supply. The placeholders are genuinely public in
+ *   that state — sound only until the real domain points at the site.
  *
  *   WITHHELD (everything else). The site is fine without them, so unverified
  *   items simply do not render and the layout closes up. Nothing is deleted —
@@ -432,14 +436,32 @@ export const BLOCKING: Array<[string, Fact<unknown>]> = Object.entries(contact) 
 >;
 
 /**
- * The gate that cannot be forgotten.
+ * The gate, and the one thing it must not do: block work it was never meant to.
  *
- * Called at module load from site.ts, which every page imports — so a
- * production build carrying an invented phone number does not fail a lint step
- * somebody can skip, it fails to compile.
+ * Called at module load from site.ts, which every page imports, so there is no
+ * route to a production bundle that has not passed through here.
  *
- * Only in production. Local development and Vercel preview builds run with the
- * mockup values so the site is workable while the real ones are being gathered.
+ * WHAT IT KEYS OFF, and why this took a frozen site to notice: `launchState`.
+ * The banner at that constant states the contract plainly — "pre-launch" makes
+ * unverified facts warnings you can build and deploy past, "live" makes them
+ * fail the build. This function used to throw in production regardless, which
+ * is not a stricter reading of that contract, it is a different one.
+ *
+ * The cost was not theoretical. Production could not build from 2026-08-08
+ * onward, so a carousel fix, a delete button and a stock-photo fix all sat
+ * undeployed behind nine contact details only the owner can supply — none of
+ * which those changes touched. A gate that stops unrelated work is a gate that
+ * gets torn out in frustration, which would have cost the real guarantee too.
+ *
+ * So it now honours the switch, and the switch keeps its promise:
+ *
+ *   · pre-launch — warns in the build log, loudly, and builds. The placeholder
+ *     phone, address and registration number ARE published in this state. That
+ *     is the trade, and it is sound only while no customer traffic reaches the
+ *     deployment — as of 2026-08-11 the real domain does not point here.
+ *   · live — refuses, exactly as before, so nothing can regress after cutover.
+ *
+ * Flip it in the banner above before the domain is pointed at this site.
  */
 export function assertProductionReady(): void {
   if (process.env.VERCEL_ENV !== "production") return;
@@ -447,25 +469,33 @@ export function assertProductionReady(): void {
   const missing = BLOCKING.filter(([, fact]) => !isVerified(fact)).map(([name]) => name);
   if (missing.length === 0) return;
 
-  throw new Error(
-    [
-      "",
-      "  ┌───────────────────────────────────────────────────────────────────┐",
-      "  │  PRODUCTION BUILD REFUSED                                         │",
-      "  └───────────────────────────────────────────────────────────────────┘",
-      "",
-      `  ${missing.length} contact detail${missing.length === 1 ? " is" : "s are"} still the mockup placeholder:`,
-      "",
-      ...missing.map((name) => `      · ${name}`),
-      "",
-      "  These appear on every CTA, in the footer, and in the POPIA privacy",
-      "  notice. Publishing an invented number is worse than publishing none.",
-      "",
-      "  Fix them in  apps/web/src/data/launch.ts  — set the real value and",
-      "  put today's date in `verified`.",
-      "",
-      "  Run  npm run check:launch  to see everything else that is waiting.",
-      "",
-    ].join("\n")
-  );
+  const live = launchState === "live";
+
+  const report = [
+    "",
+    "  ┌───────────────────────────────────────────────────────────────────┐",
+    live
+      ? "  │  PRODUCTION BUILD REFUSED                                         │"
+      : "  │  PLACEHOLDER CONTACT DETAILS ARE ABOUT TO GO PUBLIC               │",
+    "  └───────────────────────────────────────────────────────────────────┘",
+    "",
+    `  ${missing.length} contact detail${missing.length === 1 ? " is" : "s are"} still the mockup placeholder:`,
+    "",
+    ...missing.map((name) => `      · ${name}`),
+    "",
+    "  These appear on every CTA, in the footer, and in the POPIA privacy",
+    "  notice. Publishing an invented number is worse than publishing none.",
+    "",
+    "  Fix them in  apps/web/src/data/launch.ts  — set the real value and",
+    "  put today's date in `verified`.",
+    "",
+    "  Run  npm run check:launch  to see everything else that is waiting.",
+    "",
+    live
+      ? ""
+      : '  Building anyway: launchState is "pre-launch". Flip it to "live"\n  before the domain points here, and this becomes a refusal again.\n',
+  ].join("\n");
+
+  if (live) throw new Error(report);
+  console.warn(report);
 }
