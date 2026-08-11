@@ -115,8 +115,24 @@ export default function Shell({
 
   return (
     <div className="min-h-dvh flex flex-col md:flex-row">
-      {/* Desktop rail */}
-      <aside className="hidden md:flex md:w-56 lg:w-64 shrink-0 flex-col border-r border-border bg-card/40">
+      {/* Desktop rail.
+
+          Pinned: the rail is one viewport tall and sticks to the top, so a long
+          Stock list scrolls past it rather than dragging it off the screen.
+          `self-start` is what makes that work at all — the row would otherwise
+          stretch the rail to the full height of the page, and a sticky box as
+          tall as the thing it scrolls inside has nowhere to stick to.
+
+          The z-index is not decoration. Sticky positioning opens a stacking
+          context, which traps the search overlay rendered inside this rail at
+          whatever level the rail sits on; below 40 and the connection banner in
+          <main> would paint over an open search box. Sitting at 50 keeps the
+          overlay on top, while a dialog opened from a page — same level, later
+          in the document — still covers the rail as a modal should. */}
+      <aside
+        className="hidden md:flex md:w-56 lg:w-64 shrink-0 flex-col border-r border-border bg-card/40
+                   md:sticky md:top-0 md:z-50 md:h-dvh md:self-start"
+      >
         <div className="px-5 py-6">
           <div className="flex items-center space-x-3 mb-1">
             <div className="w-5 h-1 rounded-full bg-accent" />
@@ -133,7 +149,11 @@ export default function Shell({
           <GlobalSearch />
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        {/* Now that the rail is capped at a viewport, the destinations are the
+            part that gives when there is not enough room — a short laptop window
+            scrolls the list rather than pushing New item and the account block
+            off the bottom. `min-h-0` is the flexbox tax for letting it. */}
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1">
           {[...nav, ACTIVITY, WEBSITE].map((item) => (
             <Link
               key={item.href}
