@@ -10,6 +10,7 @@
  */
 
 export * from "./catalogue.ts";
+export * from "./featured.ts";
 export * from "./grades.ts";
 export * from "./leads.ts";
 export * from "./margin.ts";

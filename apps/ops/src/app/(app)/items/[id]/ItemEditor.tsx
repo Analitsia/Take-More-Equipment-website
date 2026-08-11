@@ -8,6 +8,7 @@ import {
   canSeeCosts,
   publishChecklist,
   isLiveStage,
+  MAX_FEATURED,
   STAGES,
   rands,
   type AppRole,
@@ -53,6 +54,7 @@ export default function ItemEditor({
   economics,
   activity,
   role,
+  featuredCount,
 }: {
   item: Item;
   categories: { id: string; name: string; slug: string }[];
@@ -62,6 +64,8 @@ export default function ItemEditor({
   economics: any;
   activity: any[];
   role: AppRole;
+  /** Highlight slots already taken, this item included if it holds one. */
+  featuredCount: number;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -124,6 +128,9 @@ export default function ItemEditor({
         setSaveState("error");
         setError(result.error);
       }
+      // Returned as well as reported, for the one caller that has to undo its
+      // own optimistic change when the database says no.
+      return result;
     },
     [item.id]
   );
@@ -192,6 +199,30 @@ export default function ItemEditor({
   // decides between "not live yet, here is what is missing" and "off the site,
   // and that is correct".
   const liveStage = isLiveStage(item.status as ItemStatus);
+
+  /**
+   * The homepage highlights, which are a fixed number of slots rather than a
+   * flag each item carries on its own.
+   *
+   * Tracked locally because the count arrives from the server render and this
+   * page never refreshes after an autosave — without it, ticking the box would
+   * leave "7 of 8" on screen while the eighth was already taken. The database
+   * is still the authority: it refuses the ninth, and a refusal rolls both of
+   * these back to what it says.
+   */
+  const [featured, setFeatured] = useState<boolean>(!!item.featured);
+  const [slotsTaken, setSlotsTaken] = useState(featuredCount);
+  const slotsFull = !featured && slotsTaken >= MAX_FEATURED;
+
+  async function onFeatured(next: boolean) {
+    setFeatured(next);
+    setSlotsTaken((n) => n + (next ? 1 : -1));
+    const result = await save({ featured: next });
+    if (!result.ok) {
+      setFeatured(!next);
+      setSlotsTaken((n) => n - (next ? 1 : -1));
+    }
+  }
 
   async function onStatus(next: ItemStatus) {
     setError(null);
@@ -576,14 +607,27 @@ export default function ItemEditor({
               </a>
             )}
 
-            <label className="flex items-center gap-2 ml-auto text-sm font-light text-white/80 cursor-pointer">
+            {/* A slot, not a flag: the homepage row holds eight machines and no
+                more, so this says which of the eight are spoken for rather than
+                letting a worker tick a ninth and find out from an error. */}
+            <label
+              className={`flex items-center gap-2 ml-auto text-sm font-light ${
+                slotsFull ? "text-muted cursor-not-allowed" : "text-white/80 cursor-pointer"
+              }`}
+            >
               <input
                 type="checkbox"
-                checked={item.featured}
-                onChange={(e) => save({ featured: e.target.checked })}
-                className="w-4 h-4 rounded accent-accent"
+                checked={featured}
+                disabled={slotsFull}
+                onChange={(e) => onFeatured(e.target.checked)}
+                className="w-4 h-4 rounded accent-accent disabled:opacity-40"
               />
               Feature on the homepage
+              <span className="text-[11px] text-muted tabular-nums">
+                {slotsFull
+                  ? `all ${MAX_FEATURED} taken`
+                  : `${slotsTaken} of ${MAX_FEATURED}`}
+              </span>
             </label>
           </div>
         </div>

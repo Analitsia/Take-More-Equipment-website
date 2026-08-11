@@ -7,6 +7,7 @@ import Benefits from "@/components/Benefits";
 import Testimonials from "@/components/Testimonials";
 import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
+import { MAX_FEATURED } from "@takemore/core";
 import { getCategoryChoices, getStock, getVocabulary } from "@/lib/stock";
 
 export default async function Page() {
@@ -19,7 +20,11 @@ export default async function Page() {
   // straight through to capture_lead(), which resolves them into a real
   // category so the stock matcher has something to join on.
   const categories = await getCategoryChoices();
-  const featured = stock.filter((item) => item.featured);
+  // Capped here as well as in the database. The trigger stops a worker choosing
+  // a ninth; this stops anything that arrived around the trigger — a seeded row,
+  // a repair run in the SQL editor — from turning the highlights row back into
+  // the catalogue. `getStock` already sorts featured first, then newest.
+  const featured = stock.filter((item) => item.featured).slice(0, MAX_FEATURED);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

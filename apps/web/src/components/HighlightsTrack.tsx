@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import EquipmentCard from "./EquipmentCard";
 import type { Equipment } from "@/data/equipment";
 
@@ -49,6 +49,20 @@ import type { Equipment } from "@/data/equipment";
  * general shape of that: a held row is only still if nothing inside it moves
  * on its own, so anything that mutates a card while the row is on screen will
  * undo the work this file does, however cheap the mutation looks.
+ *
+ * ── Whether it moves at all is measured, not configured ──
+ *
+ * A marquee needs more content than screen, or it has nothing to loop and must
+ * repeat itself to find some. That is how one featured machine became three
+ * identical cards drifting past forever: the duplicates below exist to hide the
+ * seam, and with a short enough set they stop being off-screen padding and
+ * become the row.
+ *
+ * So the row loops only while the real set is wider than the viewport it
+ * crosses. Below that it stands still, centred, each machine once — which is
+ * also the first paint, and the whole of the markup when JavaScript never
+ * arrives. Both states are measured against the viewport, whose width is
+ * identical in each, so the decision settles instead of oscillating.
  */
 
 /** Seconds a card takes to travel its own width — keeps the pace even across breakpoints. */
@@ -62,6 +76,12 @@ const DECAY_MS = 60;
 const DRAG_SLOP = 8;
 /** Copy 0 is the real row; the rest are the loop's padding. */
 const COPIES = [0, 1, 2];
+/**
+ * Least air a still row keeps at each screen edge. A set that only fits by
+ * touching both edges is better off looping, and reading the page's own gutter
+ * back out of the DOM would make the measurement depend on the state it decides.
+ */
+const STILL_MARGIN = 24;
 
 const clamp = (value: number, limit: number) =>
   Math.max(-limit, Math.min(limit, value));
@@ -70,10 +90,54 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
+  // Starts still, which is the honest first paint: no duplicate cards in the
+  // markup, and for a handful of highlights it is the final state too, so the
+  // common case never moves and never has to settle into place.
+  const [looping, setLooping] = useState(false);
+
   useEffect(() => {
     const viewport = viewportRef.current;
     const track = trackRef.current;
     if (!viewport || !track) return;
+
+    // One copy's width: the distance from a card to where its own duplicate
+    // would begin. Read as the last card's right edge plus one gap rather than
+    // by measuring that duplicate, because the duplicates only exist while the
+    // row is looping and this is the number that decides whether it should be.
+    // The two agree by construction — a twin starts exactly one gap after the
+    // last card of the copy before it.
+    //
+    // Sub-pixel throughout: `offsetLeft` rounds to whole pixels, and a card
+    // sized in `vw` rarely lands on one, so a rounded width would leave the loop
+    // a fraction of a pixel short and nudge the row once per lap. `columnGap`
+    // resolves from a rem and is exact.
+    const measure = () => {
+      const cards = track.querySelectorAll<HTMLElement>('[data-card="stock"]');
+      const first = cards[0];
+      const last = cards[items.length - 1];
+      if (!first || !last) return 0;
+      const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+      return (
+        last.getBoundingClientRect().right - first.getBoundingClientRect().left + gap
+      );
+    };
+
+    /** Wide enough to loop without ever showing the same machine twice at once. */
+    const overflows = () => measure() + STILL_MARGIN * 2 > viewport.clientWidth;
+
+    // ---- still --------------------------------------------------------------
+    // None of the machinery below is built: there is nothing to animate, and a
+    // row that cannot move must not swallow a click as though it had been
+    // dragged. The only thing worth watching is the viewport narrowing to the
+    // point where the set stops fitting, which is what turns the row back on.
+    if (!looping) {
+      const watch = () => {
+        if (overflows()) setLooping(true);
+      };
+      const resizeObserver = new ResizeObserver(watch);
+      resizeObserver.observe(viewport);
+      return () => resizeObserver.disconnect();
+    }
 
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -139,19 +203,17 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
       else drift.play();
     };
 
-    // One copy's width is the distance from a card to its own duplicate in the
-    // next copy — read from layout so gap/size changes never need mirroring.
-    // It has to be read sub-pixel: `offsetLeft` rounds to whole pixels, and a
-    // card sized in `vw` rarely lands on one, so a rounded width would leave the
-    // loop a fraction of a pixel short and nudge the row once per lap.
     const build = () => {
-      const cards = track.querySelectorAll<HTMLElement>('[data-card="stock"]');
-      const first = cards[0];
-      const twin = cards[items.length];
-      const setWidth =
-        first && twin
-          ? twin.getBoundingClientRect().left - first.getBoundingClientRect().left
-          : 0;
+      // A resize can widen the viewport past the set — at which point looping
+      // would start showing a machine beside itself, and the row should stand
+      // still instead. Handing it back before anything is rebuilt; the effect
+      // re-runs and the cleanup below cancels the animation on its way out.
+      if (!overflows()) {
+        setLooping(false);
+        return;
+      }
+
+      const setWidth = measure();
 
       // Rebuilding after a resize keeps the row where it was, in proportion.
       const progress = duration > 0 ? (clock() % duration) / duration : 0;
@@ -363,36 +425,50 @@ export default function HighlightsTrack({ items }: { items: Equipment[] }) {
       viewport.removeEventListener("focusout", onFocusOut);
       calm.removeEventListener("change", idle);
     };
-  }, []);
+  }, [looping, items.length]);
 
   return (
     <div
       ref={viewportRef}
       // `touch-pan-y` leaves vertical page scrolling to the browser and gives
-      // horizontal gestures to the carousel.
-      className="overflow-hidden pb-8 md:pb-12 touch-pan-y select-none cursor-grab active:cursor-grabbing"
+      // horizontal gestures to the carousel. A still row has none to give and
+      // should not offer a grab it will not honour.
+      className={`overflow-hidden pb-8 md:pb-12 ${
+        looping ? "touch-pan-y select-none cursor-grab active:cursor-grabbing" : ""
+      }`}
     >
       <div
         ref={trackRef}
-        className="flex gap-4 md:gap-6 w-max will-change-transform"
+        // Centred rather than padded when still: the gutter would have to be
+        // read back out of the DOM to be measured against, and a measurement
+        // that depends on the state it decides is one that can flip forever.
+        className={`flex gap-4 md:gap-6 ${
+          looping ? "w-max will-change-transform" : "w-full justify-center"
+        }`}
       >
-        {COPIES.map((copy) =>
-          copy === 0 ? (
-            <Fragment key={copy}>
-              {items.map((item) => (
-                <EquipmentCard key={item.slug} {...item} />
-              ))}
-            </Fragment>
-          ) : (
-            // Duplicates make the loop seamless; they are decoration only, so
-            // they stay out of the accessibility tree and the tab order.
-            // `contents` keeps the cards themselves as the flex items.
-            <div key={copy} className="contents" aria-hidden="true">
-              {items.map((item) => (
-                <EquipmentCard key={item.slug} {...item} decorative />
-              ))}
-            </div>
-          ),
+        {looping ? (
+          COPIES.map((copy) =>
+            copy === 0 ? (
+              <Fragment key={copy}>
+                {items.map((item) => (
+                  <EquipmentCard key={item.slug} {...item} />
+                ))}
+              </Fragment>
+            ) : (
+              // Duplicates make the loop seamless; they are decoration only, so
+              // they stay out of the accessibility tree and the tab order.
+              // `contents` keeps the cards themselves as the flex items.
+              <div key={copy} className="contents" aria-hidden="true">
+                {items.map((item) => (
+                  <EquipmentCard key={item.slug} {...item} decorative />
+                ))}
+              </div>
+            ),
+          )
+        ) : (
+          // Each machine once, and no aria-hidden twins for a screen reader to
+          // walk past.
+          items.map((item) => <EquipmentCard key={item.slug} {...item} />)
         )}
       </div>
     </div>

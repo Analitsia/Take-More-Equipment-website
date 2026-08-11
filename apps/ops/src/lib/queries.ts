@@ -95,6 +95,26 @@ export async function getItem(id: string) {
   return data;
 }
 
+/**
+ * How many of the homepage's highlight slots are spoken for.
+ *
+ * Counts drafts as well as live stock, because that is what `featured` means: a
+ * slot held, not a card currently on the site. A worker can claim one while the
+ * machine is still being photographed, and the database counts it the same way
+ * — see the trigger in 20260811100000_featured_ceiling.sql.
+ *
+ * `head: true` so this is a count and not twelve rows nobody reads.
+ */
+export async function getFeaturedCount(): Promise<number> {
+  const client = await supabase();
+  const { count } = await client
+    .from("items")
+    .select("id", { count: "exact", head: true })
+    .eq("featured", true)
+    .is("deleted_at", null);
+  return count ?? 0;
+}
+
 export async function getCategories() {
   const client = await supabase();
   const { data } = await client

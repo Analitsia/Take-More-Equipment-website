@@ -5,6 +5,7 @@ import {
   getCategories,
   getCosts,
   getEconomics,
+  getFeaturedCount,
   getItem,
   getSubcategories,
   getTags,
@@ -33,16 +34,25 @@ export default async function ItemPage({
   // Costs and margin are not merely hidden from staff in the UI — the queries
   // return nothing for them by policy. Skipping the fetch entirely keeps the
   // intent obvious at the call site.
-  const [categories, subcategories, tags, costs, economics, activity, wanting] =
-    await Promise.all([
-      getCategories(),
-      getSubcategories(),
-      getTags(),
-      showCosts ? getCosts(id) : Promise.resolve([]),
-      showCosts ? getEconomics(id) : Promise.resolve(null),
-      getActivity(id),
-      getLeadsWantingItem(id),
-    ]);
+  const [
+    categories,
+    subcategories,
+    tags,
+    costs,
+    economics,
+    activity,
+    wanting,
+    featuredCount,
+  ] = await Promise.all([
+    getCategories(),
+    getSubcategories(),
+    getTags(),
+    showCosts ? getCosts(id) : Promise.resolve([]),
+    showCosts ? getEconomics(id) : Promise.resolve(null),
+    getActivity(id),
+    getLeadsWantingItem(id),
+    getFeaturedCount(),
+  ]);
 
   return (
     <div className="max-w-5xl">
@@ -63,6 +73,7 @@ export default async function ItemPage({
         economics={economics}
         activity={activity}
         role={staff.role}
+        featuredCount={featuredCount}
       />
 
       {/* Below the editor rather than beside it: this is context for a decision
