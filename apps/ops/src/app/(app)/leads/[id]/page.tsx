@@ -13,9 +13,9 @@ export default async function LeadPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const staff = await requireStaff();
-
-  const lead = await getLead(id);
+  // The record rides alongside the auth check — RLS answers it on its own, and
+  // only the interests below need the lead in hand first.
+  const [staff, lead] = await Promise.all([requireStaff(), getLead(id)]);
   if (!lead) notFound();
 
   // Only the wants still being watched. A fulfilled interest is history, and

@@ -238,8 +238,10 @@ export default function LeadsBrowser({
                         {lead.full_name || lead.email || formatPhone(lead.phone) || "No name yet"}
                       </h3>
                       {birthdayThisMonth(lead.birthday) && (
+                        // gift-linear, not cake: Solar has no cake icon, and
+                        // the plausible name rendered as nothing at all.
                         <iconify-icon
-                          icon="solar:cake-linear"
+                          icon="solar:gift-linear"
                           width="12"
                           height="12"
                           noobserver=""

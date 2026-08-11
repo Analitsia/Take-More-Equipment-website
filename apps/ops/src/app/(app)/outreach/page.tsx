@@ -24,8 +24,9 @@ export const dynamic = "force-dynamic";
  * suggestion you have to write a message for is a suggestion nobody actions.
  */
 export default async function OutreachPage() {
-  const staff = await requireStaff();
-  const queued = await getQueuedOutreach();
+  // In parallel: the queue read answers to RLS on its own, and the redirect
+  // out of requireStaff() still fires before anything renders.
+  const [staff, queued] = await Promise.all([requireStaff(), getQueuedOutreach()]);
 
   const entries: QueueEntry[] = queued
     .filter((message) => message.lead && message.item)

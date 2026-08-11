@@ -9,15 +9,12 @@ import CampaignComposer from "./CampaignComposer";
 export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage() {
-  const staff = await requireStaff();
-  // The RLS policy on outreach_campaigns is what actually stops a staff account
-  // from sending one; this is here so they get a page they can read rather than
-  // a form that 403s on submit.
-  if (!atLeast(staff.role, "manager")) redirect("/outreach");
-
   const client = await supabase();
 
-  const [campaigns, itemsResult, audienceCount] = await Promise.all([
+  // One round of queries, auth included — RLS guards every read on its own,
+  // and the role redirect below still fires before anything renders.
+  const [staff, campaigns, itemsResult, audienceCount] = await Promise.all([
+    requireStaff(),
     listCampaigns(),
     client
       .from("items")
@@ -29,6 +26,11 @@ export default async function CampaignsPage() {
       .limit(60),
     countReachableByEmail(),
   ]);
+
+  // The RLS policy on outreach_campaigns is what actually stops a staff account
+  // from sending one; this is here so they get a page they can read rather than
+  // a form that 403s on submit.
+  if (!atLeast(staff.role, "manager")) redirect("/outreach");
 
   const items = (itemsResult.data ?? []) as unknown as {
     id: string;

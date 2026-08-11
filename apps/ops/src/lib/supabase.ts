@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createStaffClient } from "@takemore/db";
 import type { AppRole } from "@takemore/core";
@@ -64,8 +65,13 @@ export type StaffState =
  * removed to keep working. The same property is what makes approval feel
  * instant: it is a column read on every request, not a claim baked into a token
  * an hour ago.
+ *
+ * Wrapped in React's cache() so the layout and the page it renders share one
+ * answer per request instead of each paying the claims check and the profile
+ * read again. The scope is a single request — the very next navigation
+ * re-checks, so revoking someone still takes effect on their next click.
  */
-export async function staffState(): Promise<StaffState> {
+export const staffState = cache(async (): Promise<StaffState> => {
   const client = await supabase();
 
   const { data: claimsData } = await client.auth.getClaims();
@@ -106,7 +112,7 @@ export async function staffState(): Promise<StaffState> {
       role: profile.role,
     },
   };
-}
+});
 
 /** The signed-in staff member, or null. Kept for callers that only need that. */
 export async function currentStaff(): Promise<Session | null> {

@@ -6,14 +6,18 @@ import TeamManager from "./TeamManager";
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  const staff = await requireStaff();
-  if (!canManageTeam(staff.role)) redirect("/");
-
+  // The list rides alongside the auth check. RLS shows a non-manager only
+  // their own row, and the redirect below still fires before anything renders,
+  // so parallelising leaks nothing — it just saves the round trip.
   const client = await supabase();
-  const { data } = await client
-    .from("staff_profiles")
-    .select("user_id, full_name, role, active, approved_at, created_at")
-    .order("created_at");
+  const [staff, { data }] = await Promise.all([
+    requireStaff(),
+    client
+      .from("staff_profiles")
+      .select("user_id, full_name, role, active, approved_at, created_at")
+      .order("created_at"),
+  ]);
+  if (!canManageTeam(staff.role)) redirect("/");
 
   const everyone = data ?? [];
   // Split here rather than in the component so the page can say how many are

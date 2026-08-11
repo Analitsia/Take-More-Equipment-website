@@ -24,9 +24,9 @@ export default async function ItemPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const staff = await requireStaff();
-
-  const item = await getItem(id);
+  // The record rides alongside the auth check — RLS answers it on its own, and
+  // the role only matters for the second round of queries below.
+  const [staff, item] = await Promise.all([requireStaff(), getItem(id)]);
   if (!item) notFound();
 
   const showCosts = canSeeCosts(staff.role);

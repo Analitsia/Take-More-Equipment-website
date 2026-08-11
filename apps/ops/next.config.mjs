@@ -18,6 +18,23 @@ const nextConfig = {
     "@takemore/ui",
     "@takemore/observability",
   ],
+  experimental: {
+    /**
+     * Let the browser reuse a page it rendered less than thirty seconds ago.
+     *
+     * Next 15 turned this off for dynamic pages, which is correct for a
+     * storefront and wrong for this app: flicking between Stock and a machine
+     * and back is the single most common movement here, and re-rendering the
+     * list on the server every time made the sidebar feel broken.
+     *
+     * Thirty seconds is safe because every write in the app goes through a
+     * server action that calls revalidatePath(), which drops this cache along
+     * with the server's — your own edit is never stale. What CAN be thirty
+     * seconds old is a colleague's edit, and the Dashboard already accepts
+     * sixty for that with its own refresh timer.
+     */
+    staleTimes: { dynamic: 30 },
+  },
   images: {
     remotePatterns: supabaseHost
       ? [{ protocol: "https", hostname: supabaseHost }]

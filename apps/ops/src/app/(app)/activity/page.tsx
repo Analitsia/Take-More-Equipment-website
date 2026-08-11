@@ -57,9 +57,13 @@ function dayOf(iso: string): string {
 }
 
 export default async function ActivityPage() {
-  await requireStaff();
-
-  const [entries, names] = await Promise.all([getRecentActivity(150), getStaffNames()]);
+  // All three in one round: the log and the name map answer to RLS on their
+  // own, and the redirect out of requireStaff() still fires before rendering.
+  const [, entries, names] = await Promise.all([
+    requireStaff(),
+    getRecentActivity(150),
+    getStaffNames(),
+  ]);
 
   const days: { day: string; rows: typeof entries }[] = [];
   for (const entry of entries) {

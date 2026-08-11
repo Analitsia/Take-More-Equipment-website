@@ -43,8 +43,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except static assets and image files, which never carry a
-    // session and would only pay the cost of a refresh check.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Everything except requests that never carry a session and would only pay
+    // the cost of a refresh check: static assets and image files, Sentry's
+    // tunnel (/monitoring — browser error reports, frequent and sessionless),
+    // and the two API routes that authenticate with a secret header rather
+    // than a cookie (/api/health for uptime checks, /api/match for cron).
+    "/((?!_next/static|_next/image|monitoring|api/health|api/match|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

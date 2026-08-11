@@ -43,8 +43,10 @@ export const dynamic = "force-dynamic";
  * get the dashboard. The role check here is a courtesy; RLS is the control.
  */
 export default async function DashboardPage() {
-  const staff = await requireStaff();
-  const lastSweep = await getLastCronRun();
+  // In parallel: the sweep status needs no session to read, and RLS decides
+  // what comes back regardless — awaiting it after the auth check was a full
+  // extra round trip on the page everybody lands on.
+  const [staff, lastSweep] = await Promise.all([requireStaff(), getLastCronRun()]);
   const firstName = staff.fullName.split(" ")[0];
 
   if (canSeeCosts(staff.role)) {
@@ -203,7 +205,10 @@ async function StaffToday({ greeting, sweep }: { greeting: string; sweep: Sweep 
                      hover:border-white/15 transition-colors"
         >
           <span className="w-9 h-9 rounded-xl bg-background border border-border flex items-center justify-center text-accent shrink-0">
-            <iconify-icon icon="solar:cake-linear" width="16" height="16" noobserver="" />
+            {/* gift-linear, not cake: the Solar set has no cake, and the name
+                that looked right here rendered as an empty box for as long as
+                nobody had a birthday to notice it on. */}
+            <iconify-icon icon="solar:gift-linear" width="16" height="16" noobserver="" />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-light text-white/85 truncate">

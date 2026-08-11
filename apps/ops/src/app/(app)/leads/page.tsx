@@ -7,8 +7,13 @@ import NewLeadButton from "./NewLeadButton";
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
-  await requireStaff();
-  const [leads, categories] = await Promise.all([listLeads(), getCategories()]);
+  // All three in one round: the data queries answer to RLS on their own, and
+  // the redirect out of requireStaff() still fires before anything renders.
+  const [, leads, categories] = await Promise.all([
+    requireStaff(),
+    listLeads(),
+    getCategories(),
+  ]);
 
   const reachable = leads.filter(
     (l) => !l.unsubscribed_at && (l.email_consent_at || l.whatsapp_consent_at)

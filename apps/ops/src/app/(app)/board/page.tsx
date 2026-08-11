@@ -5,8 +5,9 @@ import Board from "./Board";
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage() {
-  const staff = await requireStaff();
-  const items = await listItems();
+  // One round of queries, not two: RLS guards the list on its own, and the
+  // redirect out of requireStaff() still fires before anything renders.
+  const [staff, items] = await Promise.all([requireStaff(), listItems()]);
 
   return (
     <div>

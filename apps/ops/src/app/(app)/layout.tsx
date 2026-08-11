@@ -14,7 +14,11 @@ import { canManageTeam } from "@takemore/core";
  * would only teach them to doubt it.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const staff = await requireStaff();
+  // The queue count rides alongside the auth check rather than after it — it
+  // needs no role to run (any staff member may work the queue, and RLS answers
+  // zero to anyone who may not), so paying for it sequentially was pure
+  // latency on every request. `head: true` fetches the count without the rows.
+  const [staff, queuedCount] = await Promise.all([requireStaff(), countQueuedOutreach()]);
 
   // Only the owner can act on a request, so only the owner pays for the count.
   // A partial index on (created_at) where approved_at is null makes this a scan
@@ -28,11 +32,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .is("approved_at", null);
     pendingCount = count ?? 0;
   }
-
-  // Everyone sees this one — any staff member may work the queue, because a
-  // one-to-one message about a machine is part of serving a customer they are
-  // already talking to. `head: true` fetches the count without the rows.
-  const queuedCount = await countQueuedOutreach();
 
   return (
     <Shell staff={staff} pendingCount={pendingCount} queuedCount={queuedCount}>
