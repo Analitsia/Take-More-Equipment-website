@@ -38,7 +38,9 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      {/* Capped while the board below it is not: a search field the width of a
+          desk monitor is harder to aim at, not easier. */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4 max-w-3xl">
         <div className="relative flex-1">
           <iconify-icon
             icon="solar:magnifer-linear"

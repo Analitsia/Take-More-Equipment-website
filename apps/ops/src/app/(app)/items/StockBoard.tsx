@@ -55,9 +55,21 @@ export default function StockBoard({ items }: { items: ItemRow[] }) {
           const c = STATUS_CLASSES[status];
 
           return (
+            /* Two shapes, one board.
+
+               On a phone and a tablet the columns keep a fixed width and the
+               row swipes sideways — four stages will not fit across 500px in
+               any arrangement worth reading. From `lg` up they stop being
+               fixed and share whatever room the screen has: `flex-1` to take
+               an equal quarter, `min-w-0` because a flex child otherwise
+               refuses to shrink below the width of its own content, and a cap
+               so a wide monitor gives four sensible columns rather than four
+               enormous ones. Nothing is ever left over the edge. */
             <section
               key={status}
-              className="w-[78vw] sm:w-72 shrink-0 bg-card/50 border border-border rounded-2xl flex flex-col max-h-[70vh]"
+              className="w-[78vw] sm:w-72 shrink-0 lg:w-auto lg:flex-1 lg:shrink lg:min-w-0
+                         lg:max-w-[26rem] bg-card/50 border border-border rounded-2xl
+                         flex flex-col max-h-[70vh]"
             >
               <header className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
                 <span className={`w-2 h-2 rounded-full ${c.dot}`} />

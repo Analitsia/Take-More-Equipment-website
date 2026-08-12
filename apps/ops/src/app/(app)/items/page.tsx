@@ -8,7 +8,12 @@ export default async function ItemsPage() {
   const items = await listItems();
 
   return (
-    <div className="max-w-6xl">
+    /* No width cap here, unlike the other pages. Stock is a four-column board,
+       and 6xl is narrower than the four columns want — capping it hid the Sold
+       column behind a horizontal scrollbar that `hide-scrollbar` then made
+       invisible, so the last column simply looked amputated. The shell's own
+       padding is the margin; the board runs the width of the screen inside it. */
+    <div>
       <header className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-medium tracking-tight">Stock</h1>
@@ -29,7 +34,7 @@ export default async function ItemsPage() {
       </header>
 
       {items.length === 0 ? (
-        <div className="bg-card border border-border rounded-2xl p-10 text-center">
+        <div className="bg-card border border-border rounded-2xl p-10 text-center max-w-2xl">
           <div className="w-12 h-12 rounded-2xl bg-background border border-border flex items-center justify-center text-accent mx-auto mb-4">
             <iconify-icon icon="solar:box-linear" width="22" height="22" noobserver="" />
           </div>
