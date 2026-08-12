@@ -8,23 +8,26 @@ import {
   STATUS_LABELS,
   STATUS_ORDER,
   rands,
-  type AppRole,
   type ItemStatus,
 } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
-import { setStage } from "../items/actions";
+import { setStage } from "./actions";
 import ItemThumb from "@/components/ItemThumb";
 import type { ItemRow } from "@/lib/queries";
 
 /**
- * The stock board.
+ * The stock board — the same units as the list, arranged by where they are.
+ *
+ * It lives next to the list it toggles with, and /board renders it too for the
+ * dashboard's deep link. No role prop: every move costs `staff`, which is the
+ * floor for reaching either surface, so there is nothing left to hide.
  *
  * Moves are buttons rather than drag-and-drop, deliberately. Dragging a card
  * across columns on a phone with one hand and a glove on is worse than tapping,
  * and there are only ever three places a card can go — every stage reaches every
  * other stage directly, so the buttons are the other three stages, always.
  */
-export default function Board({ items, role }: { items: ItemRow[]; role: AppRole }) {
+export default function StockBoard({ items }: { items: ItemRow[] }) {
   const router = useRouter();
   const [moving, setMoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

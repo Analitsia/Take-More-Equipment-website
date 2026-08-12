@@ -1,13 +1,13 @@
 import { listItems } from "@/lib/queries";
 import { requireStaff } from "@/lib/supabase";
-import Board from "./Board";
+import StockBoard from "../items/StockBoard";
 
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage() {
   // One round of queries, not two: RLS guards the list on its own, and the
   // redirect out of requireStaff() still fires before anything renders.
-  const [staff, items] = await Promise.all([requireStaff(), listItems()]);
+  const [, items] = await Promise.all([requireStaff(), listItems()]);
 
   return (
     <div>
@@ -17,7 +17,7 @@ export default async function BoardPage() {
           Every machine, by where it is in the workshop.
         </p>
       </header>
-      <Board items={items} role={staff.role} />
+      <StockBoard items={items} />
     </div>
   );
 }

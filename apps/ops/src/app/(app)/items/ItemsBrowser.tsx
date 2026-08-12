@@ -1,11 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ITEM_STATUSES, STATUS_LABELS, rands, type ItemStatus } from "@takemore/core";
 import { StatusPill, PublishPill } from "@takemore/ui";
 import ItemThumb from "@/components/ItemThumb";
+import StockBoard from "./StockBoard";
 import type { ItemRow } from "@/lib/queries";
+
+type View = "list" | "board";
+
+const VIEWS: { view: View; label: string; icon: string }[] = [
+  { view: "list", label: "List", icon: "solar:list-linear" },
+  { view: "board", label: "Board", icon: "solar:widget-4-linear" },
+];
+
+/** Which view this person last chose. Remembered per device, not per account. */
+const VIEW_KEY = "takemore.stock.view";
 
 /**
  * The desk-work view of stock.
@@ -14,11 +25,31 @@ import type { ItemRow } from "@/lib/queries";
  * hundreds of units, not hundreds of thousands — a round trip per keystroke
  * buys nothing, and instant filtering is the difference between a list you use
  * and a list you avoid.
+ *
+ * The list and the board are two arrangements of one filtered set, not two
+ * pages: search, stage and "not live" carry across the toggle, so switching
+ * never costs you the query you just typed.
  */
 export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ItemStatus | "all">("all");
   const [onlyDrafts, setOnlyDrafts] = useState(false);
+  const [view, setView] = useState<View>("list");
+
+  // Read after mount rather than during render: the server has no localStorage,
+  // and seeding state from it directly is the classic hydration mismatch.
+  useEffect(() => {
+    const saved = window.localStorage.getItem(VIEW_KEY);
+    if (saved === "board" || saved === "list") setView(saved);
+  }, []);
+
+  function choose(next: View) {
+    setView(next);
+    window.localStorage.setItem(VIEW_KEY, next);
+    // The board's columns are the stages, so a stage filter would empty three
+    // of them for a reason the eye cannot see. Drop it on the way in.
+    if (next === "board") setStatus("all");
+  }
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -36,6 +67,29 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
 
   return (
     <>
+      <div
+        role="group"
+        aria-label="How to show stock"
+        className="inline-flex items-center gap-1 bg-card border border-border rounded-xl p-1 mb-3"
+      >
+        {VIEWS.map((v) => (
+          <button
+            key={v.view}
+            aria-pressed={view === v.view}
+            onClick={() => choose(v.view)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-light
+                        transition-colors ${
+                          view === v.view
+                            ? "bg-accent/10 text-accent"
+                            : "text-white/60 hover:text-white/90"
+                        }`}
+          >
+            <iconify-icon icon={v.icon} width="14" height="14" noobserver="" />
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <iconify-icon
@@ -55,19 +109,21 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
           />
         </div>
 
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ItemStatus | "all")}
-          className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm font-light text-white/90
-                     hover:border-white/20 focus:border-accent focus:outline-none transition-colors"
-        >
-          <option value="all">Every status</option>
-          {ITEM_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
+        {view === "list" && (
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ItemStatus | "all")}
+            className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm font-light text-white/90
+                       hover:border-white/20 focus:border-accent focus:outline-none transition-colors"
+          >
+            <option value="all">Every status</option>
+            {ITEM_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        )}
 
         <button
           onClick={() => setOnlyDrafts((v) => !v)}
@@ -81,7 +137,9 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
         </button>
       </div>
 
-      {filtered.length === 0 ? (
+      {view === "board" ? (
+        <StockBoard items={filtered} />
+      ) : filtered.length === 0 ? (
         <p className="text-sm font-light text-muted py-10 text-center">
           Nothing matches that.
         </p>
