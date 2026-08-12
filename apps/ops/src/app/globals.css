@@ -43,7 +43,31 @@ iconify-icon:not([width]):not([height]) {
 }
 
 /* The kanban board scrolls horizontally on a phone and vertically in each
-   column, so the columns need a floor to sit on. */
+   column, so the columns need a floor to sit on.
+
+   Left at the browser default, that floor is a light grey trough painted down
+   a near-black column — a bright vertical bar sitting there whether or not
+   anyone is scrolling. Only the thumb survives here: the track goes
+   transparent so the column's own surface shows through, and the thumb is a
+   dim white that lifts on hover.
+
+   Both spellings are needed. Firefox and current Chrome read the standard
+   properties; older WebKit and Safari only understand the pseudo-elements. */
 .board-column {
   scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.board-column::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.board-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+.board-column::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+.board-column::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
 }

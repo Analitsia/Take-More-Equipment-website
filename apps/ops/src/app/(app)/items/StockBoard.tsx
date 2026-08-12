@@ -16,11 +16,11 @@ import ItemThumb from "@/components/ItemThumb";
 import type { ItemRow } from "@/lib/queries";
 
 /**
- * The stock board — the same units as the list, arranged by where they are.
+ * The stock board — every unit, arranged by where it is in the workshop.
  *
- * It lives next to the list it toggles with, and /board renders it too for the
- * dashboard's deep link. No role prop: every move costs `staff`, which is the
- * floor for reaching either surface, so there is nothing left to hide.
+ * It is the whole of Stock, and /board renders it too for the dashboard's deep
+ * link. No role prop: every move costs `staff`, which is the floor for reaching
+ * either surface, so there is nothing left to hide.
  *
  * Moves are buttons rather than drag-and-drop, deliberately. Dragging a card
  * across columns on a phone with one hand and a glove on is worse than tapping,
