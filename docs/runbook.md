@@ -196,6 +196,38 @@ schedule — see `.github/workflows/live.yml`.
 
 ---
 
+## Filling the site with demo stock (and emptying it again)
+
+For showing the platform to somebody before there is real stock in it. Fifteen
+invented machines with photographs and walkaround clips, fifteen invented
+customers with wants and timelines, costs behind every unit so the Dashboard and
+Money pages have numbers, and a live outreach queue.
+
+```bash
+npm run demo:seed        # ~2 minutes the first time: it downloads stills and
+                         # builds the clips with ffmpeg, then caches both
+npm run demo:seed -- --skip-video   # photos only, no ffmpeg needed
+npm run demo:clear       # removes every trace of it
+```
+
+Seeding is idempotent — it clears any previous demo rows before writing, so
+running it twice leaves one catalogue rather than two.
+
+**It writes to the production database.** Everything it creates carries a marker
+(`items.specs.demo_seed`, `leads.extra.demo_seed`) that neither app renders, and
+`demo:clear` deletes on that marker and nothing else — Storage objects and
+activity-log rows included, neither of which cascades on its own. Real stock
+entered alongside it is invisible to the teardown.
+
+**The honest caveat.** The publish gate requires a photograph of the actual
+machine, and there is no way to put demo stock on the public site without
+satisfying it. These photographs are real Storage objects of catering equipment
+that is not ours. The constraint holds; its intent is suspended for as long as
+the seed is loaded. `npm run demo:clear` ends it. Do not leave it loaded on a
+domain the public can find — see the note under point 1 below.
+
+---
+
 ## Applying a database change
 
 ```bash
@@ -236,7 +268,10 @@ Worth knowing so they read as design rather than as bugs:
 
 1. **Publish an item without a photograph of the actual machine.** A stock image
    will not satisfy the publish gate, and one cannot be attached to something
-   already live.
+   already live. The demo seed above is the one thing that gets around the
+   *intent* of this — it uploads its stock photography as real objects, because
+   the gate leaves it no other way in. That is why it is a command you run and a
+   command you undo, and not a fixture that lives in the database.
 2. **Deploy to production with placeholder contact details.** The build fails,
    with a message naming what is missing.
 3. **Ship a stock photo URL anywhere in the storefront source.** CI fails. The

@@ -15,3 +15,7 @@ FIRST-LOGIN.local.md
 
 # Written by the Sentry build plugin when it uploads source maps.
 .env.sentry-build-plugin
+
+# Photographs and clips built by scripts/demo-media.mjs. Derived, not source —
+# the recipe is in scripts/demo-dataset.mjs and rebuilds them on demand.
+.demo-media/
