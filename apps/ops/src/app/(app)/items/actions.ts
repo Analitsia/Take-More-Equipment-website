@@ -391,7 +391,7 @@ export async function softDeleteItem(id: string): Promise<ActionResult> {
   revalidatePath("/items");
   revalidatePath("/board");
   revalidatePath("/");
-  revalidatePath("/activity");
+  revalidatePath("/team");
   await revalidateStorefront(id);
   return { ok: true };
 }

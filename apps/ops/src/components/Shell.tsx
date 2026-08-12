@@ -21,6 +21,21 @@ import SignOutButton from "./SignOutButton";
 type NavItem = { href: string; label: string; icon: string; badge?: number };
 
 /**
+ * The people, and what the people did — one destination.
+ *
+ * Team and Activity were two entries for one question. An owner asking who
+ * dropped a price read a timeline on one page and a roster on the other; see
+ * the header on app/(app)/team/page.tsx. The badge stays on this entry because
+ * it is the only notification in the app and it still means the same thing:
+ * somebody is standing at the door.
+ */
+const TEAM: NavItem = {
+  href: "/team",
+  label: "Team",
+  icon: "solar:users-group-rounded-linear",
+};
+
+/**
  * Today, Board and Money were three entries for one job.
  *
  * A manager opened Today for the counts, Money for the margin and Board to see
@@ -52,18 +67,12 @@ const navFor = (
     // been waiting months for goes stale in days, so it earns the interruption.
     badge: queuedCount,
   },
-  ...(canManageTeam(role)
-    ? [
-        {
-          href: "/team",
-          label: "Team",
-          icon: "solar:users-group-rounded-linear",
-          // The only notification in the app, and it earns the place: somebody
-          // is standing still, unable to work, until the owner taps this.
-          badge: pendingCount,
-        },
-      ]
-    : []),
+  // Only the owner gets it in the bottom bar, because only the owner can be
+  // interrupted by it. Everyone else reaches the same page from the desk rail
+  // below — where Activity has always lived, and for the same reason: it is
+  // something you go looking for when a question has come up, not something
+  // you tap while carrying a fryer.
+  ...(canManageTeam(role) ? [{ ...TEAM, badge: pendingCount }] : []),
 ];
 
 /**
@@ -80,19 +89,6 @@ const WEBSITE: NavItem = {
   href: "/website",
   label: "Website",
   icon: "solar:global-linear",
-};
-
-/**
- * The log of who changed what.
- *
- * Desk-only for the same reason as the website link: the bottom bar is already
- * at capacity, and this is something somebody goes looking for when a question
- * has come up — not something they tap while carrying a fryer.
- */
-const ACTIVITY: NavItem = {
-  href: "/activity",
-  label: "Activity",
-  icon: "solar:history-linear",
 };
 
 /** A count that only exists when it is worth interrupting someone for. */
@@ -123,6 +119,10 @@ export default function Shell({
   children: React.ReactNode;
 }) {
   const nav = navFor(staff.role, pendingCount, queuedCount);
+  // The rail has room for what the bottom bar cannot hold. Team appears here
+  // for everyone who did not already get it above — the log on it is readable
+  // by any staff member, and always has been.
+  const rail = [...nav, ...(canManageTeam(staff.role) ? [] : [TEAM]), WEBSITE];
 
   return (
     <div className="min-h-dvh flex flex-col md:flex-row">
@@ -165,7 +165,7 @@ export default function Shell({
             scrolls the list rather than pushing New item and the account block
             off the bottom. `min-h-0` is the flexbox tax for letting it. */}
         <nav className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1">
-          {[...nav, ACTIVITY, WEBSITE].map((item) => (
+          {rail.map((item) => (
             <Link
               key={item.href}
               href={item.href}

@@ -191,11 +191,13 @@ async function run(cookie) {
   thumbnailsAreStills("/items", await visit(cookie, "/items"));
   thumbnailsAreStills("/board", await visit(cookie, "/board"));
   await redirects(cookie, "/money", "/");
-  await visit(cookie, "/team");
+  // Team is now the roster and the log on one page. The heading below only
+  // renders if the second half came back — it reads activity_log and matches
+  // every actor against staff_profiles, which typechecks and could still fail
+  // at runtime, which is why this suite exists.
+  await visit(cookie, "/team", { contains: "Activity" });
   await visit(cookie, "/account");
-  // Joins activity_log to staff_profiles for actor names — another embed that
-  // typechecks and could still fail at runtime, which is why this suite exists.
-  await visit(cookie, "/activity", { contains: "Activity" });
+  await redirects(cookie, "/activity", "/team");
   // The iframe's title, which only exists if the storefront frame rendered.
   await visit(cookie, "/website", { contains: "Take More website" });
 

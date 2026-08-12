@@ -211,11 +211,17 @@ export async function getLastCronRun(job = "stock_match") {
 }
 
 /**
- * The whole activity log, newest first — the ops-wide timeline.
+ * The whole activity log, newest first — the ops-wide timeline on /team.
  *
  * activity_log_recent_idx already exists for exactly this query. The table is
  * append-only and written by a trigger, so this is a pure read and there is no
  * corresponding write anywhere in the app.
+ *
+ * `before` and `after` come along because the Team screen phrases each row as a
+ * sentence about a person — "Sipho dropped TM-0012 from R42 000 to R38 500" —
+ * and the numbers for that live in those two columns rather than in `summary`.
+ * They carry only the fields their action is about, never whole rows, so this
+ * stays a small read; see lib/activity.ts for the phrasing.
  */
 export async function getRecentActivity(limit = 100) {
   const client = await supabase();
@@ -223,18 +229,8 @@ export async function getRecentActivity(limit = 100) {
     "queries/getRecentActivity",
     await client
       .from("activity_log")
-      .select("id, entity, entity_id, action, summary, created_at, actor_id")
+      .select("id, entity, entity_id, action, summary, before, after, created_at, actor_id")
       .order("created_at", { ascending: false })
       .limit(limit)
   );
-}
-
-/** user_id → display name, for putting a person's name against a log line. */
-export async function getStaffNames(): Promise<Map<string, string>> {
-  const client = await supabase();
-  const rows = orEmpty(
-    "queries/getStaffNames",
-    await client.from("staff_profiles").select("user_id, full_name")
-  );
-  return new Map(rows.map((row) => [row.user_id, row.full_name]));
 }

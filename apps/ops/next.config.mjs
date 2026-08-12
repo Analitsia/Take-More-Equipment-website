@@ -41,15 +41,18 @@ const nextConfig = {
       : [],
   },
   /**
-   * /money was folded into the Dashboard.
+   * /money was folded into the Dashboard, /activity into Team.
    *
-   * Not permanent (308): this is an internal tool behind a login, the URL is in
-   * people's history and pinned tabs rather than anywhere a crawler cares
+   * Not permanent (308): this is an internal tool behind a login, the URLs are
+   * in people's history and pinned tabs rather than anywhere a crawler cares
    * about, and a 308 is cached by the browser forever — which would be
-   * unpleasant if the name is ever wanted back for something else.
+   * unpleasant if either name is ever wanted back for something else.
    */
   async redirects() {
-    return [{ source: "/money", destination: "/", permanent: false }];
+    return [
+      { source: "/money", destination: "/", permanent: false },
+      { source: "/activity", destination: "/team", permanent: false },
+    ];
   },
 };
 
