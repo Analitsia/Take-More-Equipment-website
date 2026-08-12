@@ -31,7 +31,6 @@ export default async function Page() {
       {/* Stock leads the page — the stats and the story follow it. */}
       {featured.length > 0 && <FeaturedStock items={featured} />}
       <Catalogue stock={stock} vocabulary={vocabulary} />
-      <About />
       {/* Process makes the argument once. It used to be made three times in a
           row — Process, then a "Why Take More" card grid restating the same
           price/rebuild/warranty claims, then the proof panel below in the same
@@ -39,6 +38,12 @@ export default async function Page() {
           so it is gone and the two that carry their own weight stayed. */}
       <Process />
       <Testimonials />
+      {/* About sits after the proof, not before it: the workshop story lands
+          better once the reader has seen the stock, the reason it is cheap and
+          the things they can check. Its "Our Process" link now points back up
+          the page rather than down — still the right destination, since that is
+          where the claim it makes is spelled out. */}
+      <About />
       <CtaBand categories={categories} />
       <Footer />
     </div>
