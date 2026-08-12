@@ -14,7 +14,15 @@ export default function Hero() {
     // which left a screenful of empty photo between the city line and the
     // headline. Shorter image, same composition, far less dead space. Desktop
     // keeps its full 90vh.
-    <div className="relative p-2 md:p-4">
+    //
+    // No padding under the frame, and no radius on its bottom two corners:
+    // the hero's floor is not an edge any more, it is a dissolve into the page
+    // (see the fade overlay below). A gutter and a curve there would both be
+    // invisible — everything is #080805 by then — but only as long as nothing
+    // downstream disagrees by a shade, so the honest thing is to have no edge
+    // rather than a hidden one. The two min-heights below each grow by the
+    // padding removed here, so the hero occupies exactly the band it did.
+    <div className="relative p-2 pb-0 md:p-4 md:pb-0">
       {/* A *minimum* height, not a fixed one — that is the whole fix.
 
           The two text blocks below used to be pinned to opposite ends of this
@@ -32,12 +40,19 @@ export default function Hero() {
           growing gap between them, so the frame can never be shorter than what
           it holds: the gap absorbs the slack when there is room to spare, and
           the frame grows when there is not. The minimum reproduces the old
-          fixed height exactly (less the p-2/md:p-4 above, which used to be
-          inside the old measurement), so on any screen that already fitted,
-          nothing moves by a pixel. */}
+          fixed height exactly (less the padding above, which used to be inside
+          the old measurement), so on any screen that already fitted, nothing
+          moves by a pixel.
+
+          Both terms of each minimum carry the half of that padding the wrapper
+          no longer spends below the frame — 474→482 and 58vh-1rem→58vh-0.5rem
+          on a phone, 488→504 and 90vh-2rem→90vh-1rem from md. Frame plus
+          padding therefore still measures max(490px, 58vh) and max(520px,
+          90vh), exactly as before; the hero simply owns the last 8/16px of it
+          instead of leaving them empty. */}
       <div
-        className="relative w-full rounded-[2rem] overflow-hidden flex flex-col
-                   min-h-[max(474px,calc(58vh-1rem))] md:min-h-[max(488px,calc(90vh-2rem))]"
+        className="relative w-full rounded-[2rem] rounded-b-none overflow-hidden flex flex-col
+                   min-h-[max(482px,calc(58vh-0.5rem))] md:min-h-[max(504px,calc(90vh-1rem))]"
       >
         <SiteImage
           fact={media.hero}
@@ -49,6 +64,49 @@ export default function Hero() {
             what lets the hero survive having no photograph at all: over a flat card
             colour this same gradient reads as an intentional dark hero. */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background/95"></div>
+
+        {/* The floor of the hero, dissolved into the page.
+            The scrim above ends at 95% — dark, but still 5% of a lit kitchen
+            against a page that is flat #080805, and that last 5% was the visible
+            cut. This takes the bottom band the rest of the way to opaque, so the
+            photograph runs out before the frame does and there is nothing left to
+            see an edge of.
+
+            Vertical only, as asked: full-bleed left to right, so the side edges
+            of the frame keep their crop and simply darken out of sight along with
+            everything else near the floor.
+
+            The stops are smoothstep (3t²−2t³) sampled every 10%, not a plain
+            two-stop ramp. A linear fade has a corner in it at both ends — the eye
+            reads the sudden onset of darkening as a horizontal line across the
+            photo, and the arrival at black as a second one. Smoothstep is flat at
+            both, so the fade has no beginning and no end you can point at, which
+            is the whole job. Written as explicit rgba rather than `transparent`
+            so the ramp interpolates within the background colour and never dips
+            through a different one.
+
+            Proportional, so a tall desktop hero fades over a distance that suits
+            it, with a floor for short frames and a ceiling so a very tall one
+            does not surrender half the photograph to the gradient. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[42%] min-h-[200px] max-h-[480px]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to bottom," +
+              "rgba(8,8,5,0) 0%," +
+              "rgba(8,8,5,0.028) 10%," +
+              "rgba(8,8,5,0.104) 20%," +
+              "rgba(8,8,5,0.216) 30%," +
+              "rgba(8,8,5,0.352) 40%," +
+              "rgba(8,8,5,0.5) 50%," +
+              "rgba(8,8,5,0.648) 60%," +
+              "rgba(8,8,5,0.784) 70%," +
+              "rgba(8,8,5,0.896) 80%," +
+              "rgba(8,8,5,0.972) 90%," +
+              "rgba(8,8,5,1) 100%)",
+          }}
+        ></div>
 
         {/* Deliberately uncapped, same as the headline row below it — capping
             this at max-w-[1440px] would agree with the navbar but disagree
