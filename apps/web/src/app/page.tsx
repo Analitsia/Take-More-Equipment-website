@@ -1,6 +1,6 @@
 import Hero from "@/components/Hero";
 import FeaturedStock from "@/components/FeaturedStock";
-import Shop from "@/components/Shop";
+import Catalogue from "@/components/Catalogue";
 import About from "@/components/About";
 import Process from "@/components/Process";
 import Benefits from "@/components/Benefits";
@@ -12,8 +12,8 @@ import { getCategoryChoices, getStock, getVocabulary } from "@/lib/stock";
 
 export default async function Page() {
   // Fetched once here and handed down, rather than each section reaching for
-  // the database on its own — the catalogue, the highlights row and the
-  // category counts are three views of the same list and must agree.
+  // the database on its own — the catalogue, the highlights row and the filter
+  // counts are three views of the same list and must agree.
   const stock = await getStock();
   const vocabulary = await getVocabulary(stock);
   // Slugs rather than the display names above: the enquiry form sends these
@@ -31,7 +31,7 @@ export default async function Page() {
       <Hero />
       {/* Stock leads the page — the stats and the story follow it. */}
       {featured.length > 0 && <FeaturedStock items={featured} />}
-      <Shop stock={stock} vocabulary={vocabulary} />
+      <Catalogue stock={stock} vocabulary={vocabulary} />
       <About />
       <Process />
       <Benefits />

@@ -15,17 +15,22 @@ import {
 } from "@/data/filters";
 import type { Equipment, Vocabulary } from "@/data/equipment";
 
+/**
+ * The whole shop: the filter sidebar and the grid it drives.
+ *
+ * The stock list arrives as a prop from the server. Filtering stays in memory:
+ * at the few hundred units this business carries, the whole card projection is
+ * a fraction of the page weight, and instant filtering beats a round trip per
+ * checkbox.
+ */
 export default function Catalogue({
   stock,
   vocabulary,
-  filters,
-  setFilters,
 }: {
   stock: Equipment[];
   vocabulary: Vocabulary;
-  filters: Filters;
-  setFilters: (next: Filters) => void;
 }) {
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [sort, setSort] = useState<SortId>("featured");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -35,8 +40,14 @@ export default function Catalogue({
   );
   const activeCount = countActive(filters);
 
+  // Tighter on top than the site's usual py-14/24: the highlights row above is
+  // the same subject, so the two read as one stock block rather than two
+  // distant sections — which is the gap the category strip used to sit in.
   return (
-    <section id="catalogue" className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto scroll-mt-6">
+    <section
+      id="catalogue"
+      className="pt-12 pb-14 md:pb-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto scroll-mt-6"
+    >
       <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <Subheading text="The Catalogue" />
