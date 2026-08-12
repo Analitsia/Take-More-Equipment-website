@@ -120,7 +120,7 @@ function Proof() {
     {
       icon: "solar:shield-check-linear",
       title: "Six months, in writing",
-      copy: "The warranty terms are published before you buy, not produced at the counter afterwards.",
+      copy: "If a unit fails inside six months we collect it, repair it and return it at our cost, parts and labour. Published before you buy, not produced at the counter afterwards.",
       href: "/conditions",
       link: "Read the terms",
     },

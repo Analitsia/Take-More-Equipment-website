@@ -31,8 +31,23 @@ export default function Process() {
   return (
     <section
       id="process"
-      className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative scroll-mt-24"
+      className="py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto relative scroll-mt-24 overflow-hidden"
     >
+      {/* Inherited from the "Why Take More" section that used to sit below this
+          one: it was the only accent glow between the catalogue and the footer,
+          and without it everything from here down reads as flat black. It suits
+          this section better anyway — this is where the argument is made.
+
+          Two things it must keep. `overflow-hidden` on the section above, and
+          the 120vw clamp: at a fixed 600px the blur is wider than a phone and
+          widens the document, which pushed every section below the right edge.
+          Nothing here is a scroll container and nothing is sticky, so clipping
+          costs the section nothing. */}
+      <div
+        aria-hidden="true"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(600px,120vw)] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10"
+      ></div>
+
       <div className="text-center mb-10 md:mb-16 flex flex-col items-center">
         <Subheading text="How It Works" />
         <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight max-w-3xl leading-tight">

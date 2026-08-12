@@ -3,7 +3,6 @@ import FeaturedStock from "@/components/FeaturedStock";
 import Catalogue from "@/components/Catalogue";
 import About from "@/components/About";
 import Process from "@/components/Process";
-import Benefits from "@/components/Benefits";
 import Testimonials from "@/components/Testimonials";
 import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
@@ -33,8 +32,12 @@ export default async function Page() {
       {featured.length > 0 && <FeaturedStock items={featured} />}
       <Catalogue stock={stock} vocabulary={vocabulary} />
       <About />
+      {/* Process makes the argument once. It used to be made three times in a
+          row — Process, then a "Why Take More" card grid restating the same
+          price/rebuild/warranty claims, then the proof panel below in the same
+          three-card shape. The middle one said nothing the other two did not,
+          so it is gone and the two that carry their own weight stayed. */}
       <Process />
-      <Benefits />
       <Testimonials />
       <CtaBand categories={categories} />
       <Footer />
