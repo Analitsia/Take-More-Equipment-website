@@ -14,8 +14,31 @@ export default function Hero() {
     // which left a screenful of empty photo between the city line and the
     // headline. Shorter image, same composition, far less dead space. Desktop
     // keeps its full 90vh.
-    <div className="relative p-2 md:p-4 h-[58vh] min-h-[490px] md:h-[90vh] md:min-h-[520px]">
-      <div className="w-full h-full rounded-[2rem] overflow-hidden relative">
+    <div className="relative p-2 md:p-4">
+      {/* A *minimum* height, not a fixed one — that is the whole fix.
+
+          The two text blocks below used to be pinned to opposite ends of this
+          frame with `absolute top-32` and `absolute bottom-0`. Their heights
+          come from the words in them; the frame's height came from the
+          viewport; and nothing whatsoever related the two. So on any screen
+          short enough that 90vh was less than city-line + headline + strapline,
+          they simply printed over each other — the headline through the "Cape
+          Town" and "Rebuilt in our workshop" lines. It needed no unusual
+          screen: a 390×844 phone already overlapped by 2px, a 360×640 one by
+          7px, and the framed preview on the Website tab of the ops app — a
+          wide, short box — by 32px.
+
+          Now the same three blocks are laid out in flow, in a column, with a
+          growing gap between them, so the frame can never be shorter than what
+          it holds: the gap absorbs the slack when there is room to spare, and
+          the frame grows when there is not. The minimum reproduces the old
+          fixed height exactly (less the p-2/md:p-4 above, which used to be
+          inside the old measurement), so on any screen that already fitted,
+          nothing moves by a pixel. */}
+      <div
+        className="relative w-full rounded-[2rem] overflow-hidden flex flex-col
+                   min-h-[max(474px,calc(58vh-1rem))] md:min-h-[max(488px,calc(90vh-2rem))]"
+      >
         <SiteImage
           fact={media.hero}
           className="absolute inset-0 w-full h-full object-cover scale-105"
@@ -31,42 +54,84 @@ export default function Hero() {
             this at max-w-[1440px] would agree with the navbar but disagree
             with the headline, since that row is plain padding too. See
             headerRow() in headerLayout.ts: the overlay navbar is the one
-            that stays uncapped past 1440px, to agree with this. */}
-        <div className="absolute top-20 md:top-32 inset-x-0 px-5 sm:px-6 md:px-12 flex justify-between items-start text-xs font-light text-white/70 z-10">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-            {site.city}, {site.country}
-          </motion.div>
-          {/* Right-aligned text stacks unevenly when the lines are different
-              lengths — the shorter line's left edge trails the longer one's,
-              reading as a staggered cascade rather than a block. text-center
-              fixes that on its own. Position is a separate problem: as the
-              middle child of a 3-item justify-between row this only ever
-              landed wherever the "Cape Town" text and the third block's
-              widths left it, not at the row's actual center — same fix as
-              the navbar pill above, taken out of flex flow and centered
-              against the row itself. */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 text-center max-w-[200px]"
-          >
-            Rebuilt in our workshop.
-            <br />
-            Warrantied for six months.
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="text-center max-w-[250px] hidden lg:block"
-          >
-            Every machine is stripped, rebuilt and run under load before it earns a price
-            on this page.
-          </motion.div>
+            that stays uncapped past 1440px, to agree with this.
+
+            The old `top-20 md:top-32` is now the same distance expressed as
+            padding, so the row starts where it always did. It takes two
+            elements rather than one: the padding is on this wrapper, and the
+            flex row inside is the bare, unpadded positioning root the centered
+            block is placed against. An absolutely positioned child measures
+            from its container's *padding* box, so a single padded element
+            would put that block's `top-0` above the padding it is meant to sit
+            below — level with the top of the photo.
+
+            `z-10` without `relative` is deliberate: this is a flex item, and
+            z-index applies to flex items whatever their position. Adding
+            `relative` would make this the centered block's containing block,
+            which is exactly the mistake described above. */}
+        <div className="shrink-0 z-10 pt-20 md:pt-32 px-5 sm:px-6 md:px-12">
+          <div className="relative flex justify-between items-start text-xs font-light text-white/70">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+              {site.city}, {site.country}
+            </motion.div>
+            {/* Right-aligned text stacks unevenly when the lines are different
+                lengths — the shorter line's left edge trails the longer one's,
+                reading as a staggered cascade rather than a block. text-center
+                fixes that on its own. Position is a separate problem: as the
+                middle child of a 3-item justify-between row this only ever
+                landed wherever the "Cape Town" text and the third block's
+                widths left it, not at the row's actual center — same fix as
+                the navbar pill above, taken out of flex flow and centered
+                against the row itself. */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 text-center max-w-[200px]"
+            >
+              Rebuilt in our workshop.
+              <br />
+              Warrantied for six months.
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="text-center max-w-[250px] hidden lg:block"
+            >
+              Every machine is stripped, rebuilt and run under load before it earns a price
+              on this page.
+            </motion.div>
+          </div>
         </div>
 
-        <div className="absolute bottom-0 inset-x-0 p-5 sm:p-6 md:p-12 z-20 flex flex-col lg:flex-row justify-between lg:items-end gap-5 md:gap-8">
+        {/* The slack. It takes every pixel the two text blocks do not, which is
+            what keeps the headline on the floor of a tall hero exactly as
+            `bottom-0` used to; and it stops shrinking at a small gap, which is
+            what keeps the headline off the city line on a short one. Past that
+            point the frame above grows instead of the two blocks meeting. */}
+        <div className="grow min-h-[1.5rem] md:min-h-[2.5rem]" />
+
+        {/* Two columns from xl, not lg — the headline's own line breaks are the
+            reason.
+
+            It is written as two lines, with a hard <br/> after "Kit,". Putting
+            the Instagram/WhatsApp column beside it costs this one roughly
+            330px plus the lg:pl-12 gutter, which took the headline's box from
+            652px down to 531px — narrower than "Restaurant-Grade Kit," needs
+            at text-7xl. So the line broke again on its own, and between the lg
+            breakpoint and about 1180px the headline silently rendered as three
+            lines, or four from 1024–1080px, before snapping back to two on a
+            wider screen. A ~150px-wide band of laptop widths, and squarely
+            where the framed preview on the ops app's Website tab sits.
+
+            Splitting at xl instead means the columns only divide once both
+            halves fit at full size; below that the CTAs use the same stacked
+            form they already use on a tablet. The alternative — stepping the
+            headline down a size for the band — would have to drop it two
+            steps, to text-5xl, to fit 531px, and a 72→48→72px jump across
+            150px of width is more conspicuous than the stack. */}
+        <div className="shrink-0 p-5 sm:p-6 md:p-12 z-20 flex flex-col xl:flex-row justify-between xl:items-end gap-5 md:gap-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -90,7 +155,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 border-t lg:border-t-0 lg:border-l border-white/10 pt-5 md:pt-6 lg:pt-0 lg:pl-12 w-full lg:w-auto"
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 border-t xl:border-t-0 xl:border-l border-white/10 pt-5 md:pt-6 xl:pt-0 xl:pl-12 w-full xl:w-auto"
           >
             {/* Solar has no Instagram glyph, so this one icon comes from mdi —
                 the only break from the set, and only because the mark has to be
