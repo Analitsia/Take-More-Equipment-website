@@ -105,15 +105,19 @@ export default function EquipmentCard({
             : "top-4 left-4 right-4 md:top-6 md:left-6 md:right-6"
         }`}
       >
-        <span
-          className={`glass-panel rounded-full font-medium uppercase truncate ${
-            grid
-              ? "px-2.5 py-1 text-[9px] tracking-wider sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-widest"
-              : "px-4 py-1.5 text-xs tracking-widest"
-          }`}
-        >
-          {brand}
-        </span>
+        {/* Auction stock often arrives unbadged. A brand pill with nothing in
+            it is a styled empty chip, so it does not get drawn at all. */}
+        {brand && (
+          <span
+            className={`glass-panel rounded-full font-medium uppercase truncate ${
+              grid
+                ? "px-2.5 py-1 text-[9px] tracking-wider sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-widest"
+                : "px-4 py-1.5 text-xs tracking-widest"
+            }`}
+          >
+            {brand}
+          </span>
+        )}
         {sold ? (
           <span
             className={`rounded-full bg-accent text-background font-medium tracking-widest uppercase shrink-0 ${

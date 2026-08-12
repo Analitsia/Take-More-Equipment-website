@@ -107,7 +107,9 @@ export default function SearchOverlay({
                         {item.title}
                       </span>
                       <span className="text-xs font-light text-muted truncate">
-                        {item.brand} · {item.category} · Grade {item.grade}
+                        {[item.brand, item.category, `Grade ${item.grade}`]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
                     <span className="flex flex-col items-end shrink-0">

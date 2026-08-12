@@ -25,6 +25,18 @@ export async function generateStaticParams() {
   return stock.map((item) => ({ slug: item.slug }));
 }
 
+/**
+ * How to name a machine in a sentence.
+ *
+ * Plenty of auction stock reaches us with the badge missing, and `brand` is an
+ * empty string when it does. Interpolating it straight into a title gives
+ * " Countertop Convection Oven" with a leading space, which is the sort of
+ * thing that reaches a search result and a WhatsApp preview before anybody
+ * notices it.
+ */
+const named = (item: { brand: string; title: string }) =>
+  [item.brand, item.title].filter(Boolean).join(" ");
+
 export async function generateMetadata({
   params,
 }: {
@@ -35,10 +47,10 @@ export async function generateMetadata({
   if (!item) return { title: "Not found — Take More" };
 
   return {
-    title: `${item.brand} ${item.title} — ${rands(item.price)} | Take More`,
+    title: `${named(item)} — ${rands(item.price)} | Take More`,
     description: item.description.slice(0, 155),
     openGraph: {
-      title: `${item.brand} ${item.title} — ${rands(item.price)}`,
+      title: `${named(item)} — ${rands(item.price)}`,
       description: item.description.slice(0, 155),
       images: item.images.length ? [item.images[0]] : [],
     },
@@ -65,19 +77,35 @@ export default async function ProductPage({
   const gallery = await getGallery(slug);
   const [width, depth, height] = item.dimensionsMm;
 
+  /**
+   * A row we cannot fill is left out, not filled with a zero.
+   *
+   * The rule the subcategory row already followed, applied to the rest of the
+   * table: a machine nobody weighed has no weight, and printing "0 kg" for it
+   * is not a gap in the page, it is a false specification on a public listing.
+   * Same for an unmeasured dimension at "0 cm" and for a brand that was never
+   * badged, which rendered as a labelled row with nothing beside it.
+   *
+   * The mapper in src/lib/stock.ts already uses 0 as the "not known" sentinel
+   * for weight — deliveryFor() guards on `weightKg > 0` — so this reads it the
+   * same way rather than inventing a second convention. Capacity and Power keep
+   * their "—", which is a deliberate choice made there: every machine has both,
+   * and the dash says "ask us" where an absent row would say "not applicable".
+   */
+  const known = (label: string, value: string | null): [string, string][] =>
+    value ? [[label, value]] : [];
+  const mm = (value: number) => (value > 0 ? cm(value) : null);
+
   const specs: [string, string][] = [
-    ["Brand", item.brand],
+    ...known("Brand", item.brand),
     ["Category", item.category],
-    // Only rendered once a subcategory has been chosen — most stock is filed at
-    // category level, and an empty row reads as missing data rather than as a
-    // field nobody needed.
-    ...(item.subcategory ? ([["Type", item.subcategory]] as [string, string][]) : []),
+    ...known("Type", item.subcategory ?? null),
     ["Capacity", item.capacity],
     ["Power", item.power],
-    ["Width", cm(width)],
-    ["Depth", cm(depth)],
-    ["Height", cm(height)],
-    ["Weight", `${item.weightKg} kg`],
+    ...known("Width", mm(width)),
+    ...known("Depth", mm(depth)),
+    ...known("Height", mm(height)),
+    ...known("Weight", item.weightKg > 0 ? `${item.weightKg} kg` : null),
     ["Condition", `Grade ${item.grade}`],
   ];
 
@@ -100,9 +128,12 @@ export default async function ProductPage({
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 flex-wrap">
-              <span className="glass-panel px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase">
-                {item.brand}
-              </span>
+              {/* Unbadged stock has no brand. An empty pill is worse than no pill. */}
+              {item.brand && (
+                <span className="glass-panel px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase">
+                  {item.brand}
+                </span>
+              )}
               <span className="px-4 py-1.5 rounded-full border border-border text-xs font-light text-muted">
                 {item.category}
               </span>
@@ -148,7 +179,7 @@ export default async function ProductPage({
                 {item.sold ? (
                   <a
                     href={whatsappLink(
-                      `Hi Take More, the ${item.brand} ${item.title} has sold — can you watch for another one like it?`
+                      `Hi Take More, the ${named(item)} has sold — can you watch for another one like it?`
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -160,7 +191,7 @@ export default async function ProductPage({
                 ) : (
                   <a
                     href={whatsappLink(
-                      `Hi Take More, I'm interested in the ${item.brand} ${item.title} (${rands(item.price)}). Is it still available?`
+                      `Hi Take More, I'm interested in the ${named(item)} (${rands(item.price)}). Is it still available?`
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
