@@ -58,18 +58,31 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-ZA");
  */
 async function capsBlocking(
   leadId: string,
-  interestId: string | null
+  interestId: string | null,
+  /**
+   * The row being re-sent, which must not block itself.
+   *
+   * Without this, every resend is refused by its own send: the message is
+   * `sent`, it carries this interest_id, and it is minutes old, so it matches
+   * the first guard perfectly. Excluding it asks the question that was actually
+   * meant — "has anything ELSE gone to this person about this?"
+   */
+  excludeMessageId?: string
 ): Promise<string | null> {
   const client = await supabase();
   const since = new Date(Date.now() - FREQUENCY_CAP_DAYS * 86_400_000).toISOString();
 
-  const { data } = await client
+  const query = client
     .from("outreach_messages")
     .select("sent_at, interest_id")
     .eq("lead_id", leadId)
     .eq("state", "sent")
     .gt("sent_at", since)
     .order("sent_at", { ascending: false });
+
+  const { data } = await (excludeMessageId
+    ? query.neq("id", excludeMessageId)
+    : query);
 
   const recent = data ?? [];
   if (recent.length === 0) return null;
@@ -179,7 +192,16 @@ function composeFor(message: MessageForSending): {
 async function deliverEmail(
   messageId: string,
   body: string | null,
-  staffUserId: string
+  staffUserId: string,
+  /**
+   * Send it again even though it has already gone.
+   *
+   * Only ever true from the Sent list, where a human is looking at a message
+   * they know went out and has decided this person should have it again. The
+   * frequency caps still apply — this lifts the "already sent" short-circuit,
+   * not the protection around how often somebody may be written to.
+   */
+  resend = false
 ): Promise<OutreachResult> {
   const client = await supabase();
 
@@ -191,7 +213,7 @@ async function deliverEmail(
 
   const message = data as unknown as MessageForSending | null;
   if (!message) return { ok: false, error: "That suggestion is no longer there." };
-  if (message.state === "sent") return { ok: true, notice: "Already sent." };
+  if (message.state === "sent" && !resend) return { ok: true, notice: "Already sent." };
 
   const { lead, item } = message;
 
@@ -215,7 +237,11 @@ async function deliverEmail(
     return { ok: false, error: "That machine is no longer for sale. Nothing sent." };
   }
 
-  const blocked = await capsBlocking(message.lead_id, message.interest_id);
+  const blocked = await capsBlocking(
+    message.lead_id,
+    message.interest_id,
+    resend ? messageId : undefined
+  );
   if (blocked) return { ok: false, error: blocked };
 
   const composed = composeFor(message);
@@ -313,6 +339,66 @@ export async function sendByEmail(
 ): Promise<OutreachResult> {
   const staff = await requireStaff();
   return deliverEmail(messageId, body, staff.userId);
+}
+
+/**
+ * Send it again.
+ *
+ * WHY THIS EXISTS AT ALL
+ * ----------------------
+ * "Sent" on a WhatsApp suggestion is the app's best guess, not a fact. All it
+ * observed was the tap that opened WhatsApp with the message written out; what
+ * happened next — pressing send, closing the tab, the phone being locked, the
+ * customer's number turning out to be wrong — happens somewhere this app cannot
+ * see. Recording it as sent is the honest reading of the last observable event,
+ * and the honest consequence is that the row must stay reachable.
+ *
+ * So the two channels are treated differently, because the risk is different:
+ *
+ *   whatsapp — reopens the conversation and re-stamps the time. No cap check:
+ *              nothing is delivered by this app, a person is being handed their
+ *              own chat window, and refusing that would only teach staff to
+ *              copy the text out by hand.
+ *   email    — actually sends, from us, unprompted. Every frequency cap applies
+ *              exactly as it does the first time, minus this row's own send.
+ */
+export async function resendMessage(
+  messageId: string,
+  body: string
+): Promise<OutreachResult> {
+  const staff = await requireStaff();
+  const client = await supabase();
+
+  const { data: message } = await client
+    .from("outreach_messages")
+    .select("lead_id, channel, state")
+    .eq("id", messageId)
+    .maybeSingle();
+
+  if (!message) return { ok: false, error: "That message is no longer there." };
+  if (message.state !== "sent") {
+    return { ok: false, error: "That one has not gone out yet — send it from the queue." };
+  }
+
+  if (message.channel === "email") {
+    return deliverEmail(messageId, body, staff.userId, true);
+  }
+
+  const { error } = await client
+    .from("outreach_messages")
+    .update({
+      body,
+      sent_at: new Date().toISOString(),
+      sent_by: staff.userId,
+    })
+    .eq("id", messageId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/outreach");
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${message.lead_id}`);
+  return { ok: true, notice: "Opened again, and logged on their timeline." };
 }
 
 /**

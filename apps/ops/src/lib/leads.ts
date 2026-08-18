@@ -146,6 +146,8 @@ export type QueuedMessage = {
   body: string | null;
   match_score: number | null;
   created_at: string;
+  /** When it actually went. Null for anything still queued. */
+  sent_at: string | null;
   lead: {
     id: string;
     full_name: string | null;
@@ -177,24 +179,65 @@ export type QueuedMessage = {
   } | null;
 };
 
+/**
+ * Every column both outreach reads need, written once.
+ *
+ * Shared so "sent" and "queued" cannot drift into rendering different things —
+ * the sent list re-uses the queue's card, and a column missing from one of them
+ * would surface as a blank draft rather than as an error.
+ */
+const OUTREACH_SELECT = `
+  id, channel, state, reason, body, match_score, created_at, sent_at,
+  lead:leads(id, full_name, email, phone, phone_e164),
+  interest:lead_interests(id, description,
+                          category:categories(name),
+                          subcategory:subcategories(name)),
+  item:items(id, title, brand, slug, list_price_cents, condition_grade,
+             media:item_media(kind, storage_path, external_url, position,
+                              duration_seconds))
+`;
+
 /** The review queue: everything waiting for a human to send or dismiss. */
 export async function getQueuedOutreach(): Promise<QueuedMessage[]> {
   const client = await supabase();
   const { data, error } = await client
     .from("outreach_messages")
     .select(
-      `id, channel, state, reason, body, match_score, created_at,
-       lead:leads(id, full_name, email, phone, phone_e164),
-       interest:lead_interests(id, description,
-                               category:categories(name),
-                               subcategory:subcategories(name)),
-       item:items(id, title, brand, slug, list_price_cents, condition_grade,
-                  media:item_media(kind, storage_path, external_url, position,
-                                   duration_seconds))`
+      OUTREACH_SELECT
     )
     .eq("state", "queued")
     .order("match_score", { ascending: false })
     .limit(200);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as QueuedMessage[];
+}
+
+/**
+ * What has already gone out, most recent first.
+ *
+ * A sent suggestion used to leave the screen entirely, which made the one thing
+ * this channel cannot do — confirm delivery — impossible to recover from. The
+ * app records "sent" the moment WhatsApp opens, because that is the last event
+ * it can observe; whether the staff member then pressed send in WhatsApp, or
+ * closed the tab, or lost signal, is not knowable from here. So the row has to
+ * stay reachable and re-sendable, and this is the read that keeps it so.
+ *
+ * `item_id not null` drops the newsletter rows. They are sent messages too, but
+ * they belong to a campaign rather than to one machine and one want, and they
+ * have their own screen.
+ */
+export async function getSentOutreach(): Promise<QueuedMessage[]> {
+  const client = await supabase();
+  const { data, error } = await client
+    .from("outreach_messages")
+    .select(
+      OUTREACH_SELECT
+    )
+    .eq("state", "sent")
+    .not("item_id", "is", null)
+    .order("sent_at", { ascending: false })
+    .limit(100);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as QueuedMessage[];
