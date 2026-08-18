@@ -46,7 +46,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-ZA" className={`dark ${figtree.variable}`}>
+    /**
+     * suppressHydrationWarning, on <html> and nowhere else.
+     *
+     * A visitor's extensions write to the root element before React hydrates,
+     * and an attribute this codebase never wrote is then a mismatch React blames
+     * on this layout. Scoped to this element only — its attributes and its own
+     * text — so it does not cascade into <body> and a genuine mismatch anywhere
+     * in the site still reports. Mirrors apps/ops, where the same thing happens
+     * on staff machines; the reasoning is written out in full there.
+     */
+    <html lang="en-ZA" className={`dark ${figtree.variable}`} suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased selection:bg-accent selection:text-black">
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
         <IconifyLoader />
