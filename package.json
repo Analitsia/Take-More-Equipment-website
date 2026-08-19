@@ -17,6 +17,7 @@
     "check:launch:db": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/check-launch-ready.mjs --db",
     "check:secrets": "node scripts/check-no-secrets.mjs",
     "icons": "node scripts/bundle-icons.mjs",
+    "icons:brand": "node scripts/gen-icons.mjs",
     "db:apply": "node --env-file-if-exists=.env.local scripts/apply-migrations.mjs",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
@@ -42,6 +43,7 @@
     "@iconify-json/solar": "1.2.6",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
+    "sharp": "^0.34.5",
     "supabase": "^2.112.0"
   }
 }
