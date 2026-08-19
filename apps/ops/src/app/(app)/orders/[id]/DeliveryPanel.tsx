@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Field, Input, Panel, Textarea } from "@takemore/ui";
+import { Button, Field, Input, Panel } from "@takemore/ui";
 import { DELIVERY_RULE_LABEL, deliveryFeeCents, rands } from "@takemore/core";
 import { setDelivery } from "../actions";
+import AddressAutocomplete from "./AddressAutocomplete";
 import type { OrderDetail } from "@/lib/orders";
 
 /**
@@ -20,6 +21,11 @@ import type { OrderDetail } from "@/lib/orders";
  * kilometres are typed and everything downstream is identical — which is why
  * `delivery_km_source` is recorded: it is the only way to tell afterwards which
  * of the two produced a fee that later looks wrong.
+ *
+ * The same is true one field up: the address box suggests as you type, and when
+ * it cannot it is an ordinary text box. Picking a suggestion is worth a little
+ * more than the typing it saves — it hands /api/distance a string Google has
+ * already resolved, so the measurement stops failing on shorthand and typos.
  */
 export default function DeliveryPanel({
   order,
@@ -130,14 +136,7 @@ export default function DeliveryPanel({
 
         {on && (
           <>
-            <Field label="Where to">
-              <Textarea
-                rows={2}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Street, suburb, city"
-              />
-            </Field>
+            <AddressAutocomplete value={address} onChange={setAddress} />
 
             <div className="flex items-end gap-3">
               <div className="flex-1">
