@@ -72,11 +72,11 @@ export default function MenuOverlay({
                 disagreement reads as the mark jumping when the menu opens. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/takemore-wordmark.svg"
+              src="/takemore-logo-horizontal.svg"
               alt="Take More Equipment"
-              width={988}
-              height={442}
-              className="h-10 sm:h-[45px] w-auto max-w-[52vw] object-contain object-left"
+              width={1013}
+              height={190}
+              className="h-8 sm:h-10 w-auto max-w-[60vw] object-contain object-left"
             />
           </Link>
           <button
