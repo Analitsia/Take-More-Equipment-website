@@ -95,19 +95,30 @@ const unverified = <T,>(value: T, evidence: string): Fact<T> => ({
 // ───────────────────────────────────────────────────────────────────────────
 
 export const contact = {
-  phone: unverified("+27 21 555 0134", "Ring it. It must reach the warehouse."),
-  whatsapp: unverified(
-    "+27215550134",
-    "Message it from a phone that is not ours and check it arrives. Digits only, full international form, no +."
-  ),
+  phone: {
+    value: "+27 72 659 2547",
+    verified: "2026-08-20",
+    evidence: "Given by the owner on 2026-08-20 as the number customers should ring.",
+    placeholder: "+27 21 555 0134",
+  },
+  whatsapp: {
+    value: "27726592547",
+    verified: "2026-08-20",
+    evidence:
+      "Given by the owner on 2026-08-20. 072 659 2547 in international form, digits only, as wa.me requires.",
+    placeholder: "+27215550134",
+  },
   email: unverified(
     "sales@takemoreequipment.co.za",
     "Send to it from outside and confirm somebody receives it."
   ),
-  address: unverified(
-    "Montague Gardens, Cape Town",
-    "The address a customer should drive to. Street and number, not just the suburb."
-  ),
+  address: {
+    value: "Unit 4, 19 6th Rd, Montague Gardens, Cape Town, 7441",
+    verified: "2026-08-20",
+    evidence:
+      "Given by the owner on 2026-08-20 as the warehouse address customers drive to.",
+    placeholder: "Montague Gardens, Cape Town",
+  },
   hours: unverified(
     "Mon–Fri 08:00–17:00 · Sat 08:00–13:00",
     "The hours somebody will actually be there."
