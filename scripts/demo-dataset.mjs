@@ -131,7 +131,6 @@ export const ITEMS = [
     published: true,
     featured: true,
     arrived: "2026-06-18",
-    location: "A1-04",
     costs: [
       { kind: "auction", amount: R(14200), note: "Aucor, Epping — lot 218" },
       { kind: "buyers_premium", amount: R(2130) },
@@ -176,7 +175,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-06-30",
-    location: "A2-01",
     costs: [
       { kind: "auction", amount: R(6400) },
       { kind: "buyers_premium", amount: R(960) },
@@ -217,7 +215,6 @@ export const ITEMS = [
     featured: false,
     arrived: "2026-05-12",
     soldAt: "2026-07-24T10:20:00+02:00",
-    location: "OUT",
     costs: [
       { kind: "auction", amount: R(4100) },
       { kind: "buyers_premium", amount: R(615) },
@@ -257,7 +254,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-07-08",
-    location: "C3-11",
     costs: [
       { kind: "auction", amount: R(900) },
       { kind: "buyers_premium", amount: R(135) },
@@ -295,7 +291,6 @@ export const ITEMS = [
     published: false,
     featured: false,
     arrived: "2026-08-02",
-    location: "W-BAY-2",
     costs: [
       { kind: "auction", amount: R(2800) },
       { kind: "buyers_premium", amount: R(420) },
@@ -334,7 +329,6 @@ export const ITEMS = [
     published: true,
     featured: true,
     arrived: "2026-06-05",
-    location: "B1-01",
     costs: [
       { kind: "auction", amount: R(8600) },
       { kind: "buyers_premium", amount: R(1290) },
@@ -374,7 +368,6 @@ export const ITEMS = [
     published: false,
     featured: false,
     arrived: "2026-07-01",
-    location: "B2-06",
     costs: [
       { kind: "auction", amount: R(2900) },
       { kind: "buyers_premium", amount: R(435) },
@@ -416,7 +409,6 @@ export const ITEMS = [
     published: true,
     featured: true,
     arrived: "2026-06-22",
-    location: "C1-02",
     costs: [
       { kind: "auction", amount: R(5200) },
       { kind: "buyers_premium", amount: R(780) },
@@ -454,7 +446,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-07-14",
-    location: "D1-08",
     costs: [
       { kind: "auction", amount: R(1400) },
       { kind: "buyers_premium", amount: R(210) },
@@ -492,7 +483,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-06-11",
-    location: "E1-03",
     costs: [
       { kind: "auction", amount: R(7100) },
       { kind: "buyers_premium", amount: R(1065) },
@@ -532,7 +522,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-07-28",
-    location: "W-BAY-1",
     costs: [
       { kind: "auction", amount: R(1900) },
       { kind: "buyers_premium", amount: R(285) },
@@ -567,7 +556,6 @@ export const ITEMS = [
     published: true,
     featured: false,
     arrived: "2026-07-19",
-    location: "E2-05",
     costs: [
       { kind: "auction", amount: R(850) },
       { kind: "buyers_premium", amount: R(128) },
@@ -607,7 +595,6 @@ export const ITEMS = [
     published: true,
     featured: true,
     arrived: "2026-05-28",
-    location: "F1-01",
     costs: [
       { kind: "auction", amount: R(22400) },
       { kind: "buyers_premium", amount: R(3360) },
@@ -648,7 +635,6 @@ export const ITEMS = [
     featured: false,
     arrived: "2026-04-20",
     soldAt: "2026-06-02T14:05:00+02:00",
-    location: "OUT",
     costs: [
       { kind: "auction", amount: R(600) },
       { kind: "buyers_premium", amount: R(90) },
@@ -686,7 +672,6 @@ export const ITEMS = [
     published: false,
     featured: false,
     arrived: "2026-08-11",
-    location: "GOODS-IN",
     costs: [{ kind: "auction", amount: R(1200), note: "Epping, lot 61 — three shelves" }],
     media: [
       { kind: "photo", src: "wallShelf" },

@@ -38,7 +38,7 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
       if (onlyDrafts && item.published_at) return false;
       if (!term) return true;
       if (code && item.sku === code) return true;
-      return [item.title, item.brand, item.sku, item.category?.name, item.location_code]
+      return [item.title, item.brand, item.sku, item.category?.name]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -62,7 +62,7 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, brand, code or shelf"
+            placeholder="Search title, brand or code"
             className="w-full bg-card border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm font-light
                        text-white/90 placeholder:text-muted/60 hover:border-white/20
                        focus:border-accent focus:outline-none transition-colors"

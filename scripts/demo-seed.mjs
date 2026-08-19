@@ -135,7 +135,6 @@ for (const item of ITEMS) {
     status: "refurbishing",
     featured: item.featured ?? false,
     arrived_at: item.arrived,
-    location_code: item.location ?? null,
     // The marker demo-clear.mjs deletes on. Neither app renders `specs`, so it
     // is invisible in the UI and unambiguous in SQL.
     specs: { [DEMO_MARKER]: DEMO_STAMP },

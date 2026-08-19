@@ -380,7 +380,6 @@ export type Database = {
           height_mm: number | null
           id: string
           list_price_cents: number | null
-          location_code: string | null
           model: string | null
           power: string | null
           published_at: string | null
@@ -416,7 +415,6 @@ export type Database = {
           height_mm?: number | null
           id?: string
           list_price_cents?: number | null
-          location_code?: string | null
           model?: string | null
           power?: string | null
           published_at?: string | null
@@ -452,7 +450,6 @@ export type Database = {
           height_mm?: number | null
           id?: string
           list_price_cents?: number | null
-          location_code?: string | null
           model?: string | null
           power?: string | null
           published_at?: string | null

@@ -47,7 +47,6 @@ export type ItemRow = {
   published_at: string | null;
   featured: boolean;
   created_at: string;
-  location_code: string | null;
   category: { name: string; slug: string } | null;
   media: MediaRef[];
 };
@@ -61,7 +60,7 @@ export type ItemRow = {
  */
 const ITEM_LIST_SELECT = `
   id, sku, slug, title, brand, status, condition_grade, list_price_cents,
-  published_at, featured, created_at, location_code,
+  published_at, featured, created_at,
   category:categories(name, slug),
   media:item_media(kind, storage_path, external_url, position)
 `;

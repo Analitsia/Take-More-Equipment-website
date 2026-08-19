@@ -120,7 +120,6 @@ export default function StockBoard({ items }: { items: ItemRow[] }) {
                                 </span>
                                 {" · "}
                                 {item.list_price_cents ? rands(item.list_price_cents) : "No price"}
-                                {item.location_code && ` · ${item.location_code}`}
                               </p>
                             </div>
                             {item.published_at && (

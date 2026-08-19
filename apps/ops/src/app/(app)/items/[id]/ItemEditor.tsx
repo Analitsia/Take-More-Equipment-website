@@ -94,7 +94,6 @@ export default function ItemEditor({
     depth_cm: toCm(item.depth_mm),
     height_cm: toCm(item.height_mm),
     weight_kg: item.weight_kg ?? "",
-    location_code: item.location_code ?? "",
   });
 
   /** Only the subcategories belonging to the category currently chosen. */
@@ -436,12 +435,12 @@ export default function ItemEditor({
             </div>
           </Field>
 
+          {/* Half-width rather than full, though it is alone on its row now
+              that the shelf code is gone: a weight is four characters, and a
+              box sized for a paragraph invites one. */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Weight" hint="kg — decides delivery">
               <Input {...commit("weight_kg", toNumber)} inputMode="decimal" placeholder="118" />
-            </Field>
-            <Field label="Shelf" hint="where to find it">
-              <Input {...commit("location_code")} placeholder="A-14" />
             </Field>
           </div>
         </div>

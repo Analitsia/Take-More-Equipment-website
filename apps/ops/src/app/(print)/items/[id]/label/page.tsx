@@ -69,14 +69,6 @@ export default async function LabelPage({
           <p className="mt-1 text-sm text-black/60">{descriptor}</p>
         )}
 
-        {/* Where it lives, when somebody has bothered to record it. On a label
-            stuck to a machine this is what turns "find the fryer" into a walk
-            to one aisle. */}
-        {item.location_code && (
-          <p className="mt-4 font-mono text-sm tracking-widest text-black/70">
-            {item.location_code}
-          </p>
-        )}
       </div>
     </>
   );

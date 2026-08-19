@@ -120,7 +120,12 @@ export (`@takemore/core/turnstile`) rather than part of the barrel.
 - Money: `list_price_cents` (the ask), `retail_price_cents` (what it costs new — an
   anchor, never charged), `sale_price_cents` (what it went for)
 - Lifecycle: `status`, `published_at`, `arrived_at`, `sold_at`
-- Ops: `location_code` (bin/shelf), `created_by`
+- Ops: `created_by`
+
+Stock is **not filed by shelf**. There was a `location_code` column until August 2026; it was
+removed in `20260819120000_no_shelf_codes.sql` because nothing was being filed that way and an
+optional field nobody fills is a question on a form and a fragment in every search result. A
+machine is found by its code and its printed label.
 
 **Cost is NOT on this table.** RLS is row-level and cannot hide a column from one signed-in
 user while showing it to another, so every cent spent on a machine lives in `item_costs` —

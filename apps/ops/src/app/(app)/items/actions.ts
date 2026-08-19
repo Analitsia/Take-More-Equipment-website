@@ -71,7 +71,6 @@ export type ItemPatch = {
   weight_kg?: number | null;
   list_price_cents?: number | null;
   retail_price_cents?: number | null;
-  location_code?: string | null;
   featured?: boolean;
 };
 

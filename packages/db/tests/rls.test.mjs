@@ -122,7 +122,6 @@ async function setup() {
       condition_grade: "A",
       description: "A test unit created by the RLS suite. Long enough to clear the publish gate's forty-character floor.",
       list_price_cents: 5_000_000,
-      location_code: "RLS-BIN-1",
     })
     .select("id")
     .single();
@@ -209,7 +208,12 @@ async function run() {
   // future `create or replace` that drops the revoke fails a test.
   await refused("anon cannot read item_analytics", anon.from("item_analytics").select("cost_cents"));
   await refused("anon cannot read lead_demand", anon.from("lead_demand").select("lead_id"));
-  await refused("anon cannot select the location_code column", anon.from("items").select("location_code"));
+  // The column-level grant on items, checked through a column that is withheld
+  // from it. This used to point at location_code; that column was removed in
+  // 20260819120000, and a test aimed at a column that no longer exists passes
+  // for the wrong reason — the error it reads is "no such column", not "not
+  // permitted". arrived_at is on the same withheld list and is still there.
+  await refused("anon cannot select a withheld items column", anon.from("items").select("arrived_at"));
   await refused("anon cannot insert an item", anon.from("items").insert({ title: "hacked" }));
 
   // Until August 2026 this block asserted the exact opposite: that a `staff`
