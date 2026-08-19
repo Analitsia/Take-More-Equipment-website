@@ -119,10 +119,10 @@ export function RandInput({
  * nothing is lost when the field is actually being typed into.
  */
 // Written as literal rgba rather than an opacity utility because Tailwind scans
-// source text for whole class names — and #D4D414 is the accent from the shared
+// source text for whole class names — and #30A8B0 is the accent from the shared
 // preset, spelled out here only because a box-shadow colour cannot reference it.
 export const PUBLIC_FIELD_HALO =
-  "border-accent/50 shadow-[0_0_0_3px_rgba(212,212,20,0.07),0_0_18px_-6px_rgba(212,212,20,0.45)]";
+  "border-accent/50 shadow-[0_0_0_3px_rgba(48,168,176,0.07),0_0_18px_-6px_rgba(48,168,176,0.45)]";
 
 /** Multi-select chips. Used for tags, where a dropdown would cost more taps. */
 export function ChipGroup<T extends string>({

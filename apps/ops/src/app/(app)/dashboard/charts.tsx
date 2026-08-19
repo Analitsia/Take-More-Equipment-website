@@ -35,12 +35,22 @@ import {
  *   blue    #3987e5   counts, rotation, cost — everything that is not margin
  *   yellow  #9A9A00   margin, and units sold
  *
- * The brand accent (#D4D414) FAILS the dark-mode lightness band at L 0.842: on
- * a near-black surface it is so much brighter than any partner hue that it
- * stops reading as one series among two and starts reading as the only thing on
- * the chart. #9A9A00 is the same hue stepped down into the band. The pair
- * scores CVD ΔE 28.0 and normal-vision ΔE 29.5, both clear of the floors, and
- * both clear 3:1 against the surface.
+ * The accent this once argued against was the old yellow #D4D414, which FAILED
+ * the dark-mode lightness band at L 0.842: on a near-black surface it was so
+ * much brighter than any partner hue that it stopped reading as one series
+ * among two and started reading as the only thing on the chart. #9A9A00 is that
+ * same hue stepped down into the band. The pair scores CVD ΔE 28.0 and
+ * normal-vision ΔE 29.5, both clear of the floors, and both clear 3:1 against
+ * the surface.
+ *
+ * The accent is now the brand teal #30A8B0, and that objection no longer holds
+ * — it sits at L 0.671, inside the band, next to #9A9A00's 0.664. A different
+ * one replaces it: teal is 28° of hue from the blue it would have to partner,
+ * and simulating deuteranopia and protanopia across the pair drops their
+ * separation by roughly two thirds against what blue-and-yellow scores. The
+ * margin series stays yellow because on this chart the colour's job is telling
+ * two series apart, not carrying the brand. Change it and the brand arrives on
+ * a chart that some readers can no longer read.
  *
  * Two hues is the whole palette, deliberately. Four charts that each invent
  * their own colours are four charts; four charts sharing two are one

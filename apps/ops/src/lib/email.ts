@@ -62,7 +62,7 @@ const escape = (text: string) =>
 const linkify = (text: string) =>
   escape(text).replace(
     /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" style="color:#7a7a0a;text-decoration:underline">$1</a>'
+    '<a href="$1" style="color:#123f42;text-decoration:underline">$1</a>'
   );
 
 /**
@@ -136,7 +136,7 @@ function wrap(body: string, token: string, media?: EmailMedia): string {
     .map(
       (video) =>
         `<a href="${escape(video.url)}" style="display:block;margin:0 0 8px;padding:12px 14px;border:1px solid #e8e8e2;border-radius:10px;color:#1a1a17;text-decoration:none;font-size:14px">
-           <span style="color:#7a7a0a">&#9654;</span>&nbsp; ${escape(video.label)}
+           <span style="color:#123f42">&#9654;</span>&nbsp; ${escape(video.label)}
          </a>`
     )
     .join("");
