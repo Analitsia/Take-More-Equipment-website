@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CONDITION_GRADES,
@@ -30,6 +31,7 @@ import { setStage, setTags, updateItem, type ItemPatch } from "../actions";
 import MediaManager from "./MediaManager";
 import CostsPanel from "./CostsPanel";
 import DeleteItem from "./DeleteItem";
+import ItemCode from "@/components/ItemCode";
 
 /**
  * The item editor.
@@ -240,11 +242,26 @@ export default function ItemEditor({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
+          {/* The code leads, above the title rather than beside a date. This is
+              the screen somebody stands in front of with a marker in their
+              hand, and the four characters are what they came for. */}
+          <div className="flex items-center gap-2 mb-2">
+            <ItemCode code={item.sku} size="chip" />
+            <Link
+              href={`/items/${item.id}/label`}
+              target="_blank"
+              title="Open a printable label"
+              className="w-9 h-9 rounded-xl border border-border text-muted hover:text-white
+                         hover:border-white/25 transition-colors flex items-center justify-center shrink-0"
+            >
+              <iconify-icon icon="solar:printer-linear" width="16" height="16" noobserver="" />
+            </Link>
+          </div>
           <h1 className="text-xl md:text-2xl font-medium tracking-tight truncate">
             {form.title || "Untitled item"}
           </h1>
           <p className="text-xs font-light text-muted mt-1">
-            {item.sku} · created{" "}
+            created{" "}
             {new Date(item.created_at).toLocaleDateString("en-ZA", {
               day: "numeric",
               month: "long",

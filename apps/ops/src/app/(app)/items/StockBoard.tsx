@@ -109,7 +109,16 @@ export default function StockBoard({ items }: { items: ItemRow[] }) {
                               <h3 className="text-xs font-medium tracking-tight leading-snug line-clamp-2">
                                 {item.title}
                               </h3>
+                              {/* Plain text rather than the ItemCode button:
+                                  this whole card is a <Link>, and a <button>
+                                  inside an <a> is invalid markup that browsers
+                                  resolve by guessing. Copying is a thing you do
+                                  on the machine's own page. */}
                               <p className="text-[10px] font-light text-muted mt-1 truncate">
+                                <span className="font-mono tracking-widest text-white/60">
+                                  {item.sku}
+                                </span>
+                                {" · "}
                                 {item.list_price_cents ? rands(item.list_price_cents) : "No price"}
                                 {item.location_code && ` · ${item.location_code}`}
                               </p>

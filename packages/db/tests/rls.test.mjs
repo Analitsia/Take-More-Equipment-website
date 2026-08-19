@@ -212,23 +212,32 @@ async function run() {
   await refused("anon cannot select the location_code column", anon.from("items").select("location_code"));
   await refused("anon cannot insert an item", anon.from("items").insert({ title: "hacked" }));
 
-  console.log("\nSTAFF (types the cost in, must never read it back)");
+  // Until August 2026 this block asserted the exact opposite: that a `staff`
+  // account could write a cost and never read one back. 20260819090100 lifted
+  // that on the owner's instruction — a family business where whoever is at the
+  // counter negotiates, and cannot negotiate blind.
+  //
+  // The assertions are kept rather than deleted, pointing the other way, because
+  // the failure they guard against did not go away, it inverted. Every money
+  // view is `security_invoker` plus an `app.can_see_costs()` guard, and a view
+  // that quietly lost either would now return NOTHING to everyone — a dashboard
+  // of blanks instead of a dashboard of lies. Both are deploys that should not
+  // happen, and this is still the thing standing in front of them.
+  console.log("\nSTAFF (a family business: everybody sees the cost)");
   const staff = users.staff.client;
   await visible("staff reads every item, drafts included", staff.from("items").select("id").eq("id", draftId), 1);
-  await denied("staff cannot read item_costs", staff.from("item_costs").select("amount_cents"));
-  await denied("staff cannot read item_economics", staff.from("item_economics").select("margin_cents"));
-  // Empty, not partial. If the can_see_costs() guard were ever dropped from
-  // item_analytics, a staff account would read every machine with a cost of
-  // zero and therefore a margin equal to the whole asking price — and the
-  // Dashboard would render that as fact. This assertion is what stands between
-  // that and a deploy.
-  await denied("staff cannot read item_analytics", staff.from("item_analytics").select("cost_cents"));
+  await visible("staff reads item_costs", staff.from("item_costs").select("amount_cents"));
+  await visible("staff reads item_economics", staff.from("item_economics").select("margin_cents"));
+  await visible("staff reads item_analytics", staff.from("item_analytics").select("cost_cents"));
+  // Exactly one row: it is an ungrouped aggregate, so it answers even when it
+  // is answering zeroes. That is the shape the Dashboard's tile strip expects.
+  await visible("staff reads money_position", staff.from("money_position").select("revenue_all_time_cents"), 1);
   await visible(
     "staff records a cost through the RPC",
     staff.rpc("record_item_cost", { p_item_id: publishedId, p_kind: "parts", p_amount_cents: 150_000 }).then((r) => ({ data: [r.error ?? "ok"], error: r.error })),
     1
   );
-  await denied("staff still cannot read the cost they just wrote", staff.from("item_costs").select("amount_cents"));
+  await visible("staff reads back the cost it just wrote", staff.from("item_costs").select("amount_cents"));
   await visible("staff creates an item", staff.from("items").insert({ title: "Staff Test Item" }).select("id"), 1);
 
   console.log("\nSTAFF privilege escalation");
@@ -421,9 +430,38 @@ async function run() {
     : fail("publishing without a photo is refused", "the publish succeeded");
 
   const { data: skuRow } = await admin.from("items").select("sku, slug").eq("id", publishedId).single();
-  /^TME-\d{4}-\d{4,}$/.test(skuRow.sku)
-    ? ok(`SKU generated in the documented format  (${skuRow.sku})`)
-    : fail("SKU format", skuRow.sku);
+  /^[ABCDEFGHJKMNPQRSTVWXYZ]\d{3}$/.test(skuRow.sku)
+    ? ok(`code generated in the documented format  (${skuRow.sku})`)
+    : fail("item code format", skuRow.sku);
+
+  // The code goes on a sticker, so the two ways it could stop matching the
+  // machine both have to be closed. It cannot be edited afterwards (the trigger
+  // silently keeps the old value rather than erroring, which is why this reads
+  // the row back instead of trusting the absence of an error), and it cannot be
+  // set to something that is not a code in the first place.
+  await admin.from("items").update({ sku: "B123" }).eq("id", publishedId);
+  const { data: stillMine } = await admin.from("items").select("sku").eq("id", publishedId).single();
+  stillMine.sku === skuRow.sku
+    ? ok("the code is write-once — an update is ignored")
+    : fail("code immutability", `${skuRow.sku} became ${stillMine.sku}`);
+
+  const { error: badCode } = await admin
+    .from("items")
+    .insert({ title: "RLS Malformed Code", sku: "tme-2608-0001" });
+  badCode
+    ? ok("items_sku_shape refuses a code that is not one")
+    : fail("items_sku_shape refuses a malformed code", "the insert succeeded");
+
+  // The coalesce path still works: a caller may supply its own code, and a
+  // well-formed one is honoured rather than overwritten by the generator.
+  const { data: ownCode } = await admin
+    .from("items")
+    .insert({ title: "RLS Explicit Code", sku: "Z998" })
+    .select("sku")
+    .single();
+  ownCode?.sku === "Z998"
+    ? ok("an explicitly supplied well-formed code is kept")
+    : fail("explicit code is kept", ownCode?.sku ?? "insert failed");
   skuRow.slug === "rls-test-combi-oven"
     ? ok(`slug generated from the title  (${skuRow.slug})`)
     : fail("slug generation", skuRow.slug);
@@ -730,6 +768,90 @@ async function leads() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  console.log("\nORDERS — the till, as a real signed-in person reaches it");
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // The order loop suite (scripts/test-order-loop.mjs) drives the same RPCs
+  // through the Management API, which connects as `postgres`. That proves the
+  // RULES. It says nothing about whether a `staff` account holding a real JWT
+  // can reach them — and confirm_order_paid() is SECURITY DEFINER, so if the
+  // grants were wrong the difference between those two callers is the whole
+  // sales ledger.
+  //
+  // Everybody sells, deliberately: the role split here is not about who may
+  // take money, it is about who may rewrite money already taken.
+  {
+    const staffClient = users.staff.client;
+    const managerClient = users.manager.client;
+
+    await refused("anon cannot read orders", anon.from("orders").select("id"));
+    await refused("anon cannot read order lines", anon.from("order_lines").select("id"));
+    await refused("anon cannot read order_economics", anon.from("order_economics").select("margin_cents"));
+
+    const { data: opened, error: openError } = await staffClient
+      .from("orders")
+      .insert({ status: "draft" })
+      .select("id, code")
+      .single();
+    openError
+      ? fail("staff can open an order", openError.message)
+      : ok(`staff can open an order  (${opened.code})`);
+
+    if (opened) {
+      // Through the RPC, which is the only way the app adds a machine.
+      const { error: lineError } = await staffClient.rpc("add_order_line", {
+        p_order_id: opened.id,
+        p_item_id: publishedId,
+      });
+      lineError
+        ? fail("staff can put a machine on it through the RPC", lineError.message)
+        : ok("staff can put a machine on it through the RPC");
+
+      await visible("staff sees the cost floor for it", staffClient.from("order_line_economics").select("cost_total_cents").eq("order_id", opened.id), 1);
+
+      // Taking money is a staff act. Correcting money already taken is not.
+      const { data: buyer } = await admin
+        .from("leads")
+        .insert({ full_name: "RLS Till Buyer", email: `till-${stamp}@rls.test`, source: "walk_in" })
+        .select("id")
+        .single();
+      await staffClient.from("orders").update({ lead_id: buyer.id }).eq("id", opened.id);
+
+      const { error: payError } = await staffClient.rpc("confirm_order_paid", {
+        p_order_id: opened.id,
+        p_sold_total_cents: 100_000,
+        p_method: "card_machine",
+      });
+      payError
+        ? fail("staff can record a payment", payError.message)
+        : ok("staff can record a payment");
+
+      // Frozen against ordinary edits the moment it is paid — the USING clause
+      // on the update policy only sees drafts.
+      await denied(
+        "a paid order cannot be edited by hand",
+        staffClient.from("orders").update({ sold_total_cents: 1 }).eq("id", opened.id).select("id")
+      );
+
+      const { error: staffReopen } = await staffClient.rpc("reopen_order", { p_order_id: opened.id });
+      staffReopen
+        ? ok("staff cannot reopen a paid order  (manager and above)")
+        : fail("staff cannot reopen a paid order", "the reopen succeeded");
+
+      const { error: managerReopen } = await managerClient.rpc("reopen_order", { p_order_id: opened.id });
+      managerReopen
+        ? fail("a manager can reopen a paid order", managerReopen.message)
+        : ok("a manager can reopen a paid order");
+
+      // Put the machine back on the shelf so the fixture is reusable and this
+      // suite leaves nothing sold behind it.
+      await admin.rpc("void_order", { p_order_id: opened.id, p_reason: "RLS suite" });
+      await admin.from("items").update({ status: "listed" }).eq("id", publishedId);
+      await admin.from("orders").delete().eq("id", opened.id);
+      await admin.from("leads").delete().eq("id", buyer.id);
+    }
+  }
+
   console.log("\nSTORAGE — drafts cannot be enumerated, published photos still serve");
   // ─────────────────────────────────────────────────────────────────────────
   //

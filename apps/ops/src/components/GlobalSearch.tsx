@@ -155,7 +155,7 @@ export default function GlobalSearch() {
                   go(hits[cursor]);
                 }
               }}
-              placeholder="A machine, a SKU, a name, a number…"
+              placeholder="A machine, a code, a name, a number…"
               className="flex-1 bg-transparent text-sm font-light text-white/90 placeholder:text-muted/70 focus:outline-none"
               autoComplete="off"
               spellCheck={false}

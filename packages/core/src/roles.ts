@@ -16,12 +16,20 @@ export const atLeast = (role: AppRole, required: AppRole) =>
   RANK[role] >= RANK[required];
 
 /**
- * Costs and margin are the one thing a `staff` account must never see — they
- * type the auction price in at intake and cannot read it back. Enforced in
- * Postgres by keeping costs in their own table; this is only for hiding the
- * controls that would 403 anyway.
+ * Everybody signed in sees what a machine cost.
+ *
+ * This was `atLeast(role, "manager")` until August 2026, on the reasoning that
+ * a `staff` account types the auction price in at intake and should not read it
+ * back. It is a family business where the person negotiating at the counter is
+ * whoever is standing there, and a salesperson who cannot see the floor cannot
+ * discount safely — they can only guess, and the guess is the expensive part.
+ *
+ * The twin is `app.can_see_costs()` (20260819090100_everyone_sees_costs.sql),
+ * and Postgres is still the one enforcing it. This copy exists only to decide
+ * what to render, and it takes `role` it no longer reads so that re-restricting
+ * is one expression here and one function there rather than a refactor.
  */
-export const canSeeCosts = (role: AppRole) => atLeast(role, "manager");
+export const canSeeCosts = (_role: AppRole) => true;
 
 export const canManageTeam = (role: AppRole) => role === "owner";
 

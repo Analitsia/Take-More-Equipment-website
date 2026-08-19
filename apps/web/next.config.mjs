@@ -41,6 +41,24 @@ const placeholderPatterns = isProduction
     ];
 
 const nextConfig = {
+  /**
+   * The dev server and the production build get separate output directories.
+   *
+   * They used to share `.next`, and `npm run build` while `npm run dev` was
+   * running would overwrite the chunks the running server still had in its
+   * manifest. The symptom is not an error anybody would connect to a build:
+   * the page renders as unstyled HTML, because the CSS asset 404s, alongside
+   * `Cannot find module './3765.js'` from the webpack runtime. The fix used to
+   * be "delete .next and restart", which is only obvious once you have lost an
+   * afternoon to it.
+   *
+   * Next sets NODE_ENV before it loads this file — `next dev` is development,
+   * `next build` and `next start` are production — so this splits them without
+   * a flag anybody has to remember. Vercel runs `next build`, gets `.next`, and
+   * is unaffected.
+   */
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
+
   // Workspace packages are consumed as TypeScript source — no build step, no
   // dist/ to go stale.
   transpilePackages: ["@takemore/core", "@takemore/db", "@takemore/ui", "@takemore/observability"],

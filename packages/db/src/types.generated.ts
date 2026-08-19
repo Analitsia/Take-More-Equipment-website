@@ -861,6 +861,169 @@ export type Database = {
         }
         Relationships: []
       }
+      order_lines: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          list_price_cents: number
+          order_id: string
+          position: number
+          retail_price_cents: number | null
+          sold_price_cents: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          list_price_cents: number
+          order_id: string
+          position?: number
+          retail_price_cents?: number | null
+          sold_price_cents?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          list_price_cents?: number
+          order_id?: string
+          position?: number
+          retail_price_cents?: number | null
+          sold_price_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_economics"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          charged_total_cents: number | null
+          code: string
+          created_at: string
+          created_by: string | null
+          delivery: boolean
+          delivery_address: string | null
+          delivery_fee_cents: number
+          delivery_km: number | null
+          delivery_km_source: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          paid_at: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          sold_by: string | null
+          sold_total_cents: number | null
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          charged_total_cents?: number | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          delivery?: boolean
+          delivery_address?: string | null
+          delivery_fee_cents?: number
+          delivery_km?: number | null
+          delivery_km_source?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          sold_by?: string | null
+          sold_total_cents?: number | null
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          charged_total_cents?: number | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          delivery?: boolean
+          delivery_address?: string | null
+          delivery_fee_cents?: number
+          delivery_km?: number | null
+          delivery_km_source?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          sold_by?: string | null
+          sold_total_cents?: number | null
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_demand"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "orders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outreach_campaigns: {
         Row: {
           audience: Json
@@ -1299,6 +1462,87 @@ export type Database = {
         }
         Relationships: []
       }
+      order_economics: {
+        Row: {
+          charged_total_cents: number | null
+          code: string | null
+          cost_other_cents: number | null
+          cost_purchase_cents: number | null
+          cost_refurb_cents: number | null
+          cost_total_cents: number | null
+          delivery_fee_cents: number | null
+          line_count: number | null
+          list_total_cents: number | null
+          margin_cents: number | null
+          order_id: string | null
+          retail_total_cents: number | null
+          sold_total_cents: number | null
+          status: Database["public"]["Enums"]["order_status"] | null
+        }
+        Relationships: []
+      }
+      order_line_economics: {
+        Row: {
+          cost_other_cents: number | null
+          cost_purchase_cents: number | null
+          cost_refurb_cents: number | null
+          cost_total_cents: number | null
+          item_id: string | null
+          line_id: string | null
+          list_price_cents: number | null
+          order_id: string | null
+          position: number | null
+          retail_price_cents: number | null
+          sku: string | null
+          sold_price_cents: number | null
+          status: Database["public"]["Enums"]["item_status"] | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_analytics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_economics"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_economics"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_categories: {
         Row: {
           blurb: string | null
@@ -1393,6 +1637,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_order_line: {
+        Args: { p_code?: string; p_item_id?: string; p_order_id: string }
+        Returns: Json
+      }
       capture_lead: {
         Args: {
           p_budget_max_cents?: number
@@ -1415,6 +1663,16 @@ export type Database = {
           request_id: string
         }[]
       }
+      confirm_order_paid: {
+        Args: {
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_order_id: string
+          p_reference?: string
+          p_sold_total_cents: number
+        }
+        Returns: Json
+      }
+      delivery_fee_cents: { Args: { p_km: number }; Returns: number }
       leads_wanting_item: {
         Args: { p_item_id: string }
         Returns: {
@@ -1440,6 +1698,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      reopen_order: { Args: { p_order_id: string }; Returns: Json }
       run_stock_match: { Args: never; Returns: number }
       search_everything: {
         Args: { p_limit?: number; p_query: string }
@@ -1448,6 +1707,20 @@ export type Database = {
           id: string
           kind: string
           rank: number
+          subtitle: string
+          title: string
+        }[]
+      }
+      search_sellable_items: {
+        Args: { p_limit?: number; p_order_id?: string; p_query: string }
+        Returns: {
+          id: string
+          list_price_cents: number
+          on_order: string
+          rank: number
+          retail_price_cents: number
+          sku: string
+          status: string
           subtitle: string
           title: string
         }[]
@@ -1478,6 +1751,10 @@ export type Database = {
         }[]
       }
       unsubscribe: { Args: { p_token: string }; Returns: boolean }
+      void_order: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: Json
+      }
     }
     Enums: {
       activity_action:
@@ -1529,8 +1806,10 @@ export type Database = {
         | "import"
       lead_status: "new" | "working" | "customer" | "dormant"
       media_kind: "photo" | "video"
+      order_status: "draft" | "paid" | "void"
       outreach_channel: "email" | "whatsapp"
       outreach_state: "queued" | "sent" | "skipped" | "failed"
+      payment_method: "card_machine" | "bank_transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1712,8 +1991,10 @@ export const Constants = {
       ],
       lead_status: ["new", "working", "customer", "dormant"],
       media_kind: ["photo", "video"],
+      order_status: ["draft", "paid", "void"],
       outreach_channel: ["email", "whatsapp"],
       outreach_state: ["queued", "sent", "skipped", "failed"],
+      payment_method: ["card_machine", "bank_transfer"],
     },
   },
 } as const

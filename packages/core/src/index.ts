@@ -10,11 +10,13 @@
  */
 
 export * from "./catalogue.ts";
+export * from "./delivery.ts";
 export * from "./featured.ts";
 export * from "./grades.ts";
 export * from "./leads.ts";
 export * from "./margin.ts";
 export * from "./money.ts";
+export * from "./orders.ts";
 export * from "./phone.ts";
 export * from "./publish.ts";
 export * from "./roles.ts";

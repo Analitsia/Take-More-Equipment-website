@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { normaliseItemCode } from "@takemore/core";
 import StockBoard from "./StockBoard";
 import type { ItemRow } from "@/lib/queries";
 
@@ -25,9 +26,18 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
+
+    // Somebody reading a code off a machine types `a42`, not `A042`. Resolving
+    // it the same way the database does means the short form finds the machine
+    // exactly, instead of falling through to a substring search that would
+    // match nothing. Null for anything that is not a code, which is most
+    // searches — a title or a brand takes the ordinary path below.
+    const code = normaliseItemCode(query);
+
     return items.filter((item) => {
       if (onlyDrafts && item.published_at) return false;
       if (!term) return true;
+      if (code && item.sku === code) return true;
       return [item.title, item.brand, item.sku, item.category?.name, item.location_code]
         .filter(Boolean)
         .join(" ")
@@ -52,7 +62,7 @@ export default function ItemsBrowser({ items }: { items: ItemRow[] }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, brand, SKU or shelf"
+            placeholder="Search title, brand, code or shelf"
             className="w-full bg-card border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm font-light
                        text-white/90 placeholder:text-muted/60 hover:border-white/20
                        focus:border-accent focus:outline-none transition-colors"

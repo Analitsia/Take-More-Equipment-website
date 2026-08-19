@@ -4,6 +4,7 @@ import { canManageTeam, ROLE_LABELS } from "@takemore/core";
 import ConnectionBanner from "./ConnectionBanner";
 import GlobalSearch from "./GlobalSearch";
 import NewItemButton from "./NewItemButton";
+import NewOrderButton from "./NewOrderButton";
 import SignOutButton from "./SignOutButton";
 
 /**
@@ -91,6 +92,22 @@ const WEBSITE: NavItem = {
   icon: "solar:global-linear",
 };
 
+/**
+ * Sales, past and in progress.
+ *
+ * Kept out of navFor() for the same reason WEBSITE is: that list is also the
+ * phone's bottom bar, and it is full. Selling has a strong claim on a slot
+ * there — arguably a stronger one than Outreach — but taking one is a decision
+ * about somebody else's muscle memory, so it waits to be asked for rather than
+ * being taken quietly. On a desk it sits in the rail; on a phone it is reached
+ * from the header, next to the globe, and from New order.
+ */
+const ORDERS: NavItem = {
+  href: "/orders",
+  label: "Orders",
+  icon: "solar:cart-large-2-linear",
+};
+
 /** A count that only exists when it is worth interrupting someone for. */
 function Badge({ count, className = "" }: { count?: number; className?: string }) {
   if (!count) return null;
@@ -122,7 +139,7 @@ export default function Shell({
   // The rail has room for what the bottom bar cannot hold. Team appears here
   // for everyone who did not already get it above — the log on it is readable
   // by any staff member, and always has been.
-  const rail = [...nav, ...(canManageTeam(staff.role) ? [] : [TEAM]), WEBSITE];
+  const rail = [...nav, ORDERS, ...(canManageTeam(staff.role) ? [] : [TEAM]), WEBSITE];
 
   return (
     <div className="min-h-dvh flex flex-col md:flex-row">
@@ -180,10 +197,23 @@ export default function Shell({
         </nav>
 
         <div className="px-3 pb-4">
-          <NewItemButton
-            formClassName="mb-4"
+          {/* New order takes the accent and New item drops to an outline. Both
+              are daily actions, but only one of them is the moment money
+              arrives, and the eye should land on it first. */}
+          <NewOrderButton
+            formClassName="mb-2"
             className="w-full flex items-center justify-center gap-2 bg-accent text-background rounded-xl
                        px-4 py-3 text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <iconify-icon icon="solar:cart-large-2-linear" width="18" height="18" noobserver="" />
+            New order
+          </NewOrderButton>
+
+          <NewItemButton
+            formClassName="mb-4"
+            className="w-full flex items-center justify-center gap-2 border border-border text-white/85
+                       rounded-xl px-4 py-3 text-sm font-medium hover:border-white/25 hover:text-white
+                       transition-colors"
           >
             <iconify-icon icon="solar:add-circle-linear" width="18" height="18" noobserver="" />
             New item
@@ -211,6 +241,13 @@ export default function Shell({
         </div>
         <div className="flex items-center gap-3">
           <GlobalSearch />
+          <Link
+            href={ORDERS.href}
+            aria-label="Orders"
+            className="text-muted active:text-accent transition-colors flex items-center"
+          >
+            <iconify-icon icon={ORDERS.icon} width="18" height="18" noobserver="" />
+          </Link>
           <Link
             href={WEBSITE.href}
             aria-label="View the website"

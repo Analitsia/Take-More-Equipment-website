@@ -41,7 +41,7 @@ const BUCKET = "item-media";
  * @param log    where to narrate; pass () => {} to run quietly
  */
 export async function clearDemo(admin, log = console.log) {
-  const removed = { items: 0, leads: 0, objects: 0, activity: 0 };
+  const removed = { items: 0, leads: 0, orders: 0, objects: 0, activity: 0 };
 
   // ── Items ────────────────────────────────────────────────────────────────
   // `specs->>demo_seed is not null` rather than `= stamp`: a seed from an older
@@ -78,6 +78,32 @@ export async function clearDemo(admin, log = console.log) {
     else removed.activity++;
   }
 
+  // ── Orders ───────────────────────────────────────────────────────────────
+  // Before the items and before the leads, because order_lines.item_id and
+  // orders.lead_id are both ON DELETE RESTRICT — a machine on an order cannot
+  // be deleted out from under it, and neither can the person who bought it.
+  //
+  // Without this, seeding a demo, selling a demo machine on the order screen
+  // and then running demo:clear fails on a foreign key that names none of that.
+  // The restrict is right; this is the script catching up with it.
+  if (items?.length) {
+    const { data: lines, error: linesError } = await admin
+      .from("order_lines")
+      .select("order_id")
+      .in("item_id", items.map((i) => i.id));
+    if (linesError) throw new Error(`reading demo order lines: ${linesError.message}`);
+
+    const orderIds = [...new Set((lines ?? []).map((l) => l.order_id))];
+    if (orderIds.length) {
+      // The lines go with the order by cascade; the machines they held were
+      // already put back by whatever moved them, or are about to be deleted.
+      const { error } = await admin.from("orders").delete().in("id", orderIds);
+      if (error) throw new Error(`deleting demo orders: ${error.message}`);
+      removed.orders = orderIds.length;
+      log(`  removed ${orderIds.length} order(s) that held demo stock`);
+    }
+  }
+
   if (items?.length) {
     const { error } = await admin
       .from("items")
@@ -95,6 +121,24 @@ export async function clearDemo(admin, log = console.log) {
   if (leadsError) throw new Error(`reading demo leads: ${leadsError.message}`);
 
   if (leads?.length) {
+    // Same restrict, other end: an order remembers who bought, so the order has
+    // to go first. Separate from the block above because a demo person can be
+    // on an order that held no demo machine.
+    const { data: theirOrders, error: ordersError } = await admin
+      .from("orders")
+      .select("id")
+      .in("lead_id", leads.map((l) => l.id));
+    if (ordersError) throw new Error(`reading demo orders: ${ordersError.message}`);
+
+    if (theirOrders?.length) {
+      const { error } = await admin
+        .from("orders")
+        .delete()
+        .in("id", theirOrders.map((o) => o.id));
+      if (error) throw new Error(`deleting demo orders: ${error.message}`);
+      removed.orders += theirOrders.length;
+    }
+
     const { error } = await admin
       .from("leads")
       .delete()
@@ -127,7 +171,7 @@ if (invokedDirectly) {
   const removed = await clearDemo(admin);
   console.log(
     `\n  Gone: ${removed.items} item(s), ${removed.objects} media object(s), ` +
-      `${removed.leads} lead(s), and their activity.\n`
+      `${removed.leads} lead(s), ${removed.orders} order(s), and their activity.\n`
   );
 
   // The storefront caches stock for five minutes; drop the tag so the site

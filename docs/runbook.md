@@ -114,6 +114,37 @@ which is not marketing and has no cap on it.
 
 ---
 
+## When a page comes out as plain black-and-white HTML
+
+Times New Roman, blue underlined links, default grey buttons — the content is
+all there and none of the styling is. It looks like the CSS was deleted.
+
+It was not. The stylesheet 404s because the build output was overwritten while
+the dev server was still using it, and the terminal will show it as something
+that sounds unrelated:
+
+```
+⨯ Error: Cannot find module './3765.js'
+Require stack: apps/ops/.next/server/webpack-runtime.js
+```
+
+**This should no longer be possible.** `next.config.mjs` in both apps sends the
+dev server to `.next-dev` and the production build to `.next`, so
+`npm run build` while `npm run dev` is running is now harmless — that split
+exists for exactly this reason. If it happens anyway, something else has
+corrupted the cache, and the fix is the same:
+
+```bash
+# stop the dev server first, then
+rm -rf apps/ops/.next-dev        # or apps/web/.next-dev
+npm run dev --workspace=@takemore/ops
+```
+
+Nothing is lost. Those directories are build output and are rebuilt from source
+on the next start.
+
+---
+
 ## When the website looks wrong
 
 **Stock is stale.** The storefront caches for 300 seconds and ops pings
@@ -180,8 +211,9 @@ between drafting and sending is excluded automatically.
 npm run typecheck        # every workspace
 npm run check:launch     # no credentials needed. Runs in CI on every push
 npm run check:secrets    # no credential-shaped strings in tracked files
+npm run test:schema      # no credentials either — see below
 
-npm test                 # RLS + parity + lead loop + email. Needs .env.local
+npm test                 # schema + RLS + parity + lead + order loops + email. Needs .env.local
 npm run check:launch:db  # placeholder media and dead photos on live stock
 
 # These need the ops app running (npm run dev --workspace=@takemore/ops)
@@ -193,6 +225,19 @@ npm run test:match
 accounts under `@takemore.test`, publish and delete items, and clean up in a
 `finally`. That is why they run on push to `main` and on demand, and not on a
 schedule — see `.github/workflows/live.yml`.
+
+**`npm run test:schema` is the exception, and the one to reach for first.** It
+builds the whole schema from zero against a WASM Postgres from npm — no Docker,
+no project, no credentials — then drives the parts that are pure database: the
+item-code encoding, the delivery rule, the renumber, and a whole sale from
+opening an order to cancelling it. It is the only suite that can tell you a
+migration is broken *before* it touches anything real, and it is fast enough to
+run on every change.
+
+What it cannot tell you is anything about RLS as a signed-in person experiences
+it: it runs as the owner, who bypasses row-level security. That is what
+`npm run test:rls` is for, and the two are deliberately separate suites for
+deliberately separate questions.
 
 ---
 
@@ -245,6 +290,46 @@ Never edit a migration that has been applied. Write another one.
 
 ---
 
+## Undoing a sale
+
+A sale is one transaction and there are exactly two ways back out of it, both on the order's
+own page. Neither deletes anything: the order stays, the customer's timeline keeps the
+`purchased` entry, and the activity log records who undid what.
+
+**"Correct the amount"** — the price was typed wrong, but the sale is real. Manager or owner
+only, because it rewrites revenue that has already been reported. The machines go back to
+`reserved`, the order goes back to open, and you re-record the payment with the right figure.
+
+**"Cancel this sale"** — the deal collapsed. Anyone can, deliberately: a wrong number nobody
+can correct is worse than a correction anybody can audit. The machines go back to `listed`
+and are re-published, and the money comes off the reports on its own — the status trigger
+clears `sold_at` and `sale_price_cents` together, because the date it went and the price it
+went for are one fact.
+
+If the notice afterwards says a machine is "back in stock but not back on the website yet",
+that machine no longer satisfies the publish gate — almost always a photograph that was
+deleted while it was sold. Open it and look; the gate says which piece is missing.
+
+---
+
+## When the delivery distance will not look itself up
+
+The order screen quotes delivery from the driving distance, and every failure lands in the
+same place: type the kilometres in. That is a supported path, not a broken one, and the
+order records which of the two answered (`delivery_km_source`).
+
+| What it says | What it means |
+|---|---|
+| "Distance lookup is not set up" | `GOOGLE_MAPS_API_KEY` or `BUSINESS_ORIGIN_ADDRESS` is missing on the ops project |
+| "Couldn't find that address" | Google answered, and there is no route to what was typed. A farm road, usually |
+| "The distance lookup is down" | A timeout, a quota, or a bad key. Sentry has it |
+
+The fee itself never depends on the lookup: `app.orders_before_write()` recomputes it from
+whatever distance is stored, every time, so a hand-typed 100 km and a measured 100 km cost
+the same R1 150.
+
+---
+
 ## Rotating a key
 
 | Key | Where | Then |
@@ -255,6 +340,7 @@ Never edit a migration that has been applied. Write another one.
 | `REVALIDATE_SECRET` | Any long random string | **Both projects, together** — they must match |
 | `ACCESS_REQUEST_IP_PEPPER` | Any long random string | Ops only. Changing it resets the per-IP throttle; nothing else |
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Tokens | `.env.local` and GitHub secrets. Not needed at runtime |
+| `GOOGLE_MAPS_API_KEY` | Google Cloud → APIs & Services → Credentials | Ops only. Restrict it to the Routes API. While it is missing or wrong, the order screen simply asks for the kilometres — nothing breaks |
 
 If a key has been committed, **rotate it — do not just delete the commit.**
 `npm run check:secrets` scans tracked files, and the pre-commit hook runs it

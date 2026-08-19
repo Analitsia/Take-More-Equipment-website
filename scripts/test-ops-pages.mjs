@@ -253,6 +253,37 @@ async function run(cookie) {
     .limit(1)
     .maybeSingle();
   if (item) await visit(cookie, `/items/${item.id}`);
+
+  // The printable label. Its own route group with its own layout, so a broken
+  // auth check there would not show up anywhere else in this file.
+  if (item) await visit(cookie, `/items/${item.id}/label`, { contains: "Print" });
+
+  console.log("\nTHE TILL");
+  await visit(cookie, "/orders", { contains: "New order" });
+
+  // An order's own page is the heaviest embed in the app — order_lines to
+  // items to item_media, plus two security_invoker views over item_costs. It
+  // typechecks whatever PostgREST decides to do with that, which is the exact
+  // shape of the two failures this suite was written for.
+  const { data: order } = await admin
+    .from("orders")
+    .insert({ status: "draft" })
+    .select("id, code")
+    .single();
+
+  if (order) {
+    if (item) {
+      await admin.from("order_lines").insert({
+        order_id: order.id,
+        item_id: item.id,
+        list_price_cents: 100000,
+      });
+    }
+    await visit(cookie, `/orders/${order.id}`, { contains: order.code });
+    await admin.from("orders").delete().eq("id", order.id);
+  } else {
+    fail("create an order to open", "insert returned nothing");
+  }
 }
 
 async function cleanup() {

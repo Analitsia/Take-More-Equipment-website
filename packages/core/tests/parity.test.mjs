@@ -22,9 +22,11 @@ import {
   LEAD_STATUSES,
   OUTREACH_CHANNELS,
   OUTREACH_STATES,
-  SKU_PATTERN,
   STAGES,
   TRANSITIONS,
+  deliveryFeeCents,
+  formatItemCode,
+  normaliseItemCode,
   normalisePhone,
   slugify,
 } from "@takemore/core";
@@ -186,13 +188,111 @@ fixtures.forEach((input, i) => {
     : fail(`slugify ${JSON.stringify(input)}`, `sql=${fromSql}  ts=${fromTsSlug}`);
 });
 
-// --- SKU --------------------------------------------------------------------
-console.log("\nSKU FORMAT");
-const generated = await sql("select app.next_sku() as sku");
-const sku = generated[0].sku;
-SKU_PATTERN.test(sku)
-  ? ok(`app.next_sku() emits ${sku}, which SKU_PATTERN accepts`)
-  : fail("SKU_PATTERN accepts what the database generates", sku);
+// --- item codes -------------------------------------------------------------
+/**
+ * Deliberately tests app.encode_item_code() and NOT app.next_sku().
+ *
+ * The old assertion called the generator, which burns a code per CI run. That
+ * was free against a counter with four digits and is not free against one with
+ * 21 978 values in it — a year of green builds would have eaten a month of
+ * intake. Splitting the encoding out of the sequence draw is what makes this
+ * testable without spending anything, which is most of why it is split.
+ *
+ * The boundaries are the whole point: 999 is the last A, 1000 is the first B,
+ * 21978 is the last code there is, and 21979 must be nothing at all.
+ */
+console.log("\nITEM CODES  (TypeScript vs app.encode_item_code)");
+const codeOrdinals = [1, 22, 998, 999, 1000, 1001, 1998, 1999, 21977, 21978, 21979];
+
+const codeRows = await sql(
+  `select ${codeOrdinals.map((n, i) => `app.encode_item_code(${n}) as c${i}`).join(", ")}`
+);
+
+codeOrdinals.forEach((n, i) => {
+  const fromSql = codeRows[0][`c${i}`];
+  const fromTs = formatItemCode(n);
+  fromSql === fromTs
+    ? ok(`${n} → ${fromSql ?? "null"}`)
+    : fail(`encode_item_code(${n})`, `sql=${fromSql}  ts=${fromTs}`);
+});
+
+/**
+ * The forgiving half. Whatever somebody types at the counter has to reach the
+ * same machine on both sides, because the till resolves a typed code in SQL
+ * while the screen validates it in the browser — and a disagreement there is a
+ * salesperson being told a code is wrong by one of them and right by the other.
+ */
+console.log("\nITEM CODES TYPED BY HAND  (TypeScript vs app.normalise_item_code)");
+const typedCodes = [
+  "A042",
+  "a042",
+  "a42",
+  "A 042",
+  "a-042",
+  " a4 2 ",
+  "A1",
+  "Z999",
+  // Not codes. I, L, O and U are not in the alphabet; a bare number has no
+  // letter; a model number has too much; TME-2608-0417 is the old world.
+  "I042",
+  "O042",
+  "042",
+  "A0421",
+  "RG-4TX",
+  "TME-2608-0417",
+  "",
+];
+
+const typedRows = await sql(
+  `select ${typedCodes
+    .map((c, i) => `app.normalise_item_code(${quote(c)}) as n${i}`)
+    .join(", ")}`
+);
+
+typedCodes.forEach((input, i) => {
+  const fromSql = typedRows[0][`n${i}`];
+  const fromTs = normaliseItemCode(input);
+  fromSql === fromTs
+    ? ok(`${JSON.stringify(input)} → ${fromSql ?? "not a code"}`)
+    : fail(`normalise_item_code ${JSON.stringify(input)}`, `sql=${fromSql}  ts=${fromTs}`);
+});
+
+// --- delivery fee -----------------------------------------------------------
+/**
+ * The fee is quoted to a customer's face by the browser and stored by a trigger
+ * in Postgres, from two implementations of one rule. If they disagreed, the
+ * salesperson would say one number and the order would record another — and the
+ * customer would be holding the receipt that proved it.
+ *
+ * 10 and 10.1 are the pair that matters: the rule rounds a part-kilometre UP,
+ * and `Math.ceil` on a float subtraction is only equal to Postgres `ceil` on a
+ * numeric by luck. 100 is the worked example from the specification —
+ * 250 + 90 × 10 = R1 150.
+ */
+console.log("\nDELIVERY FEE  (TypeScript vs public.delivery_fee_cents)");
+const distances = [0, 5, 9.9, 10, 10.1, 11, 20.1, 23.4, 25, 99.9, 100, 250];
+
+const feeRows = await sql(
+  `select ${distances
+    .map((km, i) => `public.delivery_fee_cents(${km}::numeric) as f${i}`)
+    .join(", ")}`
+);
+
+distances.forEach((km, i) => {
+  // bigint arrives as a string over the Management API, as it does everywhere
+  // else in this codebase — see the num() note in the dashboard's metrics.
+  const fromSql = Number(feeRows[0][`f${i}`]);
+  const fromTs = deliveryFeeCents(km);
+  fromSql === fromTs
+    ? ok(`${km} km → R${fromSql / 100}`)
+    : fail(`delivery_fee_cents(${km})`, `sql=${fromSql}  ts=${fromTs}`);
+});
+
+// The number the owner specified, asserted as itself rather than only as a
+// parity match — two implementations can agree and both be wrong.
+deliveryFeeCents(100) === 115_000
+  ? ok("100 km is R1 150, as specified")
+  : fail("100 km is R1 150", `got ${deliveryFeeCents(100)}`);
 
 // --- phone ------------------------------------------------------------------
 /**

@@ -28,6 +28,7 @@ npm run build
 npm run typecheck        # all workspaces
 npm run check:secrets    # required before handoff
 npm run check:launch     # launch readiness
+npm run test:schema      # builds every migration against a real Postgres. No credentials
 npm run check:launch:db  # launch readiness, including DB checks
 ```
 
