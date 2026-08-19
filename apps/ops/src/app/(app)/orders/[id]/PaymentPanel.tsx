@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Field, Input, Panel, RandInput } from "@takemore/ui";
 import {
   PAYMENT_METHODS,
@@ -10,7 +11,7 @@ import {
   rands,
   type PaymentMethod,
 } from "@takemore/core";
-import { confirmPaid, reopenOrder, setProvisionalTotal, voidOrder } from "../actions";
+import { confirmPaid, discardOrder, reopenOrder, setProvisionalTotal, voidOrder } from "../actions";
 import type { OrderDetail } from "@/lib/orders";
 
 /**
@@ -48,9 +49,33 @@ export default function PaymentPanel({
   const [voiding, setVoiding] = useState(false);
   const [reason, setReason] = useState("");
   const [confirmingVoid, setConfirmingVoid] = useState(false);
+  const router = useRouter();
 
   const paid = order.status === "paid";
   const cancelled = order.status === "void";
+  /**
+   * An order nobody finished.
+   *
+   * It has to be closable, and until now it was not: the only way out of the
+   * till was through a payment. A customer who walks away left an order open for
+   * ever, holding its machines `reserved` and off the website, and the orders
+   * list counted it as still on the counter.
+   *
+   * What it does depends on whether money was ever recorded, and that is the
+   * whole rule:
+   *
+   *   never paid       →  discarded. Nothing is kept, because nothing happened.
+   *   paid, or paid
+   *   and reopened     →  cancelled, with a reason, kept for ever.
+   *
+   * `sold_by` is what tells them apart: confirm_order_paid() writes it and
+   * reopen_order() deliberately does not clear it, so a draft that carries one
+   * is a sale being corrected rather than a sale that never was.
+   */
+  const open = !paid && !cancelled;
+  const everPaid = Boolean(order.sold_by);
+  /** True when closing this order means deleting it rather than voiding it. */
+  const discards = open && !everPaid;
 
   const goods = paid ? (order.sold_total_cents ?? 0) : (cents ?? 0);
   const charged = goods + order.delivery_fee_cents;
@@ -69,11 +94,19 @@ export default function PaymentPanel({
 
   const cancel = async () => {
     setVoiding(true);
-    const result = await voidOrder(order.id, reason);
+    const result = discards ? await discardOrder(order.id) : await voidOrder(order.id, reason);
     setVoiding(false);
     if (result.ok) {
       setConfirmingVoid(false);
       setReason("");
+      // A discarded order has no page to go back to. Pushed rather than
+      // refreshed, because refreshing would land on a 404 for a row this very
+      // click removed.
+      if (discards) {
+        router.push("/orders");
+        router.refresh();
+        return;
+      }
     }
     onDone(result.ok ? { ok: true, message: result.notice } : { ok: false, message: result.error });
   };
@@ -199,11 +232,11 @@ export default function PaymentPanel({
           </>
         )}
 
-        {paid && (
+        {(paid || open) && (
           <div className="space-y-3 border-t border-white/5 pt-3">
             <p className="text-[11px] font-light text-muted">
               {[
-                order.payment_method ? PAYMENT_METHOD_LABELS[order.payment_method] : null,
+                paid && order.payment_method ? PAYMENT_METHOD_LABELS[order.payment_method] : null,
                 order.payment_reference,
                 order.paid_at
                   ? new Date(order.paid_at).toLocaleString("en-ZA", {
@@ -220,36 +253,45 @@ export default function PaymentPanel({
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {canReopen && (
+              {paid && canReopen && (
                 <Button variant="secondary" loading={saving} onClick={reopen}>
                   Correct the amount
                 </Button>
               )}
               <Button variant="danger" onClick={() => setConfirmingVoid((v) => !v)}>
-                Cancel this sale
+                {discards ? "Discard this order" : "Cancel this sale"}
               </Button>
             </div>
 
             {confirmingVoid && (
               <div className="space-y-2">
-                <Field label="Why?">
-                  <Input
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="The finance fell through"
-                  />
-                </Field>
+                {/* A discard asks for no reason.
+                    Nothing was sold, so there is nothing to explain to anybody
+                    later — and a required box in front of an undo is how a
+                    salesperson learns to leave the mess instead. A cancellation
+                    is the opposite: it unwinds money that was recorded, and the
+                    reason is the whole value of the record it leaves behind. */}
+                {!discards && (
+                  <Field label="Why?">
+                    <Input
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="The finance fell through"
+                    />
+                  </Field>
+                )}
                 <p className="text-[11px] font-light text-muted">
-                  The machines go back into stock and back onto the website, and the
-                  money comes off the reports.
+                  {discards
+                    ? "Nothing was sold, so this order will not be kept at all. Any machine held for it goes back into stock and back onto the website."
+                    : "The machines go back into stock and back onto the website, and the money comes off the reports."}
                 </p>
                 <Button
                   variant="danger"
                   loading={voiding}
-                  disabled={!reason.trim()}
+                  disabled={!discards && !reason.trim()}
                   onClick={cancel}
                 >
-                  Cancel {order.code}
+                  {discards ? "Discard" : "Cancel"} {order.code}
                 </Button>
               </div>
             )}

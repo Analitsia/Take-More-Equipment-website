@@ -4,6 +4,7 @@ import { canManageTeam, ROLE_LABELS } from "@takemore/core";
 import ConnectionBanner from "./ConnectionBanner";
 import GlobalSearch from "./GlobalSearch";
 import NewItemButton from "./NewItemButton";
+import NewButton from "./NewButton";
 import NewOrderButton from "./NewOrderButton";
 import SignOutButton from "./SignOutButton";
 
@@ -34,6 +35,20 @@ const TEAM: NavItem = {
   href: "/team",
   label: "Team",
   icon: "solar:users-group-rounded-linear",
+};
+
+/**
+ * The till, past and in progress.
+ *
+ * Kept out of navFor() for the same reason WEBSITE is: that list is also the
+ * phone's bottom bar, and it is full. It sits in the desk rail, in the phone's
+ * header next to the globe, and — the way it is actually reached — behind New,
+ * which asks whether you are starting a sale or booking in a machine.
+ */
+const ORDERS: NavItem = {
+  href: "/orders",
+  label: "Orders",
+  icon: "solar:cart-large-2-linear",
 };
 
 /**
@@ -90,22 +105,6 @@ const WEBSITE: NavItem = {
   href: "/website",
   label: "Website",
   icon: "solar:global-linear",
-};
-
-/**
- * Sales, past and in progress.
- *
- * Kept out of navFor() for the same reason WEBSITE is: that list is also the
- * phone's bottom bar, and it is full. Selling has a strong claim on a slot
- * there — arguably a stronger one than Outreach — but taking one is a decision
- * about somebody else's muscle memory, so it waits to be asked for rather than
- * being taken quietly. On a desk it sits in the rail; on a phone it is reached
- * from the header, next to the globe, and from New order.
- */
-const ORDERS: NavItem = {
-  href: "/orders",
-  label: "Orders",
-  icon: "solar:cart-large-2-linear",
 };
 
 /** A count that only exists when it is worth interrupting someone for. */
@@ -292,13 +291,9 @@ export default function Shell({
             <Badge count={item.badge} className="absolute top-1.5 right-[calc(50%-16px)]" />
           </Link>
         ))}
-        <NewItemButton
-          formClassName="flex-1 flex"
-          className="w-full flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium text-accent"
-        >
-          <iconify-icon icon="solar:add-circle-linear" width="20" height="20" noobserver="" />
-          New
-        </NewItemButton>
+        {/* One slot, two things you can start. It asks rather than assuming —
+            see NewButton. */}
+        <NewButton className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium text-accent" />
       </nav>
     </div>
   );

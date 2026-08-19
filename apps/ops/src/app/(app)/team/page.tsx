@@ -1,6 +1,6 @@
 import { requireStaff, supabase } from "@/lib/supabase";
 import { getRecentActivity } from "@/lib/queries";
-import { canManageTeam, ROLE_LABELS, type AppRole } from "@takemore/core";
+import { canManageTeam, type AppRole } from "@takemore/core";
 import { Panel } from "@takemore/ui";
 import type { PersonRow } from "@/lib/activity";
 import TeamActivity from "./TeamActivity";
@@ -89,16 +89,17 @@ export default async function TeamPage() {
 /**
  * The same list without the controls, for everybody who is not the owner.
  *
- * Read-only because every write on this screen is owner-only at the policy
- * level — showing a role picker that the database would refuse is worse than
- * showing none. Deactivated people stay listed, struck through: their name is
+ * Read-only because adding and removing people is owner-only at the policy
+ * level, and it is the last thing on this screen that is. No rank is shown
+ * beside a name because there is no longer one to show — everybody here can do
+ * everything. Deactivated people stay listed, struck through: their name is
  * still on log entries from when they worked here.
  */
 function Roster({
   members,
   currentUserId,
 }: {
-  members: { user_id: string; full_name: string; role: AppRole; active: boolean }[];
+  members: { user_id: string; full_name: string; active: boolean }[];
   currentUserId: string;
 }) {
   return (
@@ -116,9 +117,6 @@ function Roster({
                 <span className="text-[11px] text-muted ml-2 no-underline">you</span>
               )}
             </p>
-            <span className="text-[11px] font-light text-muted shrink-0">
-              {ROLE_LABELS[member.role]}
-            </span>
           </li>
         ))}
       </ul>

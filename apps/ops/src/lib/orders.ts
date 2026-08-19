@@ -79,6 +79,13 @@ export type OrderDetail = {
   payment_method: PaymentMethod | null;
   payment_reference: string | null;
   paid_at: string | null;
+  /**
+   * Who took the money — and, incidentally, the only memory this row keeps of
+   * ever having been paid. reopen_order() clears the payment fields but leaves
+   * this one alone, so a draft with a `sold_by` is a corrected sale rather than
+   * an order nobody finished. discardOrder() is the caller that cares.
+   */
+  sold_by: string | null;
   notes: string | null;
   voided_at: string | null;
   void_reason: string | null;
@@ -99,7 +106,7 @@ export async function getOrder(id: string): Promise<OrderDetail | null> {
     .select(
       `id, code, status, lead_id, sold_total_cents, delivery, delivery_address,
        delivery_km, delivery_km_source, delivery_fee_cents, charged_total_cents,
-       payment_method, payment_reference, paid_at, notes, voided_at, void_reason,
+       payment_method, payment_reference, paid_at, sold_by, notes, voided_at, void_reason,
        created_at,
        lead:leads(id, full_name, business_name, email, phone)`
     )

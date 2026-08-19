@@ -332,6 +332,45 @@ check("reopening explained itself, so two purchases do not read as two sales",
 check("and the cancellation gave its reason",
       rows.some((x) => /Finance fell through/.test(x.body)));
 
+console.log("\nA MACHINE FROM THE WORKSHOP");
+/**
+ * The one that was quietly wrong until 20260819110100.
+ *
+ * A machine still in pieces on the bench can be sold — somebody sees it and
+ * wants it, and refusing that would be the software disagreeing with the
+ * business. What must not happen is the machine coming back marked "For sale"
+ * when the sale falls through, because then the board is telling the workshop
+ * something the workshop knows to be untrue.
+ */
+const bench = await one(db, `
+  insert into public.items (title, category_id, condition_grade, list_price_cents,
+                            retail_price_cents, description, status)
+  values ('Half stripped', '${category}', 'C', 800000, 1600000,
+          'A machine that is in the workshop, described at some length here.', 'refurbishing')
+  returning id, sku`);
+
+const bench_order = await one(db, "insert into public.orders (status) values ('draft') returning id, code");
+await db.exec(`select public.add_order_line('${bench_order.id}', '${bench.sku}')`);
+
+r = await one(db, `select status from public.items where id='${bench.id}'`);
+check("a machine in the workshop can still be put on an order", r.status === "reserved", r.status);
+r = await one(db, `select held_from_status h from public.order_lines where item_id='${bench.id}'`);
+check("and the line writes down where it came from", r.h === "refurbishing", r.h);
+
+await db.exec(`select public.void_order('${bench_order.id}', 'They went away to think about it')`);
+r = await one(db, `select status from public.items where id='${bench.id}'`);
+check("cancelling puts it back IN THE WORKSHOP, not on sale", r.status === "refurbishing", r.status);
+
+/** A line written before the column existed still has to be safe to cancel. */
+const legacy = await make("Legacy", 500000, 100000, 0);
+const legacy_order = await one(db, "insert into public.orders (status) values ('draft') returning id");
+await db.exec(`select public.add_order_line('${legacy_order.id}', '${legacy.sku}')`);
+await db.exec(`update public.order_lines set held_from_status = null where item_id='${legacy.id}'`);
+await db.exec(`select public.void_order('${legacy_order.id}', 'Nobody remembers')`);
+r = await one(db, `select status from public.items where id='${legacy.id}'`);
+check("a line that remembers nothing falls back to For sale, as it always did",
+      r.status === "listed", r.status);
+
 console.log("\nTHE PICKER");
 rows = await all(db, `select sku, rank from public.search_sellable_items('${typed}', 10, null)`);
 check("a typed code finds the machine and outranks everything else",

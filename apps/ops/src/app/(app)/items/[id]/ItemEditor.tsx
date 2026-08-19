@@ -670,7 +670,23 @@ export default function ItemEditor({
 
       {/* Last on the page on purpose. Nothing routine lives below it, so the
           scroll that reaches it is one somebody meant to make. */}
-      <DeleteItem id={item.id} title={form.title} live={!!item.published_at} />
+      <DeleteItem
+        id={item.id}
+        title={form.title}
+        live={!!item.published_at}
+        /* Whether this is a draft nobody ever filled in — which decides
+           whether deleting keeps a record or keeps nothing at all. The action
+           decides it again on the server from the same five conditions; this
+           copy exists so the warning says what is about to happen rather than
+           what usually happens. mediaCount is the live one, so a photograph
+           taken a second ago counts. */
+        blank={
+          !item.published_at &&
+          mediaCount === 0 &&
+          costs.length === 0 &&
+          (item.status === "refurbishing" || item.status === "listed")
+        }
+      />
     </div>
   );
 }

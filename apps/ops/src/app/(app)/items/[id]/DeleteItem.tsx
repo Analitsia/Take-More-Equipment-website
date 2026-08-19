@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Panel } from "@takemore/ui";
-import { softDeleteItem } from "../actions";
+import { deleteItem } from "../actions";
 
 /**
  * Deleting a machine.
@@ -27,10 +27,17 @@ export default function DeleteItem({
   id,
   title,
   live,
+  blank,
 }: {
   id: string;
   title: string;
   live: boolean;
+  /**
+   * A draft nobody ever filled in: never on the website, no photograph, no
+   * cost, not on an order. Those are discarded outright rather than kept as a
+   * deleted record, because there is no record — see deleteItem().
+   */
+  blank: boolean;
 }) {
   const router = useRouter();
   const [asking, setAsking] = useState(false);
@@ -41,7 +48,7 @@ export default function DeleteItem({
     setBusy(true);
     setError(null);
 
-    const result = await softDeleteItem(id);
+    const result = await deleteItem(id);
     if (!result.ok) {
       setBusy(false);
       return setError(result.error);
@@ -67,19 +74,20 @@ export default function DeleteItem({
         <div className="space-y-3">
           <div>
             <p className="text-sm font-medium tracking-tight">
-              Delete {title || "this item"}?
+              {blank ? "Discard" : "Delete"} {title || "this item"}?
             </p>
             <p className="text-xs font-light text-muted mt-1 leading-relaxed">
-              {live
-                ? "It comes off the website straight away and leaves the stock list."
-                : "It leaves the stock list. It is not on the website, so nothing changes there."}{" "}
-              What it cost and what was done to it stay in the record.
+              {blank
+                ? "Nothing was ever recorded against it — no photograph, no cost, never on the website — so it will not be kept at all."
+                : live
+                  ? "It comes off the website straight away and leaves the stock list. What it cost and what was done to it stay in the record."
+                  : "It leaves the stock list. It is not on the website, so nothing changes there. What it cost and what was done to it stay in the record."}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="danger" loading={busy} onClick={onDelete}>
-              Yes, delete it
+              {blank ? "Yes, discard it" : "Yes, delete it"}
             </Button>
             <Button variant="ghost" disabled={busy} onClick={() => setAsking(false)}>
               Keep it
@@ -89,12 +97,14 @@ export default function DeleteItem({
       ) : (
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-light text-muted">
-            Delete this item — off the website, out of the stock list.
+            {blank
+              ? "Discard this draft — nothing was ever recorded against it."
+              : "Delete this item — off the website, out of the stock list."}
           </p>
           <Button
             variant="danger"
             onClick={() => setAsking(true)}
-            aria-label="Delete this item"
+            aria-label={blank ? "Discard this draft" : "Delete this item"}
             className="shrink-0 px-3"
           >
             <iconify-icon

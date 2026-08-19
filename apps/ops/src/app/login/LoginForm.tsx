@@ -3,62 +3,44 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@takemore/db";
-import { Button, Field, Input, Turnstile } from "@takemore/ui";
-import { requestAccess } from "./actions";
-
-type Mode = "signin" | "request";
+import { Button, Field, Input } from "@takemore/ui";
 
 /**
- * One screen, two doors.
+ * One screen, one door.
  *
- * A new starter and a returning one arrive at the same URL and cannot be told
- * apart, so both paths are on the first screen rather than behind a link. Sign
- * in leads; requesting access is the quieter option, because most openings of
- * this page are the daily one.
+ * It used to have two: sign in, and a "Request access" tab where somebody could
+ * create their own account for the owner to approve. That tab is gone, and the
+ * server action behind it now refuses, on the owner's decision — accounts are
+ * made in /team, where the system generates a password and the owner sends it
+ * over WhatsApp. It is a family business of a handful of people; a queue was
+ * ceremony for something that happens twice a year and is settled in person.
  *
- * After a successful request the person is signed straight in — the account is
- * real from the moment it is created, it simply has no permissions yet. That
- * lands them on /pending, which is a screen that explains itself and updates on
- * its own when the owner approves. The alternative ("check back later") sends
- * someone away with nothing to look at and no idea what happens next.
+ * Two things it also fixed, which is worth writing down:
+ *
+ *   The request path was the only unauthenticated form here, and the only
+ *   reason this app needed a Turnstile key at all. Without one configured, it
+ *   fails closed in production — so on the day this was looked at, the tab was
+ *   on the screen and refused every request with "briefly unavailable". A door
+ *   that does not open is worse than no door.
+ *
+ *   Approval into the ops app is now the only thing between somebody and every
+ *   cost and margin in the business, because costs and ranks both opened up in
+ *   August 2026. Narrowing account creation to one person is what pays for
+ *   that.
  */
 export default function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
 
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /**
-   * Turnstile, on the request path only.
-   *
-   * Not on sign in: Supabase Auth already rate-limits that, and friction on the
-   * door somebody walks through every morning costs real time and buys nothing.
-   * The request path is the one that creates accounts out of thin air.
-   *
-   * `challenge` forces a fresh token. A Turnstile token is single-use and this
-   * component stays mounted across mode switches and failed attempts, so
-   * without it the second submission replays a spent token and is refused for a
-   * reason the person cannot act on.
-   */
-  const [token, setToken] = useState<string | null>(null);
-  const [challenge, setChallenge] = useState(0);
-
-  const freshChallenge = () => {
-    setToken(null);
-    setChallenge((n) => n + 1);
-  };
-
-  function switchTo(next: Mode) {
-    setMode(next);
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
     setError(null);
-    freshChallenge();
-  }
 
-  async function signIn() {
     const client = createBrowserClient();
     const { error: signInError } = await client.auth.signInWithPassword({
       email: email.trim(),
@@ -80,133 +62,39 @@ export default function LoginForm() {
     router.refresh();
   }
 
-  async function request() {
-    const result = await requestAccess(name, email, password, token);
-    if (!result.ok) {
-      setError(result.error);
-      setBusy(false);
-      // The token just spent is now useless whether it was the reason for the
-      // failure or not, so the retry needs a new one.
-      freshChallenge();
-      return;
-    }
-
-    // The account exists and is confirmed, so this always succeeds. Signing in
-    // here rather than asking them to do it themselves is what makes the
-    // handover to /pending seamless.
-    const client = createBrowserClient();
-    await client.auth.signInWithPassword({ email: email.trim(), password });
-
-    router.replace("/pending");
-    router.refresh();
-  }
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    if (mode === "signin") await signIn();
-    else await request();
-  }
-
   return (
-    <div className="space-y-5">
-      <div
-        role="tablist"
-        aria-label="Sign in or request access"
-        className="grid grid-cols-2 gap-1 p-1 bg-card border border-border rounded-xl"
-      >
-        {(
-          [
-            ["signin", "Sign in"],
-            ["request", "Request access"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={mode === value}
-            onClick={() => switchTo(value)}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-              mode === value
-                ? "bg-accent text-background"
-                : "text-muted hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <form onSubmit={onSubmit} className="space-y-4">
-        {mode === "request" && (
-          <Field label="Your name" required>
-            <Input
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Sipho Ndlovu"
-            />
-          </Field>
-        )}
-
-        <Field label="Email" required>
-          <Input
-            type="email"
-            autoComplete="username"
-            autoCapitalize="off"
-            autoCorrect="off"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-
-        <Field
-          label="Password"
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Field label="Email" required>
+        <Input
+          type="email"
+          autoComplete="username"
+          autoCapitalize="off"
+          autoCorrect="off"
           required
-          hint={mode === "request" ? "8 characters or more" : undefined}
-        >
-          <Input
-            type="password"
-            autoComplete={mode === "request" ? "new-password" : "current-password"}
-            required
-            minLength={mode === "request" ? 8 : undefined}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Field>
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </Field>
 
-        {/* Request path only, and renders nothing when no site key is set, so
-            local development and the page suite are unaffected. */}
-        {mode === "request" && (
-          <Turnstile
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-            onToken={setToken}
-            resetKey={challenge}
-          />
-        )}
+      <Field label="Password" required>
+        <Input
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </Field>
 
-        {error && (
-          <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
+          {error}
+        </p>
+      )}
 
-        <Button type="submit" loading={busy} className="w-full">
-          {mode === "signin" ? "Sign in" : "Send the request"}
-        </Button>
-
-        {mode === "request" && (
-          <p className="text-[11px] font-light text-muted leading-relaxed">
-            You choose your own password now. The owner is told you asked, and
-            once they let you in this same password works — there is no email to
-            wait for.
-          </p>
-        )}
-      </form>
-    </div>
+      <Button type="submit" loading={busy} className="w-full">
+        Sign in
+      </Button>
+    </form>
   );
 }

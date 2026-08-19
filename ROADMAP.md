@@ -3,9 +3,12 @@
 Scope only. Read on demand; this file is not loaded automatically.
 
 ## Now
-- **Set `GOOGLE_MAPS_API_KEY` and `BUSINESS_ORIGIN_ADDRESS` on the ops Vercel project.**
-  Until then the order screen asks the salesperson to type the kilometres, which works and
-  prices identically — the fee is computed from whatever distance is stored, by a trigger.
+- **Set `GOOGLE_MAPS_API_KEY` on the ops Vercel project**, with
+  `BUSINESS_ORIGIN_ADDRESS` beside it. Until then the order screen asks the salesperson to
+  type the kilometres, which works and prices identically — the fee is computed from
+  whatever distance is stored, by a trigger.
+- **Deploy.** Everything under "Shipped" below is applied to the database and running
+  locally; the ops app on Vercel is still serving the commit before it.
 - Decide whether the item code should stay visible to the public. `public_items` still
   exposes `sku`, and now that codes are short and sequential, `A021` tells a visitor this is
   the twenty-first machine the business ever took in. The storefront renders it nowhere, so
@@ -14,6 +17,21 @@ Scope only. Read on demand; this file is not loaded automatically.
   `npm run check:launch:db` rather than by eye.
 
 ## Shipped, August 2026
+- **No ranks.** Everybody signed in can do everything, including correcting a paid sale.
+  Adding and removing people is still the owner's, and is now the only thing that is.
+  `app.at_least()` ignores its argument; restoring that one function body brings ten
+  policies back with it.
+- **Accounts are made, not requested.** The request-access form is gone from the login
+  screen and its action refuses. Team → Add someone generates a password and offers to open
+  WhatsApp with it typed out. This also closed a live bug: with no Turnstile key on the ops
+  project, that form refused every request in production with "briefly unavailable".
+- **An order nobody finished is not kept.** Never paid, and it is discarded outright —
+  the row, its lines and its line on the timeline. Paid and then cancelled, and it stays
+  for ever with its reason. Same rule for a machine draft nobody filled in.
+- **A machine goes back where it came from.** `order_lines.held_from_status` remembers what
+  it was doing when the order picked it up, so a fryer from the workshop bench does not come
+  back marked For sale.
+- **New, on a phone, asks which.** One slot in the bottom bar, two things you can start.
 - **Short item codes.** `A042` instead of `TME-2608-0417`, so a code can be written on a
   machine with a marker and read back with one hand. All 32 existing machines were
   renumbered to `A001`–`A032`; `app.sku_renumber_2026` holds the old-to-new map permanently.

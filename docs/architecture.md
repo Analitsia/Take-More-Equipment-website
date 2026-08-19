@@ -222,8 +222,8 @@ how the business already sells.
 ### Phase 2 — Ops PWA (the ERP)
 Installable PWA, mobile-first. Fast intake flow: photograph → classify → price → publish.
 Client-side image compression before upload (warehouse phones, weak signal). Kanban board
-over `status`, realtime-synced. Role-based access — cost prices visible only to owners/
-managers.
+over `status`, realtime-synced. STALE: costs are visible to every approved account
+(`20260819090100`) and ranks are gone (`20260819110000`).
 
 ### Phase 3 — Orders — **built, but not the half this once described**
 What shipped is the counter, not the checkout: **an in-person sale screen** in ops
@@ -291,7 +291,10 @@ Bob Go courier integration slots into Phase 3 or 6 depending on how soon small i
 - Storefront reads the `public_items` view only; cost and margin are unreachable from the
   public app by construction, not by convention.
 - Paystack webhook: signature verification + idempotency + server-side amount re-check.
-- Staff roles: `owner` / `manager` / `staff`, enforced in RLS rather than in the UI.
+- Staff ranks were removed in August 2026 (`20260819110000_one_team_no_ranks.sql`). The
+  `app_role` column and enum remain, and `app.at_least()` ignores what it is asked for —
+  which is what makes putting ranks back one function body. `app.is_owner()` is separate and
+  still guards the team roster and the hard-delete policies.
 - Policies tested through the client SDK — the Supabase SQL editor bypasses RLS and will
   give false confidence.
 
@@ -300,7 +303,7 @@ Bob Go courier integration slots into Phase 3 or 6 depending on how soon small i
 ## Verification
 
 - **Schema/RLS:** query every table as an anonymous client and assert `cost_price` and
-  `leads` are unreachable; assert a `staff` role cannot read cost prices. Run via the
+  `leads` are unreachable; assert what a `staff` account may and may not do. Run via the
   Supabase MCP tools against the project.
 - **Reservation race:** fire two concurrent checkout initiations at one item; exactly one
   must succeed and the other must receive a clean "no longer available."

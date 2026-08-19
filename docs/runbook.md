@@ -11,25 +11,32 @@ has to be filled in before the domain is pointed here, see
 
 ## Getting a new staff member working
 
-1. **They ask.** They open the ops URL, tap **Request access**, and choose their
-   own password. This creates a real account that can sign in and do absolutely
-   nothing — every RLS policy in the schema refuses an unapproved profile.
-2. **The owner approves.** A badge appears on **Team**. Tap it, pick their role,
-   approve. It takes effect on their next request; they do not have to sign out.
-3. **They are in.** The waiting screen updates on its own.
+**You create the account. They never create their own.** The request-access form is gone
+from the login screen and the action behind it refuses — August 2026, on the owner's
+decision. Approval into this app is the only thing between somebody and every cost and
+margin in the business, so it goes through one person.
 
-**Roles.** `staff` see everything except money. `manager` adds costs, margin and
-the ability to send a campaign to the whole list. `owner` adds team management
-and deletion. Costs are the real line: a staff account can *write* a cost and
-cannot *read* one back, which is deliberate.
+1. **Ops → Team → Add someone.** Their name, their email, and optionally their WhatsApp
+   number. Press *Create the account*.
+2. **Send them the password.** It is shown once, and there is no way to see it again. If
+   the WhatsApp number was filled in there is a button that opens WhatsApp with the whole
+   message typed out — the address, their email and the password. Otherwise copy it.
+3. **They sign in and change it.** Their name in the corner → *Change password*. It asks
+   for the current one, so only the person holding it can change it.
 
-**If nobody can request access**, the queue is full — twelve outstanding
-requests. Approve or reject some. The cap is in
-`supabase/migrations/20260809090200_access_requests.sql`, not in the app.
+**If the password is lost**, there is no reset email in this system. Deactivate the account
+and make a new one, or make a second account and deactivate the first — either takes a
+minute and nothing is lost, because the log entries stay against the name.
 
-**If one person cannot request access** but others can, they have tried more than
-three times in a day, or too many requests have come from their connection in the
-last hour. Both clear on their own. An owner can also create the account directly.
+**Nobody has a rank.** Everybody who is signed in can do everything: take stock in, see what
+a machine cost, negotiate, sell, cancel a sale and correct one. The single exception is this
+screen — adding and removing people is the owner's, and that is a door rather than a rank.
+See `20260819110000_one_team_no_ranks.sql`, which is also where to put ranks back: one
+function body, and ten policies follow it.
+
+**If somebody leaves**, Deactivate them. Their session stops working on their next request
+and their name stays on every log entry from when they worked here. Reject deletes an
+account outright and only applies to somebody who never got in.
 
 ---
 
@@ -52,7 +59,7 @@ in `apps/ops/vercel.json`.
 1. **Look at the ledger.** Ops → the dashboard strip says which of the three it
    is: failed, never finished, or stale. The full history is in the `cron_runs`
    table.
-2. **Run it by hand.** Ops → Outreach → *Run match now* (manager and up). If that
+2. **Run it by hand.** Ops → Outreach → *Run match now*. If that
    works, the job is fine and the *scheduler* did not fire — check the Vercel
    cron log.
 3. **If the manual run fails too**, the failure is in `run_stock_match()` and the
@@ -296,13 +303,16 @@ A sale is one transaction and there are exactly two ways back out of it, both on
 own page. Neither deletes anything: the order stays, the customer's timeline keeps the
 `purchased` entry, and the activity log records who undid what.
 
-**"Correct the amount"** — the price was typed wrong, but the sale is real. Manager or owner
-only, because it rewrites revenue that has already been reported. The machines go back to
+**"Correct the amount"** — the price was typed wrong, but the sale is real. Anybody, since
+ranks were removed: it rewrites revenue that has already been reported, which is why it was
+held back, and what settles it is that every reopen is stamped with an actor and explains
+itself on the customer's timeline. The machines go back to
 `reserved`, the order goes back to open, and you re-record the payment with the right figure.
 
 **"Cancel this sale"** — the deal collapsed. Anyone can, deliberately: a wrong number nobody
-can correct is worse than a correction anybody can audit. The machines go back to `listed`
-and are re-published, and the money comes off the reports on its own — the status trigger
+can correct is worse than a correction anybody can audit. The machines go back to WHERE THEY
+CAME FROM — the workshop, if that is where they were when they went on the order — and are
+re-published if that is where they were, and the money comes off the reports on its own — the status trigger
 clears `sold_at` and `sale_price_cents` together, because the date it went and the price it
 went for are one fact.
 
@@ -336,7 +346,7 @@ the same R1 150.
 |---|---|---|
 | `SUPABASE_SECRET_KEY` | Supabase → Settings → API Keys | Both Vercel projects, `.env.local`, GitHub secrets |
 | `RESEND_API_KEY` | Resend dashboard | Ops Vercel project only |
-| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile | Both Vercel projects |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile | Storefront only. The ops app has had no unauthenticated form since the access request was removed |
 | `REVALIDATE_SECRET` | Any long random string | **Both projects, together** — they must match |
 | `ACCESS_REQUEST_IP_PEPPER` | Any long random string | Ops only. Changing it resets the per-IP throttle; nothing else |
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Tokens | `.env.local` and GitHub secrets. Not needed at runtime |

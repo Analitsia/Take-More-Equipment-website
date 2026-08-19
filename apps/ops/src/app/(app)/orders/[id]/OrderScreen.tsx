@@ -8,6 +8,7 @@ import { StatusPill } from "@takemore/ui";
 import {
   ORDER_STATUS_LABELS,
   allocateSoldTotal,
+  canReopenSale,
   canSeeCosts,
   rands,
   type AppRole,
@@ -254,11 +255,11 @@ export default function OrderScreen({
         listTotalCents={listTotal}
         costTotalCents={costTotal}
         showCosts={showCosts}
-        // Reopening rewrites revenue that has already been reported, which is a
-        // different kind of act from making a sale. Postgres is what enforces
-        // it; hiding the button is only about not offering a door that opens
-        // onto a refusal.
-        canReopen={role === "manager" || role === "owner"}
+        // Everybody, since 20260819110000 removed the ranks. Reopening still
+        // rewrites revenue that has already been reported — it is stamped with
+        // an actor and it explains itself on the customer's timeline, which is
+        // what makes that safe to hand to whoever is standing at the counter.
+        canReopen={canReopenSale(role)}
         onDone={handled}
       />
 

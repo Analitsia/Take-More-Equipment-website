@@ -34,8 +34,8 @@ export default async function LoginPage({
             Operations
           </h1>
           <p className="text-sm font-light text-muted mt-2 leading-relaxed">
-            Stock intake, workshop and publishing. New to the team? Request
-            access and the owner will let you in.
+            Stock intake, workshop, sales and publishing. New to the team? Ask
+            the owner to make you an account.
           </p>
         </div>
 

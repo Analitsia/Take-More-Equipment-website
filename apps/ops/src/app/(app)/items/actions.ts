@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabase, requireStaff } from "@/lib/supabase";
+import { createAdminClient } from "@takemore/db/admin";
 import { revalidateStorefront } from "@/lib/storefront";
 import { STAGES, type CostKind, type ItemStatus } from "@takemore/core";
 
@@ -373,6 +374,105 @@ export async function reorderMedia(
  * connection matches nothing the second time rather than re-stamping the
  * timestamp and writing a second 'deleted' line into the history.
  */
+/**
+ * A machine draft nobody ever filled in does not stay on the books.
+ *
+ * The same rule the till uses for an order nobody finished, applied here:
+ *
+ *   nothing was ever recorded  →  discarded, and no trace is kept
+ *   anything was recorded      →  soft-deleted, and the record stays for ever
+ *
+ * Pressing "New item" creates the row immediately — that is what makes the
+ * autosave-as-you-photograph flow possible, and it is right. The cost of it is
+ * that a mis-tap, a customer interrupting, or a phone going to sleep leaves an
+ * "Untitled item" in the stock list, and soft-deleting those was preserving a
+ * record of nothing while still counting against the eye of whoever scrolls the
+ * deleted list later.
+ *
+ * ── What counts as "nothing was recorded" ─────────────────────────────────
+ *
+ * All five, and they are checked HERE rather than trusted from the browser:
+ *
+ *   never published        no customer ever saw it
+ *   no photograph          nobody walked over and photographed it
+ *   no cost line           no money was ever attached to it
+ *   not on an order        nobody has quoted or sold it
+ *   in the workshop or
+ *   for sale               not reserved, not sold — those are order states,
+ *                          and this is the belt to the order check's braces
+ *
+ * A row that fails any of them is soft-deleted exactly as before: what it cost
+ * and what was done to it stay in the record, which is the whole argument of
+ * 20260811090000_soft_delete_is_a_delete.sql.
+ *
+ * The admin key is here for the same reason it is in discardOrder(): the only
+ * DELETE policy on items is owner-only, and the person who needs to undo a
+ * mis-tap is whoever made it. The five conditions above are what stands in for
+ * that policy, and they are stricter than it.
+ */
+export async function deleteItem(
+  id: string
+): Promise<ActionResult & { discarded?: boolean }> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { data: item, error: readError } = await client
+    .from("items")
+    .select("id, sku, title, status, published_at")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (readError) return { ok: false, error: humanise(readError.message) };
+  if (!item) return { ok: false, error: "That machine is not there any more." };
+
+  const [media, costs, lines] = await Promise.all([
+    client.from("item_media").select("id", { count: "exact", head: true }).eq("item_id", id),
+    client.from("item_costs").select("id", { count: "exact", head: true }).eq("item_id", id),
+    client.from("order_lines").select("id", { count: "exact", head: true }).eq("item_id", id),
+  ]);
+
+  const untouched =
+    !item.published_at &&
+    (media.count ?? 0) === 0 &&
+    (costs.count ?? 0) === 0 &&
+    (lines.count ?? 0) === 0 &&
+    (item.status === "refurbishing" || item.status === "listed");
+
+  if (untouched) {
+    const admin = createAdminClient();
+
+    // The status guard is repeated on the statement itself. The read above was
+    // a moment ago, and in that moment somebody else could have put this very
+    // machine on an order from another phone — in which case this matches
+    // nothing and the fall-through below soft-deletes it instead.
+    const { data: gone, error } = await admin
+      .from("items")
+      .delete()
+      .eq("id", id)
+      .in("status", ["refurbishing", "listed"])
+      .is("published_at", null)
+      .select("id");
+
+    if (error) return { ok: false, error: humanise(error.message) };
+
+    if (gone?.length) {
+      // Its own lines on the timeline go with it, for the reason discardOrder()
+      // gives: this row recorded nothing, and a code on the team's timeline
+      // that resolves to no machine reads as a bug rather than as history.
+      await admin.from("activity_log").delete().eq("entity", "item").eq("entity_id", id);
+
+      revalidatePath("/items");
+      revalidatePath("/board");
+      revalidatePath("/");
+      revalidatePath("/team");
+      return { ok: true, discarded: true, notice: `${item.sku} is gone.` };
+    }
+  }
+
+  return softDeleteItem(id);
+}
+
 export async function softDeleteItem(id: string): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();

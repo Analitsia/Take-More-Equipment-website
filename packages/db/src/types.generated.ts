@@ -864,6 +864,7 @@ export type Database = {
       order_lines: {
         Row: {
           created_at: string
+          held_from_status: Database["public"]["Enums"]["item_status"] | null
           id: string
           item_id: string
           list_price_cents: number
@@ -874,6 +875,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          held_from_status?: Database["public"]["Enums"]["item_status"] | null
           id?: string
           item_id: string
           list_price_cents: number
@@ -884,6 +886,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          held_from_status?: Database["public"]["Enums"]["item_status"] | null
           id?: string
           item_id?: string
           list_price_cents?: number

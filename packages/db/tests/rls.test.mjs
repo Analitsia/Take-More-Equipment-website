@@ -501,9 +501,11 @@ async function leads() {
   const manager = users.manager.client;
 
   // The OWNER section above promotes this fixture to manager to prove an owner
-  // can change a role, and app.staff_role() reads the table on every call — so
-  // without this the "staff cannot create a campaign" assertion below is made by
-  // a manager and passes for the wrong reason. Put back where it started.
+  // can still write the role column, and app.staff_role() reads the table on
+  // every call. Put back where it started so the fixture called `staff` is one.
+  // Nothing below depends on the difference any more — that is the point of
+  // 20260819110000 — but a fixture that quietly is not what it is named is how
+  // a suite starts passing for the wrong reason.
   await admin.from("staff_profiles").update({ role: "staff" }).eq("user_id", users.staff.id);
 
   // Anon has no SELECT grant at all, so these are refusals rather than empty
@@ -604,11 +606,18 @@ async function leads() {
       : fail("the timeline cannot be rewritten", "the update succeeded");
   }
 
-  console.log("\nLEADS — bulk sending is where the role split lives");
-  await refused(
-    "staff cannot create a campaign",
-    staff.from("outreach_campaigns").insert({ name: "RLS blast", subject: "RLS blast" })
-  );
+  console.log("\nLEADS — bulk sending, which used to be where the role split lived");
+  // 20260819110000_one_team_no_ranks.sql. This was `refused` until August 2026;
+  // it is asserted the other way round now rather than deleted, because the day
+  // ranks come back this is the line that has to fail.
+  {
+    const { error } = await staff
+      .from("outreach_campaigns")
+      .insert({ name: `RLS staff campaign ${stamp}`, subject: "RLS test subject" });
+    error
+      ? fail("staff can create a campaign", error.message)
+      : ok("staff can create a campaign  (ranks removed)");
+  }
   {
     const { error } = await manager
       .from("outreach_campaigns")
@@ -833,10 +842,23 @@ async function leads() {
         staffClient.from("orders").update({ sold_total_cents: 1 }).eq("id", opened.id).select("id")
       );
 
+      // Manager-only until 20260819110000 removed the ranks. Every reopen is
+      // stamped with an actor in activity_log and explains itself on the
+      // customer's timeline, which is what makes it safe to hand to whoever is
+      // standing at the counter with the wrong number on the screen.
       const { error: staffReopen } = await staffClient.rpc("reopen_order", { p_order_id: opened.id });
       staffReopen
-        ? ok("staff cannot reopen a paid order  (manager and above)")
-        : fail("staff cannot reopen a paid order", "the reopen succeeded");
+        ? fail("staff can reopen a paid order", staffReopen.message)
+        : ok("staff can reopen a paid order  (ranks removed)");
+
+      // Back to paid, so the manager below is reopening rather than meeting a
+      // draft — the assertion has to be about the rank, not about the state.
+      await staffClient.rpc("confirm_order_paid", {
+        p_order_id: opened.id,
+        p_sold_total_cents: 100000,
+        p_method: "card_machine",
+        p_reference: "RLS-2",
+      });
 
       const { error: managerReopen } = await managerClient.rpc("reopen_order", { p_order_id: opened.id });
       managerReopen
