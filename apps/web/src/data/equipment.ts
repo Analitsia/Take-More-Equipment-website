@@ -24,6 +24,13 @@ export type Tag = string;
 
 export type Equipment = {
   slug: string;
+  /**
+   * The short code written on the machine itself — `A042`. Optional because a
+   * row that predates the renumbering, or a view that stops exposing it, must
+   * degrade to a page without a code rather than to a page that says
+   * "undefined". Every caller treats an absent code as "do not show one".
+   */
+  sku?: string;
   title: string;
   brand: string;
   category: Category;

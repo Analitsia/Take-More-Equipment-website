@@ -10,7 +10,7 @@ import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
 import { WARRANTY_MONTHS, cm, deliveryFor, rands, relatedTo } from "@/data/equipment";
 import { getBySlug, getGallery, getStock } from "@/lib/stock";
-import { site, whatsappLink } from "@/data/site";
+import { productEnquiry, site, whatsappLink } from "@/data/site";
 
 /**
  * Prebuild a page for everything published at build time.
@@ -140,6 +140,17 @@ export default async function ProductPage({
               <span className="px-4 py-1.5 rounded-full border border-border text-xs font-light text-muted">
                 Grade {item.grade}
               </span>
+              {/*
+                The code, last in the row and quiet on purpose. It is not a
+                selling point — it is the handle. A customer sends a screenshot
+                of this page and A042 is what tells us which of four fridges
+                they meant; tabular-nums keeps it legible at a glance.
+              */}
+              {item.sku && (
+                <span className="px-4 py-1.5 rounded-full border border-border/60 text-xs font-light text-muted/80 tabular-nums tracking-widest">
+                  {item.sku}
+                </span>
+              )}
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tighter leading-[1.1] mb-6">
@@ -178,9 +189,7 @@ export default async function ProductPage({
               <div className="flex flex-col sm:flex-row gap-4 mt-8">
                 {item.sold ? (
                   <a
-                    href={whatsappLink(
-                      `Hi Take More, the ${named(item)} has sold — can you watch for another one like it?`
-                    )}
+                    href={whatsappLink(productEnquiry(item))}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 flex items-center justify-between gap-3 bg-accent text-background rounded-2xl px-6 py-4 hover:opacity-90 transition-opacity"
@@ -190,9 +199,7 @@ export default async function ProductPage({
                   </a>
                 ) : (
                   <a
-                    href={whatsappLink(
-                      `Hi Take More, I'm interested in the ${named(item)} (${rands(item.price)}). Is it still available?`
-                    )}
+                    href={whatsappLink(productEnquiry(item))}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 flex items-center justify-between gap-3 bg-accent text-background rounded-2xl px-6 py-4 hover:opacity-90 transition-opacity"

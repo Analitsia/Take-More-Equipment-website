@@ -9,10 +9,13 @@ Scope only. Read on demand; this file is not loaded automatically.
   whatever distance is stored, by a trigger.
 - **Deploy.** Everything under "Shipped" below is applied to the database and running
   locally; the ops app on Vercel is still serving the commit before it.
-- Decide whether the item code should stay visible to the public. `public_items` still
-  exposes `sku`, and now that codes are short and sequential, `A021` tells a visitor this is
-  the twenty-first machine the business ever took in. The storefront renders it nowhere, so
-  removing it is a view and a grant.
+- ~~Decide whether the item code should stay visible to the public.~~ **Decided: it stays,
+  and the storefront now shows it.** The code is the handle a customer and a salesperson
+  share — a screenshot of a product page is unidentifiable without it, and "the fridge" is
+  four machines. The cost of that is real and accepted: codes are sequential, so `A021` tells
+  a visitor this is the twenty-first machine the business ever took in. If that ever matters
+  more than the handle does, `app.sku_renumber_2026` holds the old-to-new map and a second
+  renumbering to non-sequential codes is the fix — not hiding the column.
 - Work `docs/launch-checklist.md`. Verify readiness with `npm run check:launch` and
   `npm run check:launch:db` rather than by eye.
 

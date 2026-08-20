@@ -57,6 +57,7 @@ function videoUrl(media: {
 type PublicItemRow = {
   id: string;
   slug: string;
+  sku: string | null;
   title: string;
   brand: string | null;
   category_name: string | null;
@@ -88,6 +89,7 @@ function toEquipment(row: PublicItemRow, images: string[]): Equipment {
   const sold = row.sold ?? false;
   return {
     slug: row.slug,
+    sku: row.sku ?? undefined,
     title: row.title,
     brand: row.brand ?? "",
     category: row.category_name ?? "Uncategorised",
