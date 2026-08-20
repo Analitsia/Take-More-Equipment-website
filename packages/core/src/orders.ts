@@ -101,3 +101,75 @@ export const discountPercent = (
   if (off === null) return null;
   return Math.round((off / listTotalCents) * 1000) / 10;
 };
+
+/**
+ * The whole order's economics: everything that came in, everything that went
+ * out, and what is left as a share of the takings.
+ *
+ * ── Why the delivery fee is on BOTH sides ─────────────────────────────────
+ *
+ * The customer hands over the machines plus the delivery, so the delivery is
+ * income. We then pay a driver, so it is also an expense. Counting it once and
+ * not the other way round is the mistake this is shaped to avoid: put it only
+ * in the income and every delivered order reports a profit nobody earned; put
+ * it only in the costs and every delivered order reports a loss nobody took.
+ *
+ * Because it appears on both sides it CANCELS out of `marginCents`, which is
+ * why this agrees to the cent with `order_economics.margin_cents` in the
+ * database — that view reaches the same figure by leaving delivery out
+ * entirely. What delivery changes is the PERCENTAGE, and it should: money that
+ * passes straight through us is takings we keep nothing of, so a delivered
+ * order really does keep a smaller share of a larger total.
+ *
+ * ── The assumption, stated out loud ───────────────────────────────────────
+ *
+ * `deliveryFeeCents` is what we CHARGE. What the driver actually costs is not
+ * recorded anywhere in this system, so using the fee for both sides assumes
+ * delivery breaks even. If a real driver cost is ever recorded, it belongs
+ * here in place of the fee — and only then will the percentage be exact.
+ */
+export type OrderEconomics = {
+  /** Everything the customer hands over: the machines plus the delivery. */
+  revenueCents: Cents;
+  /** What the machines cost us — the live total from the cost ledger. */
+  goodsCostCents: Cents;
+  /** The delivery we pass on to a driver. See the assumption above. */
+  deliveryCostCents: Cents;
+  costCents: Cents;
+  /** Revenue minus costs. Equal to goods − goods cost; the delivery cancels. */
+  marginCents: Cents;
+  /**
+   * Margin as a share of the takings, to one decimal. Signed, so a sale below
+   * cost reads negative rather than quietly losing its minus.
+   *
+   * Null until a price has been agreed for the machines. Not merely tidy: on an
+   * order that is being typed, the delivery fee is already set while the goods
+   * total is still zero, so the arithmetic is perfectly willing to answer
+   * −570% — a true statement about a sale that has not happened, and a
+   * frightening thing to put in front of a salesperson mid-negotiation. The
+   * rand figure is shown throughout; only the ratio waits for a real number.
+   */
+  percent: number | null;
+};
+
+export const orderEconomics = (
+  /** The price agreed for the machines, before delivery. */
+  goodsCents: Cents,
+  deliveryFeeCents: Cents,
+  goodsCostCents: Cents
+): OrderEconomics => {
+  const revenueCents = goodsCents + deliveryFeeCents;
+  const costCents = goodsCostCents + deliveryFeeCents;
+  const marginCents = revenueCents - costCents;
+  return {
+    revenueCents,
+    goodsCostCents,
+    deliveryCostCents: deliveryFeeCents,
+    costCents,
+    marginCents,
+    percent:
+      goodsCents > 0 && revenueCents > 0
+        ? Math.round((marginCents / revenueCents) * 1000) / 10
+        : null,
+  };
+};

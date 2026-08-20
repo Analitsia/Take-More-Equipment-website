@@ -8,6 +8,7 @@ import {
   PAYMENT_METHOD_LABELS,
   discountCents,
   discountPercent,
+  orderEconomics,
   rands,
   type PaymentMethod,
 } from "@takemore/core";
@@ -81,7 +82,20 @@ export default function PaymentPanel({
   const charged = goods + order.delivery_fee_cents;
   const off = discountCents(listTotalCents, cents);
   const offPercent = discountPercent(listTotalCents, cents);
-  const margin = costTotalCents === null ? null : goods - costTotalCents;
+  /**
+   * Everything in, everything out, and the share we keep.
+   *
+   * The delivery fee counts as income AND as cost, because that is what it is:
+   * the customer pays it and a driver takes it. It therefore cancels out of the
+   * rand margin — which is why this number still matches the one on the reports
+   * — while correctly diluting the percentage, since money passing straight
+   * through us is takings we keep nothing of.
+   */
+  const economics =
+    costTotalCents === null
+      ? null
+      : orderEconomics(goods, order.delivery_fee_cents, costTotalCents);
+  const margin = economics?.marginCents ?? null;
   const belowCost = margin !== null && margin < 0;
 
   const confirm = async () => {
@@ -172,9 +186,30 @@ export default function PaymentPanel({
             }`}
           >
             <Row label="What the machines cost us" value={rands(costTotalCents)} muted />
+            {/* Only when there is one. An order collected from the warehouse
+                has no delivery on either side, and two extra rows reading R0
+                would be noise on the screen this business uses most. */}
+            {economics !== null && economics.deliveryCostCents > 0 && (
+              <>
+                <Row
+                  label="Delivery we pay out"
+                  value={rands(economics.deliveryCostCents)}
+                  muted
+                />
+                <Row label="Total cost" value={rands(economics.costCents)} muted />
+              </>
+            )}
             <Row
               label={belowCost ? "Loss" : "Margin"}
               value={rands(Math.abs(margin ?? 0))}
+              // The percentage is of everything the customer hands over, not of
+              // the machines alone, so it answers "how much of the takings do we
+              // keep" rather than "how much of the sticker".
+              note={
+                economics?.percent === null || economics === null
+                  ? undefined
+                  : `${Math.abs(economics.percent)}% of takings`
+              }
               strong
               tone={belowCost ? "bad" : "good"}
             />
@@ -305,12 +340,15 @@ export default function PaymentPanel({
 function Row({
   label,
   value,
+  note,
   muted,
   strong,
   tone,
 }: {
   label: string;
   value: string;
+  /** Second line under the figure — the percentage beside the margin. */
+  note?: string;
   muted?: boolean;
   strong?: boolean;
   tone?: "good" | "bad";
@@ -321,11 +359,16 @@ function Row({
         {label}
       </dt>
       <dd
-        className={`tabular-nums ${strong ? "text-base font-medium" : "text-sm font-light"} ${
+        className={`text-right tabular-nums ${
+          strong ? "text-base font-medium" : "text-sm font-light"
+        } ${
           tone === "bad" ? "text-status-sold" : tone === "good" ? "text-accent" : "text-white/90"
         }`}
       >
         {value}
+        {note && (
+          <span className="block text-[11px] font-light text-muted">{note}</span>
+        )}
       </dd>
     </div>
   );

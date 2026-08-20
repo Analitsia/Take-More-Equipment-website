@@ -242,6 +242,15 @@ see the cost floor and the new-price anchor while negotiating, quote delivery by
 type what was actually agreed, and record whether the money came by card machine or bank
 transfer. Payment is **recorded, never processed** — no gateway, no VAT, no invoice PDF.
 
+**Margin on the sale screen is shown twice: in rands and as a share of the takings.** The
+two use different framings of the delivery fee and still agree to the cent, which is worth
+knowing before anyone "fixes" the apparent discrepancy. `order_economics.margin_cents`
+leaves delivery out of both income and cost; `orderEconomics()` in `packages/core` puts it
+in both. It cancels either way, so the rand figure is identical — but the percentage is of
+everything the customer hands over, so a delivered order correctly keeps a smaller share of
+a larger total. What the driver actually costs is **not recorded anywhere**, so the fee we
+charge stands in for it; the percentage is exact only while delivery breaks even.
+
 The load-bearing part is `confirm_order_paid()`, which is the first thing in the history of
 this codebase to write `items.sale_price_cents`. Every money view computes revenue as
 `coalesce(sale_price_cents, list_price_cents)`, so until it existed the dashboard reported
