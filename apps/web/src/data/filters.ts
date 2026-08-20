@@ -11,6 +11,14 @@ export { GRADES, PRICE_BANDS } from "./equipment";
  */
 
 export type Filters = {
+  /**
+   * Division slug, matching Equipment.divisionSlug. Null is "show both lines".
+   *
+   * Not a list like the others, and not counted as an active filter below: this
+   * is which shop you are standing in rather than a refinement inside one, so
+   * it gets its own control above the grid and survives Clear.
+   */
+  division: string | null;
   /** Category names, matching Equipment.category. */
   categories: string[];
   grades: Grade[];
@@ -21,12 +29,19 @@ export type Filters = {
 };
 
 export const emptyFilters: Filters = {
+  division: null,
   categories: [],
   grades: [],
   tags: [],
   price: null,
   hideSold: false,
 };
+
+/** Everything Clear resets, which is everything except which line you are in. */
+export const clearedWithin = (filters: Filters): Filters => ({
+  ...emptyFilters,
+  division: filters.division,
+});
 
 export const countActive = (filters: Filters) =>
   filters.categories.length +
@@ -43,6 +58,7 @@ export function applyFilters(
   const band = PRICE_BANDS.find((b) => b.id === filters.price);
 
   return stock.filter((item) => {
+    if (filters.division && item.divisionSlug !== filters.division) return false;
     if (filters.categories.length && !filters.categories.includes(item.category))
       return false;
     if (filters.grades.length && !filters.grades.includes(item.grade)) return false;

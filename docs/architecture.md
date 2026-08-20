@@ -116,6 +116,11 @@ export (`@takemore/core/turnstile`) rather than part of the barrel.
 
 - Identity: `id`, `sku` (a four-character code, e.g. `A042`), `slug`
 - Classification: `category_id`, `subcategory_id`, `brand`, `model`, `condition_grade`
+  - The catalogue tree is three levels: **division → category → subcategory**. The shop
+    sells two lines through one warehouse — Industrial Kitchen and Homestaging — and the
+    top level is what keeps a wardrobe out of a dropdown that starts with Wash-Up.
+  - There is deliberately **no `division_id` on `items`**: an item's division is its
+    category's division, always. Storing it twice would create a column that can drift.
 - Content: `title`, `description`, `specs` (jsonb), `width/depth/height_mm`, `weight_kg`
 - Money: `list_price_cents` (the ask), `retail_price_cents` (what it costs new — an
   anchor, never charged), `sale_price_cents` (what it went for)
@@ -157,8 +162,8 @@ asking price at the moment a machine was added, so a later reprice cannot rewrit
 customer was quoted, and carries **no cost columns** — `order_line_economics` reads
 `item_costs` live, because a stored copy could disagree with its own ledger.
 
-**Other tables:** `item_media` (ordered photos/video), `item_costs`, `categories`,
-`subcategories`, `tags`, `leads`, `lead_interests`, `lead_events`, `outreach_campaigns`,
+**Other tables:** `item_media` (ordered photos/video), `item_costs`, `divisions`,
+`categories`, `subcategories`, `tags`, `leads`, `lead_interests`, `lead_events`, `outreach_campaigns`,
 `outreach_messages`, `staff_profiles`, `access_requests`, `cron_runs`, `activity_log`.
 There is no `customers` table — that is `leads` — and no `payments` or `shipments`.
 

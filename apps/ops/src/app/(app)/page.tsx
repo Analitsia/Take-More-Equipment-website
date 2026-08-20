@@ -88,7 +88,11 @@ async function ManagerDashboard({ greeting, sweep }: { greeting: string; sweep: 
   const [items, leads, categories, subcategories] = await Promise.all([
     client.from("item_analytics").select("*"),
     client.from("lead_demand").select("*"),
-    client.from("categories").select("id, name").eq("active", true).order("position"),
+    client
+      .from("categories")
+      .select("id, name, division:divisions(name, position)")
+      .eq("active", true)
+      .order("position"),
     client
       .from("subcategories")
       .select("id, name, category_id")
@@ -111,6 +115,14 @@ async function ManagerDashboard({ greeting, sweep }: { greeting: string; sweep: 
   for (const [view, error] of failures) {
     reportError(error!, { where: "ops/dashboard", view });
   }
+
+  // Divisions first, then each division's own order — the picker groups the
+  // options into <optgroup>s by consecutive run, so an interleaved list would
+  // come out as alternating headings. PostgREST cannot sort a parent by an
+  // embedded column; the sort below is stable, so `position` survives it.
+  const categoryRows = (categories.data ?? [])
+    .slice()
+    .sort((a: any, b: any) => (a.division?.position ?? 0) - (b.division?.position ?? 0));
 
   const itemRows = (items.data ?? []).map((row) =>
     normaliseItem(row as Record<string, unknown>)
@@ -148,7 +160,7 @@ async function ManagerDashboard({ greeting, sweep }: { greeting: string; sweep: 
         greeting={greeting}
         items={itemRows}
         leads={leadRows}
-        categories={categories.data ?? []}
+        categories={categoryRows}
         subcategories={subcategories.data ?? []}
       />
     </>

@@ -36,6 +36,31 @@ export default function MenuOverlay({
   const index = useCatalogueIndex();
   useScrollLock();
 
+  /**
+   * The category list, split by line of business once there is more than one
+   * carrying stock — the same rule the catalogue's own switcher follows, so a
+   * visitor never meets a heading here that the shop below does not have.
+   * A line with nothing published is dropped rather than listed at zero.
+   */
+  const categoryBlocks = (() => {
+    const lines = (index?.divisions ?? []).filter((d) => d.count > 0);
+    const categories = index?.categories ?? [];
+    if (lines.length > 1) {
+      return lines.map((line) => ({
+        label: line.name,
+        categories: categories.filter((c) => c.divisionSlug === line.slug),
+      }));
+    }
+    return [
+      {
+        label: "Categories",
+        categories: categories.filter((c) =>
+          lines.some((line) => line.slug === c.divisionSlug)
+        ),
+      },
+    ];
+  })();
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -118,15 +143,16 @@ export default function MenuOverlay({
           </nav>
 
           <div className="lg:w-80 shrink-0 flex flex-col gap-10">
-            <div>
+            {categoryBlocks.map((block) => (
+            <div key={block.label}>
               <div className="flex items-center space-x-3 mb-6">
                 <div className="w-5 h-1 rounded-full bg-accent"></div>
                 <span className="text-accent uppercase text-xs tracking-wider font-normal">
-                  Categories
+                  {block.label}
                 </span>
               </div>
               <ul className="flex flex-col gap-1">
-                {(index?.categories ?? []).map((category) => (
+                {block.categories.map((category) => (
                   <li key={category.name}>
                     <Link
                       href="/#catalogue"
@@ -152,6 +178,7 @@ export default function MenuOverlay({
                 ))}
               </ul>
             </div>
+            ))}
 
             <div className="bg-card rounded-[2rem] border border-border p-6">
               <div className="flex items-center space-x-3 mb-4">

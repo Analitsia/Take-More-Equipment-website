@@ -22,6 +22,13 @@ export type Grade = (typeof GRADES)[number];
 export type Category = string;
 export type Tag = string;
 
+/**
+ * The line of business a category belongs to — catering equipment, or the
+ * furniture and decor sold for homestaging. One level above the category, and
+ * a lookup table like it, so this is a plain string too.
+ */
+export type Division = string;
+
 export type Equipment = {
   slug: string;
   /**
@@ -33,6 +40,15 @@ export type Equipment = {
   sku?: string;
   title: string;
   brand: string;
+  /** Display name of the line of business, e.g. "Homestaging". */
+  division: Division;
+  /**
+   * The same thing as a slug. Both are carried because they do different jobs:
+   * the name is what a visitor reads on the switcher, the slug is what the
+   * filter compares against — and display copy is exactly the sort of thing
+   * that gets reworded, which should not silently empty the catalogue.
+   */
+  divisionSlug: string;
   category: Category;
   /** The second level of the tree, where one has been chosen. Optional by design. */
   subcategory?: string;
@@ -79,12 +95,50 @@ export type CategoryMeta = {
   icon: string;
   blurb: string;
   count: number;
+  /** Which line of business this category sits under. */
+  divisionSlug: string;
+  division: Division;
+};
+
+/**
+ * One chip in the enquiry form, and the line of business it sits under.
+ *
+ * Lives here rather than beside the query that builds it because the form is a
+ * client component, and `lib/stock.ts` is server-only.
+ */
+export type CategoryChoice = {
+  slug: string;
+  name: string;
+  divisionSlug: string;
+  division: Division;
+};
+
+export type DivisionMeta = {
+  slug: string;
+  name: string;
+  blurb: string;
+  /** Published units across every category in this line. */
+  count: number;
 };
 
 export type Vocabulary = {
+  /** In the order the shop offers them. */
+  divisions: DivisionMeta[];
+  /** Ordered by division first, then by the category's own position. */
   categories: CategoryMeta[];
   tags: string[];
 };
+
+/**
+ * The lines that actually have something on the site.
+ *
+ * A switcher offering "Homestaging" that leads to an empty grid is worse than
+ * no switcher at all, and the same is true of a filter heading. Every surface
+ * that splits the catalogue in two asks this first, so they can never disagree
+ * about whether the split exists.
+ */
+export const stockedDivisions = (vocabulary: Vocabulary) =>
+  vocabulary.divisions.filter((division) => division.count > 0);
 
 /**
  * Related stock: same category first, then anything in a similar price bracket,

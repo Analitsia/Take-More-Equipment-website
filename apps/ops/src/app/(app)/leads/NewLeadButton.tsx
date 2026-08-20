@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field, Input, Select, Textarea } from "@takemore/ui";
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, formatPhone, normalisePhone } from "@takemore/core";
+import { byDivision, type CategoryOption } from "@/lib/catalogue";
 import { createLead } from "./actions";
 
 /**
@@ -24,7 +25,7 @@ export default function NewLeadButton({
   children,
 }: {
   className: string;
-  categories: { id: string; name: string }[];
+  categories: CategoryOption[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -98,12 +99,20 @@ export default function NewLeadButton({
         </Field>
 
         <Field label="Kind of thing they want">
+          {/* Grouped rather than cascaded: this card is a quick capture at a
+              counter, and a second dropdown to reach the first one is a step
+              too many. The headings do the same job of keeping the two lines
+              of business apart. */}
           <Select name="category_id" defaultValue="">
             <option value="">Not sure yet</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+            {byDivision(categories).map((group) => (
+              <optgroup key={group.name} label={group.name}>
+                {group.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </Field>

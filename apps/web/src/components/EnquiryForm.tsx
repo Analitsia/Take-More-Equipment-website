@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Turnstile } from "@takemore/ui";
 import { submitEnquiry, type EnquiryResult } from "@/app/actions/enquiry";
 import { site } from "@/data/site";
+import type { CategoryChoice } from "@/data/equipment";
 
 /**
  * The form that keeps the enquiry.
@@ -67,7 +68,7 @@ export default function EnquiryForm({
   itemTitle?: string;
   /** Offered as chips on the general form. Ignored on a product page, where the
    *  category is resolved from the item itself. */
-  categories?: { slug: string; name: string }[];
+  categories?: CategoryChoice[];
   className?: string;
 }) {
   const [state, action] = useActionState<EnquiryResult | null, FormData>(
@@ -75,6 +76,19 @@ export default function EnquiryForm({
     null
   );
   const [category, setCategory] = useState("");
+
+  // One unlabelled group while the shop sells a single line, so the form looks
+  // exactly as it did; a labelled group per line once it sells two.
+  const chipGroups: { label: string | null; categories: CategoryChoice[] }[] = (() => {
+    const lines: string[] = [];
+    for (const option of categories)
+      if (!lines.includes(option.division)) lines.push(option.division);
+    if (lines.length < 2) return [{ label: null, categories: [...categories] }];
+    return lines.map((line) => ({
+      label: line,
+      categories: categories.filter((option) => option.division === line),
+    }));
+  })();
   const id = useId();
   const copy = COPY[mode];
   const onProduct = mode === "product" || mode === "sold";
@@ -153,26 +167,40 @@ export default function EnquiryForm({
           <legend className="text-xs font-light text-muted mb-2">
             What kind of thing? <span className="text-muted/60">(optional)</span>
           </legend>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((option) => {
-              const on = category === option.slug;
-              return (
-                <button
-                  key={option.slug}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setCategory(on ? "" : option.slug)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors ${
-                    on
-                      ? "border-accent/70 bg-accent/10 text-accent"
-                      : "border-border text-white/70 hover:border-white/25"
-                  }`}
-                >
-                  {option.name}
-                </button>
-              );
-            })}
-          </div>
+          {/* Split by line of business once the shop sells more than one, so
+              twelve chips read as two short lists rather than one long one.
+              Unlike the catalogue, nothing here is dropped for being out of
+              stock — the whole point of the form is asking for what we do not
+              currently have on the floor. */}
+          {chipGroups.map((group) => (
+            <div key={group.label ?? "all"} className="mb-3 last:mb-0">
+              {group.label && (
+                <span className="block text-[11px] font-light text-muted/70 mb-1.5">
+                  {group.label}
+                </span>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {group.categories.map((option) => {
+                  const on = category === option.slug;
+                  return (
+                    <button
+                      key={option.slug}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setCategory(on ? "" : option.slug)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors ${
+                        on
+                          ? "border-accent/70 bg-accent/10 text-accent"
+                          : "border-border text-white/70 hover:border-white/25"
+                      }`}
+                    >
+                      {option.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </fieldset>
       )}
 

@@ -97,6 +97,7 @@ export type Database = {
         Row: {
           active: boolean
           blurb: string | null
+          division_id: string
           icon: string
           id: string
           name: string
@@ -106,6 +107,7 @@ export type Database = {
         Insert: {
           active?: boolean
           blurb?: string | null
+          division_id: string
           icon?: string
           id?: string
           name: string
@@ -115,13 +117,22 @@ export type Database = {
         Update: {
           active?: boolean
           blurb?: string | null
+          division_id?: string
           icon?: string
           id?: string
           name?: string
           position?: number
           slug?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cron_runs: {
         Row: {
@@ -150,6 +161,33 @@ export type Database = {
           ok?: boolean | null
           result?: Json | null
           started_at?: string
+        }
+        Relationships: []
+      }
+      divisions: {
+        Row: {
+          active: boolean
+          blurb: string | null
+          id: string
+          name: string
+          position: number
+          slug: string
+        }
+        Insert: {
+          active?: boolean
+          blurb?: string | null
+          id?: string
+          name: string
+          position?: number
+          slug: string
+        }
+        Update: {
+          active?: boolean
+          blurb?: string | null
+          id?: string
+          name?: string
+          position?: number
+          slug?: string
         }
         Relationships: []
       }
@@ -1546,6 +1584,9 @@ export type Database = {
       public_categories: {
         Row: {
           blurb: string | null
+          division_name: string | null
+          division_position: number | null
+          division_slug: string | null
           icon: string | null
           id: string | null
           item_count: number | null
@@ -1608,6 +1649,8 @@ export type Database = {
           condition_grade: Database["public"]["Enums"]["condition_grade"] | null
           depth_mm: number | null
           description: string | null
+          division_name: string | null
+          division_slug: string | null
           featured: boolean | null
           height_mm: number | null
           id: string | null

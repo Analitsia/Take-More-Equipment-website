@@ -4,12 +4,13 @@ import { motion } from "framer-motion";
 import Subheading from "./Subheading";
 import EnquiryForm from "./EnquiryForm";
 import { site, whatsappLink } from "@/data/site";
+import type { CategoryChoice } from "@/data/equipment";
 
 // Closing CTA — Phase 1 sells by enquiry, so this is the primary conversion point.
 export default function CtaBand({
   categories = [],
 }: {
-  categories?: { slug: string; name: string }[];
+  categories?: CategoryChoice[];
 }) {
   return (
     <section className="py-12 md:py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">

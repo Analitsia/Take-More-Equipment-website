@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { reportError } from "@takemore/observability";
 import type { ConditionGrade, ItemStatus } from "@takemore/core";
 import type { MediaRef } from "./media";
+import type { CategoryOption } from "./catalogue";
 
 /**
  * Reads for the ops app.
@@ -114,14 +115,46 @@ export async function getFeaturedCount(): Promise<number> {
   return count ?? 0;
 }
 
-export async function getCategories() {
+/**
+ * The two lines of business, in the order they are offered.
+ *
+ * Fetched even though there are only two rows and they change roughly never:
+ * they are a lookup table precisely so a third can be added without a deploy,
+ * and a hardcoded pair here would quietly make that untrue.
+ */
+export async function getDivisions() {
   const client = await supabase();
   const { data } = await client
-    .from("categories")
-    .select("id, name, slug, icon")
+    .from("divisions")
+    .select("id, name, slug")
     .eq("active", true)
     .order("position");
   return data ?? [];
+}
+
+/**
+ * Every category across both lines of business, each carrying its division.
+ *
+ * The division rides along rather than being fetched separately because every
+ * screen that offers a category has to say which line it belongs to — the item
+ * editor narrows the list to one line, the lead screens group them under
+ * headings — and a twelve-row read is not worth splitting in two.
+ */
+export async function getCategories(): Promise<CategoryOption[]> {
+  const client = await supabase();
+  const { data } = await client
+    .from("categories")
+    .select("id, name, slug, icon, division_id, division:divisions(id, name, slug, position)")
+    .eq("active", true)
+    .order("position");
+
+  // PostgREST cannot order a parent by a column of an embedded row, so the
+  // second level of the ordering happens here. Sorting only by the division
+  // leaves the `position` order the query already applied intact inside each
+  // group — Array.prototype.sort is stable.
+  return ((data ?? []) as unknown as CategoryOption[]).sort(
+    (a, b) => (a.division?.position ?? 0) - (b.division?.position ?? 0)
+  );
 }
 
 /**

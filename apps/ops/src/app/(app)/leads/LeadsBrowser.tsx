@@ -14,6 +14,7 @@ import {
   type LeadStatus,
 } from "@takemore/core";
 import type { LeadRow } from "@/lib/leads";
+import { byDivision, type CategoryOption } from "@/lib/catalogue";
 
 /**
  * The desk-work view of people.
@@ -66,7 +67,7 @@ export default function LeadsBrowser({
   categories,
 }: {
   leads: LeadRow[];
-  categories: { id: string; name: string }[];
+  categories: CategoryOption[];
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<LeadStatus | "all">("all");
@@ -169,10 +170,14 @@ export default function LeadsBrowser({
                      hover:border-white/20 focus:border-accent focus:outline-none transition-colors"
         >
           <option value="all">Wants anything</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
+          {byDivision(categories).map((group) => (
+            <optgroup key={group.name} label={group.name}>
+              {group.categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

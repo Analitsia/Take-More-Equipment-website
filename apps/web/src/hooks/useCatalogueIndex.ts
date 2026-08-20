@@ -15,7 +15,16 @@ export type IndexItem = {
 };
 
 export type CatalogueIndex = {
-  categories: { name: string; icon: string; blurb: string; count: number }[];
+  /** Lines of business, in the order the shop offers them. */
+  divisions: { slug: string; name: string; blurb: string; count: number }[];
+  categories: {
+    name: string;
+    icon: string;
+    blurb: string;
+    count: number;
+    divisionSlug: string;
+    division: string;
+  }[];
   items: IndexItem[];
 };
 
@@ -30,9 +39,9 @@ let cached: Promise<CatalogueIndex> | null = null;
 
 const load = () => {
   cached ??= fetch("/api/catalogue")
-    .then((r) => (r.ok ? r.json() : { categories: [], items: [] }))
+    .then((r) => (r.ok ? r.json() : { divisions: [], categories: [], items: [] }))
     // A failed index should degrade to an empty overlay, never a broken page.
-    .catch(() => ({ categories: [], items: [] }));
+    .catch(() => ({ divisions: [], categories: [], items: [] }));
   return cached;
 };
 

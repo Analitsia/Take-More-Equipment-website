@@ -17,6 +17,7 @@ export async function GET() {
 
   return NextResponse.json(
     {
+      divisions: vocabulary.divisions,
       categories: vocabulary.categories,
       items: stock.map((item) => ({
         slug: item.slug,

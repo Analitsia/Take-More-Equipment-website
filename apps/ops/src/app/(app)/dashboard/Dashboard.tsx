@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { STATUS_LABELS, STATUS_ORDER, rands, type ItemStatus } from "@takemore/core";
@@ -67,7 +67,12 @@ function useLiveRefresh() {
   }, [router]);
 }
 
-export type Category = { id: string; name: string };
+export type Category = {
+  id: string;
+  name: string;
+  /** Heading this category is filed under in the picker. Null groups as "Other". */
+  division: { name: string } | null;
+};
 export type Subcategory = { id: string; name: string; category_id: string };
 
 export default function Dashboard({
@@ -170,7 +175,13 @@ export default function Dashboard({
             // the parent changes would filter to nothing and look like no data.
             setSubcategoryId(null);
           }}
-          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          // Grouped: twelve flat options across two unrelated lines of business
+          // is a list you read rather than scan.
+          options={categories.map((c) => ({
+            value: c.id,
+            label: c.name,
+            group: c.division?.name ?? "Other",
+          }))}
           allLabel="All categories"
         />
 
@@ -448,10 +459,19 @@ function Select({
   label: string;
   value: string | null;
   onChange: (value: string | null) => void;
-  options: { value: string; label: string }[];
+  /** `group` is optional; supplying it renders the options under <optgroup>s. */
+  options: { value: string; label: string; group?: string }[];
   allLabel: string;
   disabled?: boolean;
 }) {
+  const groups: { name: string | null; options: typeof options }[] = [];
+  for (const option of options) {
+    const name = option.group ?? null;
+    const last = groups[groups.length - 1];
+    if (last && last.name === name) last.options.push(option);
+    else groups.push({ name, options: [option] });
+  }
+
   return (
     <label className="relative">
       <span className="sr-only">{label}</span>
@@ -464,11 +484,21 @@ function Select({
                    disabled:opacity-40 disabled:hover:border-border transition-colors"
       >
         <option value="">{allLabel}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
+        {groups.map((group, index) => {
+          const items = group.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ));
+          return group.name ? (
+            <optgroup key={group.name} label={group.name}>
+              {items}
+            </optgroup>
+          ) : (
+            // Keyed by index because an ungrouped run has no name of its own.
+            <Fragment key={index}>{items}</Fragment>
+          );
+        })}
       </select>
       <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted flex items-center">
         <iconify-icon icon="solar:alt-arrow-down-linear" width="14" height="14" noobserver="" />

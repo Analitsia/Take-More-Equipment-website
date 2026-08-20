@@ -1,7 +1,7 @@
 "use client";
 
 import { GRADES, PRICE_BANDS, tagLabel, type Filters } from "@/data/filters";
-import type { Vocabulary } from "@/data/equipment";
+import { stockedDivisions, type CategoryMeta, type Vocabulary } from "@/data/equipment";
 
 /** Small accent label — same treatment as Subheading, without the dash rule. */
 function GroupLabel({ text }: { text: string }) {
@@ -107,6 +107,41 @@ export default function FilterPanel({
     setFilters({ ...filters, [key]: next } as Filters);
   };
 
+  /**
+   * The category list, scoped to the line of business in play.
+   *
+   * Three shapes, one rule — never offer a tick that cannot return anything:
+   *   · a line is chosen  → only its categories, under the plain heading;
+   *   · both lines shown  → one block per line, each under the line's name;
+   *   · one line stocked  → exactly what this panel always was.
+   *
+   * Lines with nothing published are dropped in all three, which is what keeps
+   * this panel and the switcher above the grid telling the same story.
+   */
+  const categoryGroups: { label: string; categories: CategoryMeta[] }[] = (() => {
+    const lines = stockedDivisions(vocabulary);
+    const inStock = (category: CategoryMeta) =>
+      lines.some((line) => line.slug === category.divisionSlug);
+
+    if (filters.division) {
+      return [
+        {
+          label: "Category",
+          categories: vocabulary.categories.filter(
+            (c) => c.divisionSlug === filters.division
+          ),
+        },
+      ];
+    }
+    if (lines.length > 1) {
+      return lines.map((line) => ({
+        label: line.name,
+        categories: vocabulary.categories.filter((c) => c.divisionSlug === line.slug),
+      }));
+    }
+    return [{ label: "Category", categories: vocabulary.categories.filter(inStock) }];
+  })();
+
   return (
     <aside className="lg:w-72 shrink-0">
       <div className="bg-card rounded-[2rem] border border-border p-5 sm:p-6 md:p-8 lg:sticky lg:top-6">
@@ -159,17 +194,19 @@ export default function FilterPanel({
         </div>
 
         <div className={`${open ? "block pt-5" : "hidden"} lg:block lg:pt-6`}>
-          <Group label="Category">
-            {vocabulary.categories.map((category) => (
-              <Row
-                key={category.name}
-                label={category.name}
-                count={category.count}
-                active={filters.categories.includes(category.name)}
-                onClick={() => toggle("categories", category.name)}
-              />
-            ))}
-          </Group>
+          {categoryGroups.map((group) => (
+            <Group key={group.label} label={group.label}>
+              {group.categories.map((category) => (
+                <Row
+                  key={category.name}
+                  label={category.name}
+                  count={category.count}
+                  active={filters.categories.includes(category.name)}
+                  onClick={() => toggle("categories", category.name)}
+                />
+              ))}
+            </Group>
+          ))}
 
           <Group label="Price">
             {PRICE_BANDS.map((band) => (

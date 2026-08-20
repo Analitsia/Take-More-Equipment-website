@@ -49,6 +49,7 @@ type Item = Record<string, any>;
 
 export default function ItemEditor({
   item,
+  divisions,
   categories,
   subcategories,
   tags,
@@ -59,7 +60,8 @@ export default function ItemEditor({
   featuredCount,
 }: {
   item: Item;
-  categories: { id: string; name: string; slug: string }[];
+  divisions: { id: string; name: string; slug: string }[];
+  categories: { id: string; name: string; slug: string; division_id: string }[];
   subcategories: { id: string; name: string; slug: string; category_id: string }[];
   tags: { id: string; name: string; slug: string }[];
   costs: any[];
@@ -84,6 +86,12 @@ export default function ItemEditor({
     title: item.title ?? "",
     brand: item.brand ?? "",
     model: item.model ?? "",
+    // Not a column on `items` — the division of a machine IS the division of
+    // its category. Seeded from whatever category the item already carries so
+    // reopening a saved item lands on the right branch of the tree, and held in
+    // form state only to decide which categories the next dropdown offers.
+    division_id:
+      categories.find((c) => c.id === item.category_id)?.division_id ?? "",
     category_id: item.category_id ?? "",
     subcategory_id: item.subcategory_id ?? "",
     condition_grade: item.condition_grade ?? "",
@@ -95,6 +103,11 @@ export default function ItemEditor({
     height_cm: toCm(item.height_mm),
     weight_kg: item.weight_kg ?? "",
   });
+
+  /** Only the categories belonging to the line of business currently chosen. */
+  const categoryOptions = categories.filter(
+    (c) => c.division_id === form.division_id
+  );
 
   /** Only the subcategories belonging to the category currently chosen. */
   const subcategoryOptions = subcategories.filter(
@@ -318,10 +331,47 @@ export default function ItemEditor({
             </Field>
           </div>
 
+          {/* Three narrowing choices, coarsest first. The shop sells two
+              unrelated things through one warehouse, and a worker cataloguing a
+              wardrobe should never have to scroll past Wash-Up to find Storage.
+              Picking a line of business here is what makes the other line's
+              categories disappear from the next dropdown. */}
+          <Field label="Line of business" required>
+            <Select
+              value={form.division_id}
+              onChange={(e) => {
+                const division_id = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  division_id,
+                  category_id: "",
+                  subcategory_id: "",
+                }));
+                // The division is not stored on the item, so the only thing to
+                // write is what it invalidates. Both columns go in one patch:
+                // a category from the division we just left would fail the
+                // composite foreign key on the way past.
+                save({ category_id: null, subcategory_id: null });
+              }}
+            >
+              <option value="">Choose…</option>
+              {divisions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Category" required>
+            <Field
+              label="Category"
+              required
+              hint={form.division_id ? undefined : "pick a line first"}
+            >
               <Select
                 value={form.category_id}
+                disabled={!form.division_id}
                 onChange={(e) => {
                   const category_id = e.target.value;
                   setForm((f) => ({ ...f, category_id, subcategory_id: "" }));
@@ -333,7 +383,7 @@ export default function ItemEditor({
                 }}
               >
                 <option value="">Choose…</option>
-                {categories.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>

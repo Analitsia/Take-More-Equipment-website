@@ -3,7 +3,13 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@takemore/db";
 import { reportError } from "@takemore/observability";
-import type { Equipment, GalleryMedia, Grade, Vocabulary } from "@/data/equipment";
+import type {
+  CategoryChoice,
+  Equipment,
+  GalleryMedia,
+  Grade,
+  Vocabulary,
+} from "@/data/equipment";
 
 /**
  * The storefront's data source.
@@ -60,6 +66,8 @@ type PublicItemRow = {
   sku: string | null;
   title: string;
   brand: string | null;
+  division_slug: string | null;
+  division_name: string | null;
   category_name: string | null;
   subcategory_name: string | null;
   condition_grade: Grade | null;
@@ -92,6 +100,11 @@ function toEquipment(row: PublicItemRow, images: string[]): Equipment {
     sku: row.sku ?? undefined,
     title: row.title,
     brand: row.brand ?? "",
+    // The view inner-joins both, so in practice neither is ever null. The
+    // fallbacks exist because a view column is typed nullable no matter what,
+    // and a card that says "Uncategorised" beats one that says "undefined".
+    division: row.division_name ?? "Uncategorised",
+    divisionSlug: row.division_slug ?? "uncategorised",
     category: row.category_name ?? "Uncategorised",
     // Left undefined rather than defaulted: the detail page skips the row
     // entirely when there is no subcategory, and "—" would be noise.
@@ -170,12 +183,14 @@ export const getStock = unstable_cache(fetchStock, ["stock"], {
 async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
   const client = createPublicClient();
 
-  const { data: categories } = await client
-    .from("public_categories")
-    .select("name, icon, blurb, position")
-    .order("position");
-
-  const { data: tags } = await client.from("tags").select("name, slug, position").order("position");
+  const [{ data: categories }, { data: divisions }, { data: tags }] = await Promise.all([
+    client
+      .from("public_categories")
+      .select("name, icon, blurb, position, division_slug, division_name, division_position")
+      .order("position"),
+    client.from("divisions").select("slug, name, blurb, position").order("position"),
+    client.from("tags").select("name, slug, position").order("position"),
+  ]);
 
   // Counts come from the stock we already have rather than the view's own
   // count, so the tile and the catalogue can never disagree about how many
@@ -183,13 +198,32 @@ async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
   const counts = new Map<string, number>();
   for (const item of stock) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
 
+  const divisionCounts = new Map<string, number>();
+  for (const item of stock)
+    divisionCounts.set(item.divisionSlug, (divisionCounts.get(item.divisionSlug) ?? 0) + 1);
+
   return {
-    categories: (categories ?? []).map((c: any) => ({
-      name: c.name,
-      icon: c.icon ?? "solar:box-linear",
-      blurb: c.blurb ?? "",
-      count: counts.get(c.name) ?? 0,
+    divisions: (divisions ?? []).map((d: any) => ({
+      slug: d.slug,
+      name: d.name,
+      blurb: d.blurb ?? "",
+      count: divisionCounts.get(d.slug) ?? 0,
     })),
+    categories: (categories ?? [])
+      // Divisions first, categories in their own order inside each — the same
+      // two-level ordering the intake dropdown uses. PostgREST cannot sort on
+      // two columns of a view and a derived one, so the outer level is done
+      // here; the sort is stable, so the `position` order above survives it.
+      .slice()
+      .sort((a: any, b: any) => (a.division_position ?? 0) - (b.division_position ?? 0))
+      .map((c: any) => ({
+        name: c.name,
+        icon: c.icon ?? "solar:box-linear",
+        blurb: c.blurb ?? "",
+        count: counts.get(c.name) ?? 0,
+        divisionSlug: c.division_slug ?? "uncategorised",
+        division: c.division_name ?? "Uncategorised",
+      })),
     // Items carry tag SLUGS, so the filter vocabulary has to be slugs too.
     tags: (tags ?? []).map((t: any) => t.slug),
   };
@@ -214,15 +248,26 @@ export async function getBySlug(slug: string): Promise<Equipment | undefined> {
  * recognises scores thirty points where free text alone scores eight.
  */
 export const getCategoryChoices = unstable_cache(
-  async (): Promise<{ slug: string; name: string }[]> => {
+  async (): Promise<CategoryChoice[]> => {
     const client = createPublicClient();
     const { data } = await client
       .from("public_categories")
-      .select("slug, name, position")
+      .select("slug, name, position, division_slug, division_name, division_position")
       .order("position");
     return (data ?? [])
-      .filter((row): row is { slug: string; name: string; position: number } => !!row.slug && !!row.name)
-      .map(({ slug, name }) => ({ slug, name }));
+      .filter((row): row is NonNullable<typeof row> & { slug: string; name: string } =>
+        !!row.slug && !!row.name
+      )
+      // Grouped in the form, so the two lines have to arrive together rather
+      // than interleaved by their per-division positions.
+      .slice()
+      .sort((a, b) => (a.division_position ?? 0) - (b.division_position ?? 0))
+      .map((row) => ({
+        slug: row.slug,
+        name: row.name,
+        divisionSlug: row.division_slug ?? "uncategorised",
+        division: row.division_name ?? "Other",
+      }));
   },
   ["category-choices"],
   { tags: [STOCK_TAG], revalidate: REVALIDATE_SECONDS }

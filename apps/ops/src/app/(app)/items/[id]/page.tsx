@@ -4,6 +4,7 @@ import {
   getActivity,
   getCategories,
   getCosts,
+  getDivisions,
   getEconomics,
   getFeaturedCount,
   getItem,
@@ -35,6 +36,7 @@ export default async function ItemPage({
   // return nothing for them by policy. Skipping the fetch entirely keeps the
   // intent obvious at the call site.
   const [
+    divisions,
     categories,
     subcategories,
     tags,
@@ -44,6 +46,7 @@ export default async function ItemPage({
     wanting,
     featuredCount,
   ] = await Promise.all([
+    getDivisions(),
     getCategories(),
     getSubcategories(),
     getTags(),
@@ -66,6 +69,7 @@ export default async function ItemPage({
 
       <ItemEditor
         item={item}
+        divisions={divisions}
         categories={categories}
         subcategories={subcategories}
         tags={tags}

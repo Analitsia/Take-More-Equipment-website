@@ -8,12 +8,13 @@ import {
   SORTS,
   applyFilters,
   applySort,
+  clearedWithin,
   countActive,
   emptyFilters,
   type Filters,
   type SortId,
 } from "@/data/filters";
-import type { Equipment, Vocabulary } from "@/data/equipment";
+import { stockedDivisions, type Equipment, type Vocabulary } from "@/data/equipment";
 
 /**
  * The whole shop: the filter sidebar and the grid it drives.
@@ -40,6 +41,21 @@ export default function Catalogue({
   );
   const activeCount = countActive(filters);
 
+  /**
+   * The switcher only exists when there is genuinely something to switch
+   * between. One line of stock on the site means one shop, and a tab leading to
+   * an empty grid is a worse answer than no tab.
+   */
+  const lines = useMemo(() => stockedDivisions(vocabulary), [vocabulary]);
+  const showLines = lines.length > 1;
+
+  // Switching line drops the category ticks and nothing else: they name
+  // categories that do not exist on the other side, so keeping them would show
+  // an empty grid. Price, condition and specification mean the same thing in
+  // both, so they carry over.
+  const chooseLine = (slug: string | null) =>
+    setFilters({ ...filters, division: slug, categories: [] });
+
   // Tighter on top than the site's usual py-14/24: the highlights row above is
   // the same subject, so the two read as one stock block rather than two
   // distant sections — which is the gap the category strip used to sit in.
@@ -62,6 +78,34 @@ export default function Catalogue({
         </p>
       </div>
 
+      {showLines && (
+        <div
+          role="group"
+          aria-label="Line of business"
+          className="flex flex-wrap items-center gap-2 mb-6 md:mb-8"
+        >
+          {[{ slug: null, name: "Everything", count: stock.length }, ...lines].map((line) => {
+            const on = filters.division === line.slug;
+            return (
+              <button
+                key={line.slug ?? "all"}
+                type="button"
+                aria-pressed={on}
+                onClick={() => chooseLine(line.slug)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-light border transition-colors ${
+                  on
+                    ? "border-accent/70 bg-accent/10 text-accent"
+                    : "border-border text-muted hover:border-white/25 hover:text-white/80"
+                }`}
+              >
+                {line.name}
+                <span className={on ? "text-accent/70" : "text-muted/60"}>{line.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row gap-8">
         <FilterPanel
           vocabulary={vocabulary}
@@ -69,7 +113,7 @@ export default function Catalogue({
           setFilters={setFilters}
           resultCount={results.length}
           activeCount={activeCount}
-          onClear={() => setFilters(emptyFilters)}
+          onClear={() => setFilters(clearedWithin(filters))}
           open={filtersOpen}
           setOpen={setFiltersOpen}
         />
@@ -127,7 +171,7 @@ export default function Catalogue({
               </p>
               <button
                 type="button"
-                onClick={() => setFilters(emptyFilters)}
+                onClick={() => setFilters(clearedWithin(filters))}
                 className="inline-flex items-center gap-3 group"
               >
                 <span className="text-sm font-light group-hover:text-accent transition-colors">

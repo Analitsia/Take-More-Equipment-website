@@ -29,6 +29,7 @@ import {
   type AppRole,
 } from "@takemore/core";
 import type { LeadEventRow, LeadInterestRow, LeadRow, MatchingItem } from "@/lib/leads";
+import { byDivision, type CategoryOption } from "@/lib/catalogue";
 import StockForWant from "./StockForWant";
 import {
   addEvent,
@@ -68,7 +69,7 @@ export default function LeadEditor({
 }: {
   lead: LeadRow;
   events: LeadEventRow[];
-  categories: { id: string; name: string }[];
+  categories: CategoryOption[];
   subcategories: { id: string; name: string; category_id: string }[];
   tags: { id: string; name: string }[];
   /** Live stock answering each active want, keyed by interest id. */
@@ -420,7 +421,7 @@ function InterestCard({
 }: {
   leadId: string;
   interest: LeadInterestRow;
-  categories: { id: string; name: string }[];
+  categories: CategoryOption[];
   subcategories: { id: string; name: string; category_id: string }[];
   tags: { id: string; name: string }[];
   matches: MatchingItem[];
@@ -445,10 +446,14 @@ function InterestCard({
             onChange={(e) => patch({ category_id: e.target.value || null })}
           >
             <option value="">Not sure</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+            {byDivision(categories).map((group) => (
+              <optgroup key={group.name} label={group.name}>
+                {group.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </Field>
