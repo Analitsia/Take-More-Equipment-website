@@ -39,6 +39,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  checkInvoiceTotals,
   deliveryFeeCents,
   formatItemCode,
   normaliseItemCode,
@@ -299,6 +300,119 @@ r = await one(db, "select summary from public.activity_log where entity='order' 
 check("the activity log records the sale without a cost in it",
       /paid/.test(r.summary) && !/1800000|18 000/.test(r.summary), r.summary);
 
+// ---------------------------------------------------------------------------
+// 5. The document the customer walks out with
+// ---------------------------------------------------------------------------
+console.log("\nA DOCUMENT TO HAND THE CUSTOMER");
+
+/**
+ * The issuing business, as the ops app assembles it from its environment.
+ *
+ * Not read from a table on purpose — this repository is public and a bank
+ * account number does not go in it. The registration number here is a
+ * well-formed CIPC one so the shape check passes; whether it is the real one is
+ * a question only the certificate can answer, which is why the ops app checks
+ * the environment and this checks the schema.
+ */
+const issuer = (over = {}) =>
+  JSON.stringify({
+    legal_name: "Harness Equipment (Pty) Ltd",
+    registration_number: "2026/328785/07",
+    address: "1 Test Road, Cape Town",
+    phone: "021 555 0134",
+    email: "harness@test",
+    bank: { name: "Test Bank", account_name: "Harness", type: "Current", number: "0000000000" },
+    ...over,
+  }).replace(/'/g, "''");
+
+const issue = (kind, over) =>
+  `select public.issue_invoice('${order.id}', '${kind}', '${issuer(over)}'::jsonb)`;
+
+check("an invoice will not issue with the business details unconfigured",
+      await refuses(db, issue("invoice", { registration_number: "" })));
+/**
+ * The one that would actually have shipped. apps/web/src/data/launch.ts carries
+ * 0000/000000/00 as the frozen placeholder for the registration number, and an
+ * invoice going out with it is a Companies Act s32 problem rather than a typo.
+ */
+check("nor with launch.ts's placeholder registration number",
+      await refuses(db, issue("invoice", { registration_number: "0000/000000/00" })));
+check("nor with a half-typed one",
+      await refuses(db, issue("invoice", { registration_number: "2026/3287/07" })));
+/**
+ * The tripwire. Take More is not a registered VAT vendor, and heading a
+ * document "tax invoice" without being one is an offence under the VAT Act
+ * rather than a formatting choice. The day somebody sets a VAT number this must
+ * stop them and make VAT a piece of work.
+ */
+check("and never with a VAT number, because this cannot issue a tax invoice",
+      await refuses(db, issue("invoice", { vat_number: "4700324959" })));
+check("a proforma cannot be issued for money already taken",
+      await refuses(db, issue("proforma")));
+
+r = await one(db, issue("invoice"));
+let doc = r.issue_invoice;
+check("the invoice run continues the spreadsheet rather than restarting it",
+      doc.number === "INV-0015", doc.number);
+
+let stored = await one(db, `select document d, total_cents t from public.order_invoices
+                            where number = '${doc.number}'`);
+check("the invoice asks for exactly what the order says the customer pays",
+      num(stored.t) === 4_615_000 && num(stored.t) === num(
+        (await one(db, `select charged_total_cents c from public.orders where id='${order.id}'`)).c
+      ), `R${num(stored.t) / 100}`);
+
+/**
+ * The decision that shapes the whole document: the customer sees the ASKING
+ * price of each machine and one discount line, not each machine's pro-rata
+ * share of the discounted total. They negotiated "R45 000 for the pair"; they
+ * never agreed to R27 000 and R18 000, and printing those makes the saving they
+ * argued for vanish into two numbers they have not seen.
+ */
+check("each machine is billed at what it was asked for, not at its share of the discount",
+      stored.d.lines.map((l) => l.total_cents).join() === "3000000,2000000",
+      stored.d.lines.map((l) => l.total_cents).join());
+check("and the machine's own code is on the line, so it can be identified later",
+      stored.d.lines.every((l) => /^A\d{3}$/.test(l.code)),
+      stored.d.lines.map((l) => l.code).join());
+check("subtotal, discount and delivery add up to the total, to the cent",
+      stored.d.subtotal_cents + stored.d.adjustment_cents + stored.d.delivery.fee_cents
+        === stored.d.total_cents,
+      `${stored.d.subtotal_cents} ${stored.d.adjustment_cents} ${stored.d.delivery.fee_cents}`);
+check("the discount is shown as one line, and it is the one that was given",
+      stored.d.adjustment_cents === -500_000, `${stored.d.adjustment_cents}`);
+check("a paid invoice records how the money arrived",
+      stored.d.payment?.method === "card_machine" && stored.d.payment?.reference === "SLIP-1");
+check("and carries the issuing business's own registration number",
+      stored.d.issuer.registration_number === "2026/328785/07");
+
+/**
+ * The renderer's own guard, run against what SQL actually produced.
+ *
+ * checkInvoiceTotals() is what stands between a document that does not add up
+ * and a PDF — renderInvoicePdf() refuses rather than draws when it complains.
+ * Pointing it at a real issued document is what pins the TypeScript guard to
+ * the SQL that builds the thing it guards, in the one suite that needs no
+ * credentials. Same idea as the delivery-fee and item-code twins above.
+ */
+check("the renderer's own arithmetic guard passes the document SQL built",
+      checkInvoiceTotals(stored.d) === null, checkInvoiceTotals(stored.d) ?? "");
+check("and it catches a document that does not add up",
+      checkInvoiceTotals({ ...stored.d, total_cents: stored.d.total_cents + 1 }) !== null);
+
+/**
+ * The reason this is a stored document and not a view over `orders`.
+ *
+ * Rename the machine after the customer has walked out with the paper. A
+ * re-rendered invoice would now describe a machine by a name that was never on
+ * their copy — silently, and visibly only to them.
+ */
+await db.exec(`update public.items set title = 'Renamed After The Fact' where id = '${big.id}'`);
+stored = await one(db, `select document d from public.order_invoices where number = '${doc.number}'`);
+check("renaming the machine afterwards does not rewrite the invoice already handed over",
+      !JSON.stringify(stored.d).includes("Renamed After The Fact"),
+      stored.d.lines.map((l) => l.description).join(" | "));
+
 console.log("\nCORRECTING IT, AND CANCELLING IT");
 check("a paid order cannot be edited back into a draft",
       await refuses(db, `update public.orders set status='draft' where id='${order.id}'`));
@@ -311,8 +425,43 @@ check("reopening un-sells the machines and the achieved price goes with the sale
 r = await one(db, `select status, paid_at, sold_total_cents t from public.orders where id='${order.id}'`);
 check("and the order is open again carrying no payment", r.status === "draft" && !r.paid_at && r.t === null);
 
+/**
+ * The proforma, on an order that is open again and carrying no agreed figure.
+ *
+ * This is the shape somebody paying by EFT actually needs — a document with the
+ * banking details on it to pay AGAINST — and it is the branch where
+ * sold_total_cents is null, so the asking price is what gets asked for. Its own
+ * number series, so a gap in the invoice run is never explained as "that one
+ * was a quote".
+ */
+check("an invoice cannot be issued for money that has not arrived",
+      await refuses(db, issue("invoice")));
+r = await one(db, issue("proforma"));
+check("a proforma gets its own series, not a number out of the invoice run",
+      r.issue_invoice.number === "PRO-0001", r.issue_invoice.number);
+check("and with nothing agreed yet it asks for the asking price plus the delivery",
+      num(r.issue_invoice.total_cents) === 5_115_000, `R${num(r.issue_invoice.total_cents) / 100}`);
+
 await db.exec(`select public.confirm_order_paid('${order.id}', 4500000, 'bank_transfer', 'EFT-9')`);
+
+/**
+ * Correcting a document that has left the building is a second document that
+ * says so, never an edit to the first. Same posture as the note reopen_order()
+ * writes onto the customer's timeline.
+ */
+r = await one(db, issue("invoice"));
+check("a corrected sale issues a fresh invoice rather than editing the old one",
+      r.issue_invoice.number === "INV-0016", r.issue_invoice.number);
+check("and the new one records which document it replaces",
+      r.issue_invoice.supersedes !== null);
+r = await one(db, `select count(*) c from public.order_invoices where order_id='${order.id}'`);
+check("both invoices and the proforma are all still on the record", num(r.c) === 3, `${r.c}`);
+
 await db.exec(`select public.void_order('${order.id}', 'Finance fell through')`);
+
+check("a cancelled sale has nothing left to invoice", await refuses(db, issue("invoice")));
+r = await one(db, `select count(*) c from public.order_invoices where order_id='${order.id}'`);
+check("but the documents already issued survive the cancellation", num(r.c) === 3, `${r.c}`);
 
 rows = await all(db, `select i.status, i.sale_price_cents s, i.sold_at from public.order_lines l
                       join public.items i on i.id=l.item_id where l.order_id='${order.id}'`);

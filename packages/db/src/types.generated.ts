@@ -823,6 +823,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          billing_address: string | null
           birthday: string | null
           business_name: string | null
           consent_source: string | null
@@ -847,6 +848,7 @@ export type Database = {
           whatsapp_consent_at: string | null
         }
         Insert: {
+          billing_address?: string | null
           birthday?: string | null
           business_name?: string | null
           consent_source?: string | null
@@ -871,6 +873,7 @@ export type Database = {
           whatsapp_consent_at?: string | null
         }
         Update: {
+          billing_address?: string | null
           birthday?: string | null
           business_name?: string | null
           consent_source?: string | null
@@ -895,6 +898,67 @@ export type Database = {
           whatsapp_consent_at?: string | null
         }
         Relationships: []
+      }
+      order_invoices: {
+        Row: {
+          document: Json
+          id: string
+          issued_at: string
+          issued_by: string | null
+          kind: string
+          number: string
+          order_id: string
+          share_token: string
+          supersedes: string | null
+          total_cents: number
+        }
+        Insert: {
+          document: Json
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          kind: string
+          number: string
+          order_id: string
+          share_token?: string
+          supersedes?: string | null
+          total_cents: number
+        }
+        Update: {
+          document?: Json
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          kind?: string
+          number?: string
+          order_id?: string
+          share_token?: string
+          supersedes?: string | null
+          total_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_economics"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_invoices_supersedes_fkey"
+            columns: ["supersedes"]
+            isOneToOne: false
+            referencedRelation: "order_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_lines: {
         Row: {
@@ -1716,6 +1780,10 @@ export type Database = {
         Returns: Json
       }
       delivery_fee_cents: { Args: { p_km: number }; Returns: number }
+      issue_invoice: {
+        Args: { p_issuer: Json; p_kind: string; p_order_id: string }
+        Returns: Json
+      }
       leads_wanting_item: {
         Args: { p_item_id: string }
         Returns: {

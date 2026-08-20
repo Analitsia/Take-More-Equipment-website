@@ -5,7 +5,8 @@
 
 ## Context
 
-Take More Catering Equipment (Pty) Ltd, Cape Town, buys commercial catering equipment at
+Take More Equipment (Pty) Ltd, trading as Take More Catering Equipment, in Cape Town,
+buys commercial catering equipment at
 auction, refurbishes it, and resells it. Today `takemoreequipment.co.za` is a single static
 HTML page on Hostinger with an 841 KB screenshot embedded as base64 — effectively a
 placeholder. There is no catalogue, no checkout, no operational system. Stock is tracked

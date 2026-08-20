@@ -1,6 +1,7 @@
 # Take More Equipment
 
-Storefront and operations platform for Take More Catering Equipment (Pty) Ltd,
+Storefront and operations platform for Take More Equipment (Pty) Ltd, trading as
+Take More Catering Equipment,
 Cape Town. The ERP is the product; the website is a read-projection of it.
 
 - Architecture and build phases: [`docs/architecture.md`](docs/architecture.md)

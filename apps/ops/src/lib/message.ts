@@ -171,3 +171,53 @@ export function wantWords(
 /** wa.me with the draft pre-filled. The staff member is the sender. */
 export const whatsappSendLink = (digits: string, body: string): string =>
   `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
+
+/**
+ * The message that carries an invoice.
+ *
+ * Short, and it says the three things somebody needs to recognise it before
+ * they open an attachment from a number they may not have saved: who it is
+ * from, what it is for, and the amount. A document arriving with no words
+ * around it looks like a phishing attempt, which is the actual risk here.
+ *
+ * A proforma asks; an invoice thanks. The difference matters more than the
+ * wording suggests — one of these is a request for money and the other is a
+ * receipt, and a customer who reads the wrong one either pays twice or not at
+ * all.
+ *
+ * The PDF itself is NOT in this string. wa.me can only pre-fill text — there is
+ * no parameter for a file, and there never has been — so the attachment travels
+ * one of two other ways: the phone's own share sheet, which hands WhatsApp the
+ * real file, or the staff member attaching it after this message opens. See
+ * InvoicePanel for which happens when.
+ */
+export function draftInvoiceMessage(context: {
+  kind: "proforma" | "invoice";
+  number: string;
+  leadName: string | null;
+  totalCents: number;
+  /** Set only when the machines are coming to them rather than being collected. */
+  delivering: boolean;
+}): string {
+  const total = rands(context.totalCents);
+
+  if (context.kind === "proforma") {
+    return [
+      `Hi ${firstName(context.leadName)}, it's Take More.`,
+      "",
+      `Here is ${context.number} for what we put aside for you — ${total}.`,
+      "",
+      "The banking details are on it. Send us the proof of payment and we'll get it ready.",
+    ].join("\n");
+  }
+
+  return [
+    `Hi ${firstName(context.leadName)}, it's Take More.`,
+    "",
+    `Thanks — that's paid. Invoice ${context.number} is attached, ${total}.`,
+    "",
+    context.delivering
+      ? "We'll be in touch about the delivery. Keep this for the warranty."
+      : "Keep this for the warranty — bring it with the machine if anything needs looking at.",
+  ].join("\n");
+}

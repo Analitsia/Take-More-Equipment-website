@@ -18,8 +18,42 @@ Scope only. Read on demand; this file is not loaded automatically.
   renumbering to non-sequential codes is the fix — not hiding the column.
 - Work `docs/launch-checklist.md`. Verify readiness with `npm run check:launch` and
   `npm run check:launch:db` rather than by eye.
+- **Confirm the registration number against the CIPC certificate once.**
+  `2026/328785/07` is what the business's own invoice INV-0014 carries, and it
+  is now published on `/privacy` and printed on every invoice — evidence rather
+  than a guess, but read off a document rather than off the register. Everything
+  else on the invoice is set and verified; this is the one fact still worth
+  seeing at source.
 
 ## Shipped, August 2026
+
+- **Something to hand the customer.** A proforma before the money and an invoice
+  after it, as a PDF that prints, downloads, or goes to WhatsApp with the file
+  actually attached where the phone allows it. Each machine is billed at its
+  asking price with the negotiated saving on one line underneath, rather than
+  each machine quietly showing its pro-rata share of the discount — the customer
+  argued for that number and it belongs on the paper.
+
+  The document is **frozen** at issue, in the transaction that numbers it.
+  Rename a machine afterwards and the invoice already handed over is unchanged,
+  which is the same reason `order_lines` snapshots the asking price. Correcting
+  one means issuing a new one that records what it supersedes; `order_invoices`
+  has no UPDATE policy and no DELETE policy at all.
+
+  Invoice numbers continue the spreadsheet at **INV-0015** — starting at 1 would
+  have minted a second INV-0014 for a different customer. Proformas run
+  separately as `PRO-`, so a gap in the invoice run never has to be explained as
+  "that one was a quote".
+
+  Two things it deliberately will not do: it cannot say "tax invoice" and it
+  refuses an issuer carrying a VAT number, because Take More is not a registered
+  vendor and issuing one anyway is an offence rather than a formatting choice.
+
+  Written with `pdf-lib` after `@react-pdf/renderer` proved unusable here — Next
+  vendors its own React for server code (19.2-canary) while that library picks
+  its reconciler from the React in `node_modules` (18.3.1), and every render
+  died on a React version mismatch reported from inside a PDF library. The note
+  at the top of `lib/invoice-pdf.ts` has the detail so nobody tries it again.
 - **No ranks.** Everybody signed in can do everything, including correcting a paid sale.
   Adding and removing people is still the owner's, and is now the only thing that is.
   `app.at_least()` ignores its argument; restoring that one function body brings ten
@@ -76,7 +110,6 @@ Scope only. Read on demand; this file is not loaded automatically.
 - VAT, if Take More registers. Adding it after the fact means recalculating sales already
   recorded, so it is more work than it looks.
 - Deposits and part payments. An order is paid or it is not.
-- A receipt or invoice to hand the customer.
 - Shelf-space efficiency on the dashboard. Its spec in `docs/architecture.md` is stale —
   dimensions became centimetres in `20260808090300`.
 
@@ -89,4 +122,4 @@ Scope only. Read on demand; this file is not loaded automatically.
   a marker. Nothing here blocks a scanner later — a scanner is a keyboard, and
   `app.normalise_item_code()` already reads what it would type.
 
-Updated: 2026-08-19
+Updated: 2026-08-20

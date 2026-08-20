@@ -6,6 +6,7 @@ import { supabase, requireStaff } from "@/lib/supabase";
 import { createAdminClient } from "@takemore/db/admin";
 import { revalidateStorefront } from "@/lib/storefront";
 import { normalisePhone, type ItemStatus, type PaymentMethod } from "@takemore/core";
+import { issuerFromEnv } from "@/lib/invoice";
 import { setStage } from "../items/actions";
 
 /**
@@ -42,6 +43,11 @@ const humanise = (message: string): string => {
     return "An open order cannot already have a payment on it.";
   if (message.includes("order_lines_order_id_item_id_key"))
     return "That machine is already on this order.";
+  // The invoice tables landed in 20260820110000. Same reasoning as the schema
+  // cache message above: said plainly, because the raw wording sends people
+  // hunting for a bug in code that is working.
+  if (/issue_invoice|order_invoices/i.test(message) && /does not exist|schema cache/i.test(message))
+    return "Invoices need a database change that has not been applied yet. Run the migrations.";
   if (message.includes("leads_email_key"))
     return "Somebody else in the list already has that email address.";
   if (message.includes("leads_phone_key"))
@@ -569,4 +575,71 @@ export async function reopenOrder(orderId: string): Promise<ActionResult> {
   await revalidateSale(orderId, items);
 
   return { ok: true, notice: `${result?.code ?? "The order"} is open again.` };
+}
+
+// ---------------------------------------------------------------------------
+// The document the customer takes away
+// ---------------------------------------------------------------------------
+
+/**
+ * Freeze this order into a numbered document.
+ *
+ * The only thing this function decides is WHICH document — a paid order gets an
+ * invoice, an open one gets a proforma — and even that is re-checked in
+ * Postgres, which refuses the wrong pairing outright. Everything else the
+ * document contains is assembled inside `issue_invoice()`, in the transaction
+ * that writes it, so there is no window in which the figures could move between
+ * being read and being frozen.
+ *
+ * What CANNOT be in that transaction is the business's own identity: the legal
+ * name, registration number, address and banking live in this deployment's
+ * environment, because the repository is public. So they are read here and
+ * passed in — and checked at both ends, since a check that only exists in the
+ * caller is a check the next caller will not have.
+ */
+export async function issueInvoice(orderId: string): Promise<
+  ActionResult & { invoiceId?: string; number?: string }
+> {
+  await requireStaff();
+  const client = await supabase();
+
+  const issuer = issuerFromEnv();
+  if (!issuer.ok) return { ok: false, error: issuer.error };
+
+  const { data: order, error: readError } = await client
+    .from("orders")
+    .select("status")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, error: humanise(readError.message) };
+  if (!order) return { ok: false, error: "That order is not there any more." };
+
+  const kind = order.status === "paid" ? "invoice" : "proforma";
+
+  // The staff client, not the admin one. issue_invoice() is SECURITY DEFINER
+  // and checks app.is_staff() itself; going round RLS to call it would only
+  // widen who can, which is the opposite of the point.
+  const { data, error } = await client.rpc("issue_invoice", {
+    p_order_id: orderId,
+    p_kind: kind,
+    p_issuer: issuer.issuer,
+  });
+
+  if (error) return { ok: false, error: humanise(error.message) };
+
+  const result = data as { id?: string; number?: string; supersedes?: string | null } | null;
+
+  revalidatePath(`/orders/${orderId}`);
+  // The customer's timeline gained a line saying the document went out.
+  revalidatePath("/leads");
+
+  return {
+    ok: true,
+    invoiceId: result?.id,
+    number: result?.number,
+    notice: result?.supersedes
+      ? `${result?.number} replaces the document issued before it. Send the customer this one.`
+      : `${result?.number} is ready.`,
+  };
 }

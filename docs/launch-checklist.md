@@ -179,6 +179,50 @@ scrubbing configured.
   it needs the same fix, and it must agree with `contact.legalName` and
   `contact.address` in `launch.ts`.
 
+### Invoices — ops only, and nothing is issued without the first three
+
+None of these are in the repository and none of them can be: this repo is
+public. They go on the **ops** Vercel project, production scope.
+
+- `BUSINESS_LEGAL_NAME` — the **registered** name, which is not the trading
+  name: the business trades as *Take More Catering Equipment* and is registered
+  as *Take More Equipment (Pty) Ltd*. Must agree with `contact.legalName` in
+  `launch.ts`. Verified with the owner on 2026-08-20.
+- `BUSINESS_REGISTRATION_NUMBER` — `YYYY/NNNNNN/NN`. Must agree with
+  `contact.registrationNumber` in `launch.ts`. The value there was read off the
+  business's own invoice INV-0014 rather than off the CIPC certificate, which is
+  evidence rather than a guess but is one step removed from the register —
+  worth confirming once against the certificate itself.
+- `BUSINESS_TRADING_ADDRESS` — the full postal address as it goes on paperwork.
+  Set from `contact.address` in `launch.ts` (*19 6th Rd*), which the owner
+  verified on 2026-08-20, in preference to the older spreadsheet invoices
+  (*19 Sixth Street*).
+- `BUSINESS_PHONE`, `BUSINESS_EMAIL`
+- `BUSINESS_BANK_NAME`, `BUSINESS_BANK_ACCOUNT_NAME`,
+  `BUSINESS_BANK_ACCOUNT_TYPE`, `BUSINESS_BANK_ACCOUNT_NUMBER` — **all four or
+  none.** A bank name with no account number is worse than no banking block:
+  somebody paying by transfer reads it, believes they have what they need, and
+  pays into nothing.
+- `BUSINESS_INVOICE_TERMS_DAYS` — leave empty. Due on receipt is how this
+  business works; a default of 30 would extend credit nobody agreed to give.
+
+Why the first three are hard blockers rather than nice-to-haves: under Companies
+Act s32 a company's registered name and registration number must appear on its
+business documents, and issuing one with a wrong number is an offence rather
+than a typo. Both ends refuse — `issuerFromEnv()` will not assemble a document
+and `public.issue_invoice()` will not write one.
+
+**No VAT number, ever, until Take More is registered.** Only a registered vendor
+may head a document "tax invoice" (VAT Act s20). `issue_invoice()` refuses any
+issuer carrying a `vat_number` at all, deliberately, so that registering becomes
+the piece of work `ROADMAP.md` says it is — recalculating sales already recorded
+— rather than a field somebody fills in.
+
+**Before the first invoice is issued**, check where `app.invoice_number_seq`
+starts. It is set to 15 in `20260820110000`, continuing the spreadsheet run that
+ended at INV-0014. If more were sent from the spreadsheet since, move it —
+a sequence cannot be rewound past a number it has already handed out.
+
 ### The nightly cron
 
 - `CRON_SECRET` — **you set this**, on the ops project, production scope. Vercel

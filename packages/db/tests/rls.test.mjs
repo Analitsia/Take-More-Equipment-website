@@ -869,6 +869,73 @@ async function leads() {
         ? fail("a manager can reopen a paid order", managerReopen.message)
         : ok("a manager can reopen a paid order");
 
+      // ── The document the customer takes away ─────────────────────────────
+      //
+      // test:schema proves the RULES inside issue_invoice(); it runs as the
+      // owner in PGlite and bypasses RLS entirely, so it says nothing about
+      // whether a real signed-in salesperson can reach the thing. That gap is
+      // the whole reason this suite exists, and it matters more here than
+      // usual: order_invoices is granted SELECT and nothing else, and the
+      // "never edited, never deleted" property the entire design rests on is
+      // enforced by those missing grants rather than by any code.
+      //
+      // A PROFORMA, not an invoice, and that is deliberate. Both go through the
+      // identical grant and policy surface, but they draw from separate
+      // sequences — so running this suite burns a PRO- number, which nobody
+      // audits, instead of putting a permanent gap in the invoice run that an
+      // accountant would one day ask about. The order is a draft at this point,
+      // which is what a proforma wants anyway.
+      const issuer = {
+        legal_name: "RLS Harness (Pty) Ltd",
+        registration_number: "2026/328785/07",
+        address: "1 Test Road, Cape Town",
+      };
+
+      await refused(
+        "anon cannot read issued documents",
+        anon.from("order_invoices").select("number")
+      );
+      await refused(
+        "anon cannot issue a document",
+        anon.rpc("issue_invoice", { p_order_id: opened.id, p_kind: "proforma", p_issuer: issuer })
+      );
+
+      const { data: issued, error: issueError } = await staffClient.rpc("issue_invoice", {
+        p_order_id: opened.id,
+        p_kind: "proforma",
+        p_issuer: issuer,
+      });
+      issueError
+        ? fail("staff can issue a document", issueError.message)
+        : ok(`staff can issue a document  (${issued?.number})`);
+
+      if (issued?.id) {
+        await visible(
+          "and read back the one they issued",
+          staffClient.from("order_invoices").select("number, total_cents").eq("id", issued.id),
+          1
+        );
+
+        // The three that make the record trustworthy. All refusals rather than
+        // empty results: grants are checked before policies, and there is no
+        // insert, update or delete grant on this table at all.
+        await refused(
+          "but cannot write one by hand, going round issue_invoice()",
+          staffClient
+            .from("order_invoices")
+            .insert({ order_id: opened.id, kind: "invoice", number: "INV-9999", document: {}, total_cents: 1 })
+            .select("id")
+        );
+        await refused(
+          "cannot change a document that has been handed over",
+          staffClient.from("order_invoices").update({ total_cents: 1 }).eq("id", issued.id).select("id")
+        );
+        await refused(
+          "and cannot make one disappear",
+          staffClient.from("order_invoices").delete().eq("id", issued.id).select("id")
+        );
+      }
+
       // Put the machine back on the shelf so the fixture is reusable and this
       // suite leaves nothing sold behind it.
       await admin.rpc("void_order", { p_order_id: opened.id, p_reason: "RLS suite" });

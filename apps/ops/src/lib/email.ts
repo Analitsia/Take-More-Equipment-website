@@ -44,7 +44,11 @@ const STOREFRONT =
  */
 const POSTAL_IDENTITY =
   process.env.BUSINESS_POSTAL_IDENTITY ??
-  "Take More Catering Equipment (Pty) Ltd, Montague Gardens, Cape Town";
+  // The REGISTERED name, not the trading name — this line exists to make the
+  // sender legally identifiable, and "Take More Catering Equipment" is what the
+  // business trades as rather than what it is. Verified with the owner on
+  // 2026-08-20 and matching contact.legalName in the storefront's manifest.
+  "Take More Equipment (Pty) Ltd, Unit 4, 19 6th Rd, Montague Gardens, Cape Town, 7441";
 
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };
 

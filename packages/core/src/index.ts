@@ -13,6 +13,7 @@ export * from "./catalogue.ts";
 export * from "./delivery.ts";
 export * from "./featured.ts";
 export * from "./grades.ts";
+export * from "./invoice.ts";
 export * from "./leads.ts";
 export * from "./margin.ts";
 export * from "./money.ts";

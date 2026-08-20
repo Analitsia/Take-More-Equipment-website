@@ -123,19 +123,43 @@ export const contact = {
     "Mon–Fri 08:00–17:00 · Sat 08:00–13:00",
     "The hours somebody will actually be there."
   ),
-  legalName: unverified(
-    "Take More Catering Equipment (Pty) Ltd",
-    "Exactly as registered at CIPC, including the (Pty) Ltd."
-  ),
+  /**
+   * The REGISTERED name, which is not the trading name.
+   *
+   * The site calls itself "Take More Catering Equipment" throughout, and that
+   * stays — it is what the business trades as and what customers know. This
+   * field is the entity behind it, and it is the one that goes on the © line,
+   * on /privacy as the responsible party, and on every invoice. Confusing the
+   * two is why this is a separate fact rather than a string in a component.
+   */
+  legalName: {
+    value: "Take More Equipment (Pty) Ltd",
+    verified: "2026-08-20",
+    evidence:
+      "Confirmed by the owner on 2026-08-20 as the registered name. Corroborated by the bank account name on the business's own invoices and by the /07 suffix on the registration number, which denotes a private company.",
+    placeholder: "Take More Catering Equipment (Pty) Ltd",
+  },
   /**
    * POPIA s18 requires a data subject be told who is responsible for their
    * information, at the point of collection. Every enquiry form on this site
    * links to /privacy, and /privacy has to name these two.
    */
-  registrationNumber: unverified(
-    "0000/000000/00",
-    "From the CIPC registration certificate. Form YYYY/NNNNNN/NN."
-  ),
+  registrationNumber: {
+    value: "2026/328785/07",
+    verified: "2026-08-20",
+    /**
+     * Read off the business's own issued invoice rather than off the CIPC
+     * certificate — which is a real document produced by this company and
+     * carrying this number to its customers, so it is evidence rather than a
+     * guess, but it is one step removed from the register itself. Said plainly
+     * here because the placeholder it replaces, 0000/000000/00, was RENDERING
+     * on /privacy as this company's registration number, and a false one there
+     * is worse than a second-hand true one.
+     */
+    evidence:
+      "Read off invoice INV-0014, issued by the business and supplied by the owner on 2026-08-20. Worth confirming once against the CIPC certificate.",
+    placeholder: "0000/000000/00",
+  },
   informationOfficer: unverified(
     "Not yet appointed",
     "The person registered with the Information Regulator. By default the head of the business, but it must be a named human being."

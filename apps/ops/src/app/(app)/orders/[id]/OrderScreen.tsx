@@ -15,11 +15,19 @@ import {
   type OrderStatus,
 } from "@takemore/core";
 import ItemThumb from "@/components/ItemThumb";
-import type { OrderDetail, OrderEconomics, OrderLineCost, OrderLineRow } from "@/lib/orders";
+import type {
+  OrderDetail,
+  OrderEconomics,
+  OrderInvoiceRow,
+  OrderLineCost,
+  OrderLineRow,
+} from "@/lib/orders";
 import CustomerPicker from "./CustomerPicker";
 import ProductPicker from "./ProductPicker";
 import DeliveryPanel from "./DeliveryPanel";
 import PaymentPanel from "./PaymentPanel";
+import NotesPanel from "./NotesPanel";
+import InvoicePanel from "./InvoicePanel";
 import { removeLine } from "../actions";
 
 const STATUS_CHROME: Record<OrderStatus, string> = {
@@ -46,12 +54,16 @@ export default function OrderScreen({
   lines,
   economics,
   lineCosts,
+  invoices,
+  invoicing,
   role,
 }: {
   order: OrderDetail;
   lines: OrderLineRow[];
   economics: OrderEconomics | null;
   lineCosts: OrderLineCost[];
+  invoices: OrderInvoiceRow[];
+  invoicing: { ok: boolean; error?: string };
   role: AppRole;
 }) {
   const router = useRouter();
@@ -250,6 +262,12 @@ export default function OrderScreen({
 
       <DeliveryPanel order={order} locked={locked} onDone={handled} />
 
+      {/* Above the payment, because it is written DURING the conversation —
+          "collecting on Saturday", "hire back on the 17th" — and below it is
+          where a salesperson stops looking once the money is taken. It prints
+          on the invoice, which is what makes it worth typing. */}
+      <NotesPanel order={order} locked={locked} onDone={handled} />
+
       <PaymentPanel
         order={order}
         listTotalCents={listTotal}
@@ -260,6 +278,22 @@ export default function OrderScreen({
         // an actor and it explains itself on the customer's timeline, which is
         // what makes that safe to hand to whoever is standing at the counter.
         canReopen={canReopenSale(role)}
+        onDone={handled}
+      />
+
+      {/* Last, because it is the last thing that happens: the money is
+          recorded and then the customer is handed something. A proforma is the
+          exception and goes out before any of it — which is why this panel is
+          on the screen while the order is still open, rather than appearing
+          once it is paid. */}
+      <InvoicePanel
+        order={order}
+        invoices={invoices}
+        // The order's own generated total, not one added up here. It is what
+        // the panel compares an issued invoice against to notice that the sale
+        // has been corrected since the customer was given one.
+        chargedTotalCents={order.charged_total_cents ?? 0}
+        configured={invoicing}
         onDone={handled}
       />
 

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { reportError } from "@takemore/observability";
-import type { ItemStatus, OrderStatus, PaymentMethod } from "@takemore/core";
+import type { InvoiceDocument, InvoiceKind, ItemStatus, OrderStatus, PaymentMethod } from "@takemore/core";
 import type { MediaRef } from "./media";
 
 /**
@@ -216,6 +216,64 @@ export async function getOrderEconomics(
     order: (orderResult.data as unknown as OrderEconomics | null) ?? null,
     lines: orEmpty("orders/getOrderLineCosts", lineResult) as unknown as OrderLineCost[],
   };
+}
+
+/**
+ * One issued document, as the order screen lists it.
+ *
+ * `document` is deliberately NOT here. Everything the screen shows — the
+ * number, the total, when it went out — is a column beside it, and the PDF
+ * route reads the jsonb on its own. Selecting it here would ship every
+ * invoice's full contents to the browser on every order page load, to read one
+ * string off the newest one.
+ */
+export type OrderInvoiceRow = {
+  id: string;
+  kind: InvoiceKind;
+  number: string;
+  total_cents: number;
+  issued_at: string;
+  supersedes: string | null;
+};
+
+/**
+ * Every document ever issued for this order, newest first.
+ *
+ * All of them, never just the current one. A reopened and re-confirmed sale
+ * issues a second invoice rather than editing the first, so "what did we
+ * actually hand this person" is a question with more than one answer and the
+ * screen has to be able to show the older one — which is the entire reason
+ * order_invoices has a `supersedes` column instead of an UPDATE policy.
+ */
+export async function getOrderInvoices(orderId: string): Promise<OrderInvoiceRow[]> {
+  const client = await supabase();
+  return orEmpty(
+    "orders/getOrderInvoices",
+    await client
+      .from("order_invoices")
+      .select("id, kind, number, total_cents, issued_at, supersedes")
+      .eq("order_id", orderId)
+      .order("issued_at", { ascending: false })
+      .order("number", { ascending: false })
+  ) as unknown as OrderInvoiceRow[];
+}
+
+/** One document, for the PDF route. Null when RLS or the id says no. */
+export async function getInvoiceDocument(
+  invoiceId: string
+): Promise<InvoiceDocument | null> {
+  const client = await supabase();
+  const { data, error } = await client
+    .from("order_invoices")
+    .select("document")
+    .eq("id", invoiceId)
+    .maybeSingle();
+
+  if (error) {
+    reportError(error, { where: "orders/getInvoiceDocument" });
+    throw new Error(error.message);
+  }
+  return (data?.document as InvoiceDocument | undefined) ?? null;
 }
 
 /** For the orders badge and the dashboard: sales still open on the counter. */

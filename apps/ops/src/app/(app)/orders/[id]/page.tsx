@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { canSeeCosts } from "@takemore/core";
 import { requireStaff } from "@/lib/supabase";
-import { getOrder, getOrderEconomics, getOrderLines } from "@/lib/orders";
+import { getOrder, getOrderEconomics, getOrderInvoices, getOrderLines } from "@/lib/orders";
+import { invoicingIsConfigured } from "@/lib/invoice";
 import OrderScreen from "./OrderScreen";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +23,10 @@ export default async function OrderPage({
   // items/[id]/page.tsx does it. Today can_see_costs() is every approved
   // account, so this is always true — but keeping the shape is what makes
   // re-restricting one line in Postgres rather than an audit of every screen.
-  const [lines, economics] = await Promise.all([
+  const [lines, economics, invoices] = await Promise.all([
     getOrderLines(id),
     showCosts ? getOrderEconomics(id) : Promise.resolve({ order: null, lines: [] }),
+    getOrderInvoices(id),
   ]);
 
   return (
@@ -42,6 +44,12 @@ export default async function OrderPage({
         lines={lines}
         economics={economics.order}
         lineCosts={economics.lines}
+        invoices={invoices}
+        // Read on the server because the business's own details are environment
+        // variables — this repository is public, so they cannot be in source and
+        // the browser has no way to see them. The panel only needs to know
+        // whether a document could be issued, and why not when it could not.
+        invoicing={invoicingIsConfigured()}
         role={staff.role}
       />
     </div>
