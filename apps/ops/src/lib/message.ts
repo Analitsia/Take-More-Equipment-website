@@ -214,7 +214,11 @@ export function draftInvoiceMessage(context: {
   return [
     `Hi ${firstName(context.leadName)}, it's Take More.`,
     "",
-    `Thanks — that's paid. Invoice ${context.number} is attached, ${total}.`,
+    // "Here is", not "is attached". On a phone the file really is attached; on
+    // a desktop the salesperson attaches it a moment later, and a message that
+    // has already claimed an attachment reads badly in the second it takes them
+    // — or worse, if they forget.
+    `Thanks — that's paid. Here is invoice ${context.number}, ${total}.`,
     "",
     context.delivering
       ? "We'll be in touch about the delivery. Keep this for the warranty."

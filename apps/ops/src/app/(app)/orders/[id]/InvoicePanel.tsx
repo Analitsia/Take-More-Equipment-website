@@ -17,15 +17,14 @@ import { issueInvoice } from "../actions";
  * click-to-chat pre-fills a message and stops. So "send them the invoice on
  * WhatsApp" has exactly three implementations and this uses two of them:
  *
- *   1. THE SHARE SHEET. navigator.share() with a File hands the phone's own
- *      share menu the actual PDF, and WhatsApp is one of the destinations in
- *      it. This is the real thing — the document arrives as a document. It is
- *      a phone feature; most desktop browsers cannot share files.
+ *   1. THE SHARE SHEET. navigator.share() with a File hands the operating
+ *      system's own share menu the actual PDF, and WhatsApp is one of the
+ *      destinations in it. It is the only route on which the document travels
+ *      as a document.
  *
- *   2. wa.me PLUS A DOWNLOAD. Where the file cannot be shared, the PDF is saved
- *      and WhatsApp opens with the message already typed, and the person
- *      attaches it — one extra tap, on the desktop where attaching a file is
- *      easy anyway.
+ *   2. wa.me PLUS A DOWNLOAD. The PDF is saved and WhatsApp opens ON THAT
+ *      CUSTOMER'S CHAT with the message already typed, and the person attaches
+ *      the file.
  *
  *   3. The Meta Cloud API, which would attach it with no tap at all, and needs
  *      business verification, an approved template per wording, and a cost per
@@ -33,13 +32,30 @@ import { issueInvoice } from "../actions";
  *      "worth it when the tapping gets tedious, not before" — and an invoice is
  *      sent far less often than those are.
  *
+ * ── Which one, and why the device decides ─────────────────────────────────
+ *
+ * This used to offer the share sheet to anything whose browser SAID it could
+ * share files, and that was wrong on a desktop. Chrome on a laptop answers yes
+ * to canShare({files}) and then opens an OS share panel — a slow, unfamiliar
+ * menu that does not know who the customer is, when wa.me would have gone
+ * straight to their chat with the words already in the box, which is exactly
+ * what the outreach queue does and what people here expect.
+ *
+ * So: a touch device gets the share sheet, because the file itself travelling
+ * is worth picking the chat by hand. Everything else goes straight to the chat.
+ * The trade is real and it is stated on screen rather than hidden — on a phone
+ * the share sheet cannot be told which chat to open, and on a desktop the file
+ * cannot be attached for you. Neither limit is ours to remove; WhatsApp exposes
+ * no way to do both at once outside the Cloud API.
+ *
  * ── Why the PDF is fetched before anybody clicks ──────────────────────────
  *
  * navigator.share() has to be called during the gesture that triggered it.
  * Awaiting a fetch() first spends that activation, and Safari refuses the share
  * with NotAllowedError — on iPhones, which is most of the phones this will run
- * on. So the file is fetched as soon as the document exists and the handler
- * only ever hands over something it already has. It is about five kilobytes.
+ * on. So on a touch device the file is fetched as soon as the document exists
+ * and the handler only ever hands over something it already has. It is about
+ * four kilobytes. A desktop never needs it and never fetches it.
  */
 export default function InvoicePanel({
   order,
@@ -58,6 +74,7 @@ export default function InvoicePanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [touch, setTouch] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
 
@@ -86,9 +103,36 @@ export default function InvoicePanel({
   const url = current ? `/api/invoices/${current.id}` : null;
   const filename = current ? invoiceFilename(current) : null;
 
-  // Fetched up front so the share handler never has to await inside a gesture.
+  /**
+   * Is this a phone, rather than a browser that merely claims it could share?
+   *
+   * A coarse pointer AND a touch screen. Either on its own is wrong: a laptop
+   * with a touchscreen reports touch points, and some desktop browsers report a
+   * coarse pointer when a tablet mode is on. Both together is a phone or a
+   * tablet, which is where picking the chat by hand is a fair price for the
+   * file arriving as a file.
+   *
+   * Read in an effect rather than during render because the server has no
+   * pointer and would disagree with the browser about the first paint.
+   */
   useEffect(() => {
-    if (!url || !filename) {
+    // Chromium says so outright, which covers Android. Safari does not, so an
+    // iPhone and an iPad are recognised by the pair below — and a Windows
+    // laptop with a touchscreen is not, because with a mouse attached its
+    // primary pointer is fine rather than coarse.
+    const declared = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile;
+    setTouch(
+      declared ??
+        (window.matchMedia?.("(pointer: coarse)").matches === true &&
+          navigator.maxTouchPoints > 0)
+    );
+  }, []);
+
+  // Fetched up front so the share handler never has to await inside a gesture.
+  // Only where it will be used: a desktop goes straight to the chat and would
+  // be paying for this on every order page it opened.
+  useEffect(() => {
+    if (!touch || !url || !filename) {
       setFile(null);
       return;
     }
@@ -107,7 +151,7 @@ export default function InvoicePanel({
     return () => {
       alive = false;
     };
-  }, [url, filename]);
+  }, [touch, url, filename]);
 
   const issue = async () => {
     setBusy(true);
@@ -151,6 +195,39 @@ export default function InvoicePanel({
     setHint("If no print dialog appears, the invoice also opens in a new tab — print it from there.");
   }, [url]);
 
+  /**
+   * Straight to that customer's chat, with the words already in the box.
+   *
+   * Identical to what OutreachQueue does, deliberately — it is the movement
+   * everybody here already knows. The PDF is saved alongside it, because wa.me
+   * cannot carry one.
+   *
+   * WhatsApp is opened FIRST and the download second, which is the opposite of
+   * what it looks like it should be. Browsers allow one popup per gesture, and
+   * the popup has to be spent on the thing the person is waiting for; a
+   * synthetic <a download> click is not a popup and does not compete for it.
+   */
+  const openChat = useCallback(
+    (digits: string, message: string) => {
+      window.open(
+        `https://wa.me/${digits}?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      if (url && filename) {
+        const save = document.createElement("a");
+        save.href = `${url}?download=1`;
+        save.download = filename;
+        save.rel = "noopener";
+        document.body.appendChild(save);
+        save.click();
+        save.remove();
+      }
+      setHint("Their chat is open with the message ready. The invoice has been saved — attach it and send.");
+    },
+    [url, filename]
+  );
+
   const send = async () => {
     if (!url || !filename) return;
     setHint(null);
@@ -158,14 +235,22 @@ export default function InvoicePanel({
     const digits = whatsappDigits(order.lead?.phone);
     const message = messageFor(current, order);
 
-    // The real thing: the phone's share sheet, with the PDF attached.
-    if (file && typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+    /**
+     * On a phone: the share sheet, which is the only route the file itself
+     * travels on. The chat has to be picked by hand there — WhatsApp offers no
+     * way to be handed both a file and a recipient — and the button underneath
+     * this one is for when going straight to the chat matters more.
+     *
+     * Nothing is awaited before this call: navigator.share() has to run inside
+     * the gesture that triggered it, which is why `file` was fetched on mount.
+     */
+    if (touch && file && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], text: message });
         return;
       } catch (error) {
-        // AbortError is the person tapping Cancel. Anything else falls through
-        // to the route below rather than leaving them with nothing.
+        // AbortError is the person tapping Cancel — they meant it, so stop.
+        // Anything else falls through rather than leaving them with nothing.
         if (error instanceof Error && error.name === "AbortError") return;
       }
     }
@@ -175,29 +260,7 @@ export default function InvoicePanel({
       return;
     }
 
-    /**
-     * Save the file, then open the chat with the words already typed.
-     *
-     * The download goes through a synthetic <a download> click rather than a
-     * second window.open(). Browsers allow one popup per gesture, so two opens
-     * back to back means the second is blocked — and the second is WhatsApp,
-     * which is the whole point of the button. A download link is not a popup
-     * and does not spend the allowance.
-     */
-    const save = document.createElement("a");
-    save.href = `${url}?download=1`;
-    save.download = filename;
-    save.rel = "noopener";
-    document.body.appendChild(save);
-    save.click();
-    save.remove();
-
-    window.open(
-      `https://wa.me/${digits}?text=${encodeURIComponent(message)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-    setHint("The invoice has been saved and WhatsApp is open — attach it to the message.");
+    openChat(digits, message);
   };
 
   if (cancelled && !current) return null;
@@ -274,6 +337,38 @@ export default function InvoicePanel({
               >
                 Look at it
               </a>
+
+              {/*
+                Phones only, and only as a second choice.
+
+                The button above hands the share sheet the real file and makes
+                you pick the chat; this one goes straight to their chat with the
+                message ready and leaves you to attach the download. Which is
+                better depends on whether the file or the recipient is the
+                fiddly part that day, and that is not a judgement this screen
+                can make for somebody standing at a counter.
+
+                Not shown on a desktop because there the main button already
+                does exactly this.
+              */}
+              {touch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const digits = whatsappDigits(order.lead?.phone);
+                    if (!digits) {
+                      setHint("There is no usable phone number on this customer.");
+                      return;
+                    }
+                    setHint(null);
+                    openChat(digits, messageFor(current, order));
+                  }}
+                  className="inline-flex items-center px-1 py-2 text-[11px] font-light text-muted
+                             hover:text-white transition-colors"
+                >
+                  Open their chat instead
+                </button>
+              )}
             </div>
 
             {hint && <p className="text-[11px] font-light text-muted leading-relaxed">{hint}</p>}
