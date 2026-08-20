@@ -632,7 +632,7 @@ export default function ItemEditor({
         title="The website"
         subtitle={
           item.published_at
-            ? "Live now. Move it to Reserved or Sold to take it down."
+            ? "Live now. Move it to the workshop, Reserved or Sold to take it down."
             : liveStage
               ? "Not live yet — it needs the rest of this list, then tap its stage again."
               : "Off the site, because of the stage it is in."

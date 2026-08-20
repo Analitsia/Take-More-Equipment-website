@@ -42,12 +42,13 @@
  *
  * 20260808120000_four_stages.sql retired `intake`, `ready` and `handed_over`.
  * Four stages remain, and the stage decides publication rather than a second
- * switch a human has to remember — `listed` and `refurbishing` are live,
- * `reserved` and `sold` are not. `published` below therefore always agrees with
- * setStage() in apps/ops, with one deliberate exception: two machines are in
- * the workshop with no price and no description, so the publish gate refuses
- * them. That is not a bug in the seed. It is what the ops app does when a
- * worker taps a live stage on a half-filled row, and it is worth seeing.
+ * switch a human has to remember. Only `listed` is live: 20260820100000 took the
+ * workshop off the site, because a machine still on the bench has no settled
+ * price and a guess on a public card is one a buyer will hold us to. `published`
+ * below therefore always agrees with setStage() in apps/ops — the three machines
+ * in the workshop are off the site, one of them (the glasswasher) complete
+ * enough to go up the moment somebody taps "For sale", and two of them still
+ * half-filled so both apps can be judged on how they render a row like that.
  */
 
 export const DEMO_MARKER = "demo_seed";
@@ -516,10 +517,12 @@ export const ITEMS = [
     list: R(6800),
     retail: null,
     tags: ["electric", "under-counter"],
-    // The stage that only this system has: advertised while the workshop still
-    // has it. Priced, photographed, honest about what is outstanding.
+    // Ready in every way the publish gate cares about — priced, photographed,
+    // described — and still off the site, because the dosing pump has not landed
+    // and nobody yet knows what the job came to. The stage is the only thing
+    // holding it back, which is what makes it worth having in the seed.
     status: "refurbishing",
-    published: true,
+    published: false,
     featured: false,
     arrived: "2026-07-28",
     costs: [

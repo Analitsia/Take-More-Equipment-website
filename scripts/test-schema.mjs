@@ -371,6 +371,29 @@ r = await one(db, `select status from public.items where id='${legacy.id}'`);
 check("a line that remembers nothing falls back to For sale, as it always did",
       r.status === "listed", r.status);
 
+console.log("\nTHE WORKSHOP IS NOT A SHOPFRONT");
+/**
+ * 20260820100000. A machine on the bench has no settled price — the repair is
+ * not costed until it is finished — so it does not go on the website, and one
+ * that goes BACK to the bench comes off it.
+ */
+const bench2 = await make("Back to the bench", 900_000, 300_000, 0);
+r = await one(db, `select published_at p from public.items where id='${bench2.id}'`);
+check("a machine for sale is on the website", r.p !== null);
+
+await db.exec(`update public.items set status = 'refurbishing' where id='${bench2.id}'`);
+r = await one(db, `select status, published_at p from public.items where id='${bench2.id}'`);
+check("sending it back to the workshop takes it off the website",
+      r.status === "refurbishing" && r.p === null, `${r.status}, published_at=${r.p}`);
+
+check("and it cannot be put back up while it is in there",
+      await refuses(db, `update public.items set published_at = now() where id='${bench2.id}'`));
+
+await db.exec(`update public.items set status = 'listed' where id='${bench2.id}'`);
+await db.exec(`update public.items set published_at = now() where id='${bench2.id}'`);
+r = await one(db, `select published_at p from public.items where id='${bench2.id}'`);
+check("tapping For sale once it is priced puts it back on the same page", r.p !== null);
+
 console.log("\nTHE PICKER");
 rows = await all(db, `select sku, rank from public.search_sellable_items('${typed}', 10, null)`);
 check("a typed code finds the machine and outranks everything else",

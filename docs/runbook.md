@@ -311,8 +311,10 @@ itself on the customer's timeline. The machines go back to
 
 **"Cancel this sale"** — the deal collapsed. Anyone can, deliberately: a wrong number nobody
 can correct is worse than a correction anybody can audit. The machines go back to WHERE THEY
-CAME FROM — the workshop, if that is where they were when they went on the order — and are
-re-published if that is where they were, and the money comes off the reports on its own — the status trigger
+CAME FROM — the workshop, if that is where they were when they went on the order — and go
+back on the website only if they come back to `For sale`; one that returns to the workshop
+stays off it, because its repair is still not costed. The money comes off the reports on its
+own — the status trigger
 clears `sold_at` and `sale_price_cents` together, because the date it went and the price it
 went for are one fact.
 

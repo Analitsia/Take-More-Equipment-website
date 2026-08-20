@@ -46,6 +46,14 @@ export type Transition = {
  * a human had to remember to flip, which meant sold machines sat on the site and
  * repaired ones sat off it. Now the stage decides, and there is one control
  * instead of two that could disagree.
+ *
+ * ONLY `listed` IS LIVE. A machine on the bench used to be advertised while the
+ * work was going on, and that was a pricing mistake rather than a display one:
+ * until the repair is finished nobody knows what it cost, so the asking price on
+ * the card is a guess, and a guess published to the internet is one somebody
+ * will hold us to. The workshop is where a price is decided, not where it is
+ * advertised — the machine goes up when it is tapped "For sale", which is the
+ * same tap that says the figure is now real.
  */
 export const STAGES = [
   {
@@ -57,8 +65,8 @@ export const STAGES = [
   {
     status: "refurbishing",
     label: "In the workshop",
-    live: true,
-    hint: "On the website while we work on it",
+    live: false,
+    hint: "Off the website until the repair is priced",
   },
   {
     status: "reserved",

@@ -150,10 +150,19 @@ permanent old-to-new map.
   the enum only because a value cannot be dropped; nothing points at them.
 - `published_at` — whether the public site shows it
 
-The two are separate so a machine can be off the site without changing stage and vice versa.
-Note that a sold machine does **not** stay on the site: `stage.live` is false for `sold` in
-`packages/core/src/status.ts`, and both `setStage()` and `confirm_order_paid()` clear
-`published_at`. An earlier draft of this document said the opposite.
+The two are separate columns so a machine can be off the site without changing stage, but the
+stage is what decides publication in practice. **Only `listed` is live.** `stage.live` in
+`packages/core/src/status.ts` is false for `refurbishing`, `reserved` and `sold`, and the
+database agrees: `app.enforce_publish_requirements()` refuses to publish a machine that is in
+the workshop, `app.enforce_status_transition()` clears `published_at` on the way back to the
+bench, and `confirm_order_paid()` clears it on a sale
+(`20260820100000_the_workshop_is_not_a_shopfront.sql`).
+
+The workshop came off the site in August 2026 for a pricing reason, not a display one: until
+a repair is finished nobody knows what it cost, so the asking price on the card is a guess,
+and a published guess is one a buyer arrives holding. Earlier drafts of this document said
+both that sold machines stay on the site and that workshop machines are advertised while the
+work goes on. Neither is true now.
 
 **`orders` / `order_lines`** — one in-person sale, and one row per machine on it. Payment is
 **recorded, never processed**: `payment_method` is `card_machine` or `bank_transfer`, and

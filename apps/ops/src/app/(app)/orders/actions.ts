@@ -474,7 +474,9 @@ export async function discardOrder(orderId: string): Promise<ActionResult> {
   // went and came back.
   await admin.from("activity_log").delete().eq("entity", "order").eq("entity_id", orderId);
 
-  // Back on the shelf and back on the website. Through setStage() rather than a
+  // Back on the shelf, and back on the website if the stage it returns to is a
+  // live one — a machine that came off the bench goes back to the bench and
+  // stays off the site until its repair is priced. Through setStage() rather than a
   // direct update, because it already knows that publishing is a second write
   // and it re-runs the lead matcher for a machine that has just become
   // available again.

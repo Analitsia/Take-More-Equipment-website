@@ -93,7 +93,9 @@ export async function updateItem(id: string, patch: ItemPatch): Promise<ActionRe
  *
  * One control instead of two. Publication used to be a separate switch a human
  * had to remember to flip, so sold units sat on the site and repaired ones sat
- * off it; the stage now carries that decision with it.
+ * off it; the stage now carries that decision with it. Only `listed` is live:
+ * a machine on the bench has no settled price yet, and 20260820100000 explains
+ * at length why advertising one is a promise we may not be able to keep.
  *
  * The publish write is SEPARATE from the status write, deliberately, and the
  * order is load-bearing. The publish gate lives in
@@ -114,6 +116,18 @@ export async function setStage(id: string, status: ItemStatus): Promise<ActionRe
 
   const stage = STAGES.find((s) => s.status === status);
   if (!stage) return { ok: false, error: "That is not a stage an item can be in." };
+
+  // Read BEFORE the move, not only after. Sending a machine back to the bench
+  // now unpublishes it inside the status trigger, so the row that comes back
+  // from the write below has already forgotten that it was ever up — and the
+  // worker would be told nothing about a machine that just vanished from the
+  // site. This is what the notice is written from.
+  const { data: before } = await client
+    .from("items")
+    .select("published_at")
+    .eq("id", id)
+    .maybeSingle();
+  const wasLive = !!before?.published_at;
 
   const { error } = await client.from("items").update({ status }).eq("id", id);
   if (error) return { ok: false, error: humanise(error.message) };
@@ -136,11 +150,15 @@ export async function setStage(id: string, status: ItemStatus): Promise<ActionRe
     notice = publishError
       ? `Moved to ${stage.label}, but it is not on the website yet — ${humanise(publishError.message).toLowerCase()}`
       : `${stage.label} — now on the website.`;
-  } else if (!stage.live && isLive) {
-    const { error: hideError } = await client
-      .from("items")
-      .update({ published_at: null })
-      .eq("id", id);
+  } else if (!stage.live && (isLive || wasLive)) {
+    // Usually already done by the time we get here — the status trigger takes a
+    // machine off the site on its way to the bench, and reserving one through an
+    // order clears it too. The write stays because `reserved` and `sold` still
+    // rely on it, and because a rule that lives in one place should not be the
+    // only thing standing between a sold machine and a live listing.
+    const { error: hideError } = isLive
+      ? await client.from("items").update({ published_at: null }).eq("id", id)
+      : { error: null };
 
     notice = hideError
       ? `Moved to ${stage.label}, but it could not be taken off the website: ${humanise(hideError.message)}`
