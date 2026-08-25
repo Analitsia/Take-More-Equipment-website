@@ -3,6 +3,7 @@ import type { Session } from "@/lib/supabase";
 import { canManageTeam, ROLE_LABELS } from "@takemore/core";
 import ConnectionBanner from "./ConnectionBanner";
 import GlobalSearch from "./GlobalSearch";
+import NavLink from "./NavLink";
 import NewItemButton from "./NewItemButton";
 import NewButton from "./NewButton";
 import NewOrderButton from "./NewOrderButton";
@@ -182,16 +183,19 @@ export default function Shell({
             off the bottom. `min-h-0` is the flexbox tax for letting it. */}
         <nav className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1">
           {rail.map((item) => (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-light text-white/70
-                         hover:text-white hover:bg-white/5 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors"
+              idle="font-light text-white/70 hover:text-white hover:bg-white/5"
+              // The icon is not coloured separately: iconify draws in
+              // currentColor, so the label and the glyph turn together.
+              active="font-normal text-accent bg-accent/10 hover:bg-accent/15"
             >
               <iconify-icon icon={item.icon} width="18" height="18" noobserver="" />
               {item.label}
               <Badge count={item.badge} className="ml-auto" />
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
@@ -240,20 +244,24 @@ export default function Shell({
         </div>
         <div className="flex items-center gap-3">
           <GlobalSearch />
-          <Link
+          <NavLink
             href={ORDERS.href}
-            aria-label="Orders"
-            className="text-muted active:text-accent transition-colors flex items-center"
+            ariaLabel="Orders"
+            className="transition-colors flex items-center"
+            idle="text-muted active:text-accent"
+            active="text-accent"
           >
             <iconify-icon icon={ORDERS.icon} width="18" height="18" noobserver="" />
-          </Link>
-          <Link
+          </NavLink>
+          <NavLink
             href={WEBSITE.href}
-            aria-label="View the website"
-            className="text-muted active:text-accent transition-colors flex items-center"
+            ariaLabel="View the website"
+            className="transition-colors flex items-center"
+            idle="text-muted active:text-accent"
+            active="text-accent"
           >
             <iconify-icon icon={WEBSITE.icon} width="18" height="18" noobserver="" />
-          </Link>
+          </NavLink>
           <Link
             href="/account"
             className="text-[11px] text-muted hover:text-white transition-colors"
@@ -276,11 +284,15 @@ export default function Shell({
                    backdrop-blur-md flex items-stretch"
       >
         {nav.map((item) => (
-          <Link
+          <NavLink
             key={item.href}
             href={item.href}
-            className="relative flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-light text-white/70
-                       active:text-accent transition-colors"
+            className="relative flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] transition-colors"
+            idle="font-light text-white/70 active:text-accent"
+            // No wash down here: the bar is five slots wide on a phone and a
+            // tinted block reads as a pressed button rather than a location.
+            // Colour and weight carry it.
+            active="font-medium text-accent"
           >
             <iconify-icon icon={item.icon} width="20" height="20" noobserver="" />
             {item.label}
@@ -289,7 +301,7 @@ export default function Shell({
                 every other destination under the thumb that already knows
                 where they are. */}
             <Badge count={item.badge} className="absolute top-1.5 right-[calc(50%-16px)]" />
-          </Link>
+          </NavLink>
         ))}
         {/* One slot, two things you can start. It asks rather than assuming —
             see NewButton. */}
