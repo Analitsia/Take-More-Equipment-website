@@ -25,17 +25,19 @@ export default async function ItemPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // The record rides alongside the auth check — RLS answers it on its own, and
-  // the role only matters for the second round of queries below.
-  const [staff, item] = await Promise.all([requireStaff(), getItem(id)]);
-  if (!item) notFound();
-
-  const showCosts = canSeeCosts(staff.role);
-
+  // Everything rides alongside the auth check in one round — every query here
+  // needs only the id from the URL, RLS answers each on its own, and waiting
+  // for the item before asking for the reference data was a full extra round
+  // trip to a database a continent away.
+  //
   // Costs and margin are not merely hidden from staff in the UI — the queries
   // return nothing for them by policy. Skipping the fetch entirely keeps the
-  // intent obvious at the call site.
+  // intent obvious at the call site; the gate chains off the (per-request
+  // cached) auth check so staff still never issue them.
+  const staffPromise = requireStaff();
   const [
+    staff,
+    item,
     divisions,
     categories,
     subcategories,
@@ -46,16 +48,21 @@ export default async function ItemPage({
     wanting,
     featuredCount,
   ] = await Promise.all([
+    staffPromise,
+    getItem(id),
     getDivisions(),
     getCategories(),
     getSubcategories(),
     getTags(),
-    showCosts ? getCosts(id) : Promise.resolve([]),
-    showCosts ? getEconomics(id) : Promise.resolve(null),
+    staffPromise.then((s) => (canSeeCosts(s.role) ? getCosts(id) : [])),
+    staffPromise.then((s) => (canSeeCosts(s.role) ? getEconomics(id) : null)),
     getActivity(id),
     getLeadsWantingItem(id),
     getFeaturedCount(),
   ]);
+  if (!item) notFound();
+
+  const showCosts = canSeeCosts(staff.role);
 
   return (
     <div className="max-w-5xl">

@@ -52,6 +52,15 @@ const nextConfig = {
      * sixty for that with its own refresh timer.
      */
     staleTimes: { dynamic: 30 },
+    /**
+     * Rewrite barrel imports to direct module imports at build time.
+     *
+     * @takemore/ui's index re-exports everything — including Turnstile, which
+     * loads Cloudflare's script — so a server page that wants only Panel was
+     * dragging the whole surface into its graph. recharts gets the same
+     * treatment for its own barrel.
+     */
+    optimizePackageImports: ["@takemore/ui", "recharts"],
   },
   images: {
     remotePatterns: supabaseHost

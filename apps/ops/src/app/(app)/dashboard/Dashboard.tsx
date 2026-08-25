@@ -2,10 +2,39 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { STATUS_LABELS, STATUS_ORDER, rands, type ItemStatus } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
-import { BreakdownChart, CostChart, DemandChart, TrendChart } from "./charts";
+
+// The charts are the only consumer of recharts, and recharts drags the whole
+// d3 graph in behind it — far more JavaScript than the rest of this page put
+// together. Loaded as their own chunk so the numbers paint first and the
+// charts fill in a beat later, each behind a panel-shaped pulse the size the
+// chart will be. `ssr: false` costs nothing here: recharts only measures and
+// draws in a real browser anyway.
+const chartSkeleton = (height: string) => {
+  const ChartSkeleton = () => (
+    <div className={`bg-card border border-border rounded-2xl animate-pulse ${height}`} />
+  );
+  return ChartSkeleton;
+};
+const BreakdownChart = dynamic(
+  () => import("./charts").then((m) => ({ default: m.BreakdownChart })),
+  { ssr: false, loading: chartSkeleton("h-96") }
+);
+const TrendChart = dynamic(
+  () => import("./charts").then((m) => ({ default: m.TrendChart })),
+  { ssr: false, loading: chartSkeleton("h-[22rem]") }
+);
+const CostChart = dynamic(
+  () => import("./charts").then((m) => ({ default: m.CostChart })),
+  { ssr: false, loading: chartSkeleton("h-[22rem]") }
+);
+const DemandChart = dynamic(
+  () => import("./charts").then((m) => ({ default: m.DemandChart })),
+  { ssr: false, loading: chartSkeleton("h-80") }
+);
 import {
   PERIODS,
   byMonth,
@@ -102,6 +131,12 @@ export default function Dashboard({
 
   const summary = useMemo(() => summarise(items, filters), [items, filters]);
   const groups = useMemo(() => group(items, filters), [items, filters]);
+  // The table's own order, computed once per data change rather than on every
+  // render inside the JSX.
+  const tableRows = useMemo(
+    () => groups.slice().sort((a, b) => b.marginCents - a.marginCents),
+    [groups]
+  );
   const months = useMemo(() => byMonth(items, filters), [items, filters]);
   const costRows = useMemo(() => costs(items, filters), [items, filters]);
   const crm = useMemo(() => summariseCrm(leads, filters), [leads, filters]);
@@ -305,10 +340,7 @@ export default function Dashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {groups
-                    .slice()
-                    .sort((a, b) => b.marginCents - a.marginCents)
-                    .map((row) => (
+                  {tableRows.map((row) => (
                       <tr key={row.key}>
                         <th scope="row" className="px-4 py-3 font-light text-left">
                           {row.label}

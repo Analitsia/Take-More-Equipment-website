@@ -15,6 +15,19 @@ import { NextResponse, type NextRequest } from "next/server";
  * to the data.
  */
 export async function middleware(request: NextRequest) {
+  // Prefetches skip the refresh check. For these force-dynamic routes a
+  // prefetch only ever warms the route's loading skeleton — no data, no
+  // session decision — and the real navigation that follows still comes
+  // through here and gets its cookies refreshed. Charging every hover and
+  // every link that scrolls into view a round trip to the auth server bought
+  // nothing.
+  if (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch"
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const client = createServerClient(

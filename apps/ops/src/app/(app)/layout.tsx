@@ -18,20 +18,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // needs no role to run (any staff member may work the queue, and RLS answers
   // zero to anyone who may not), so paying for it sequentially was pure
   // latency on every request. `head: true` fetches the count without the rows.
-  const [staff, queuedCount] = await Promise.all([requireStaff(), countQueuedOutreach()]);
-
   // Only the owner can act on a request, so only the owner pays for the count.
   // A partial index on (created_at) where approved_at is null makes this a scan
-  // of the requests themselves rather than of the team.
-  let pendingCount = 0;
-  if (canManageTeam(staff.role)) {
-    const client = await supabase();
-    const { count } = await client
-      .from("staff_profiles")
-      .select("user_id", { count: "exact", head: true })
-      .is("approved_at", null);
-    pendingCount = count ?? 0;
-  }
+  // of the requests themselves rather than of the team. It chains off the auth
+  // check (the role decides whether to ask at all) but rides in the same
+  // Promise.all, so it overlaps the queue count instead of waiting behind it.
+  const staffPromise = requireStaff();
+  const [staff, queuedCount, pendingCount] = await Promise.all([
+    staffPromise,
+    countQueuedOutreach(),
+    staffPromise.then(async (s) => {
+      if (!canManageTeam(s.role)) return 0;
+      const client = await supabase();
+      const { count } = await client
+        .from("staff_profiles")
+        .select("user_id", { count: "exact", head: true })
+        .is("approved_at", null);
+      return count ?? 0;
+    }),
+  ]);
 
   return (
     <Shell staff={staff} pendingCount={pendingCount} queuedCount={queuedCount}>

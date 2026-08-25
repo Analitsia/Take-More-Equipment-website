@@ -10,14 +10,18 @@ import { redirect } from "next/navigation";
  * `cookies()` is imported here rather than inside @takemore/db so that package
  * stays framework-agnostic — the seed script and the test harnesses import it
  * too, and neither has a Next.js request to hand.
+ *
+ * Wrapped in cache() so a page that calls a dozen query helpers shares one
+ * client per request instead of constructing one per helper. The cookie store
+ * is request-scoped anyway, so this changes allocation, not behaviour.
  */
-export async function supabase() {
+export const supabase = cache(async () => {
   const store = await cookies();
   return createStaffClient({
     getAll: () => store.getAll(),
     set: (name, value, options) => store.set(name, value, options),
   });
-}
+});
 
 export type Session = {
   userId: string;

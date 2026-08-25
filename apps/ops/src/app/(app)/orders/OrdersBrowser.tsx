@@ -29,6 +29,14 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "void", label: "Cancelled" },
 ];
 
+// One formatter for the whole list — constructing one per row is the kind of
+// hidden cost that makes a long list feel heavier than it is.
+const orderDate = new Intl.DateTimeFormat("en-ZA", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
 const STATUS_CHROME: Record<OrderStatus, string> = {
   draft: "border-accent/40 text-accent",
   paid: "border-status-ready/40 text-status-ready",
@@ -146,11 +154,7 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
                         order.payment_method
                           ? PAYMENT_METHOD_LABELS[order.payment_method]
                           : null,
-                        new Date(order.paid_at ?? order.created_at).toLocaleDateString("en-ZA", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        }),
+                        orderDate.format(new Date(order.paid_at ?? order.created_at)),
                       ]
                         .filter(Boolean)
                         .join(" · ")}

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
 import { createBrowserClient } from "@takemore/db";
 import { Panel, Button } from "@takemore/ui";
 import { deleteMedia, recordMedia, reorderMedia } from "../actions";
@@ -119,7 +118,10 @@ export default function MediaManager({
           }
         } else {
           // ~300 KB at 2000px is indistinguishable from the original on a
-          // product page and roughly a twentieth of the bytes.
+          // product page and roughly a twentieth of the bytes. The library is
+          // loaded here, on first use — it only ever runs inside this handler,
+          // and keeping it out of the page bundle makes the editor open faster.
+          const { default: imageCompression } = await import("browser-image-compression");
           upload = await imageCompression(file, {
             maxSizeMB: 0.3,
             maxWidthOrHeight: 2000,

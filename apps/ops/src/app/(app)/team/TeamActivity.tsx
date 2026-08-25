@@ -66,17 +66,24 @@ export default function TeamActivity({
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [entries, directory]);
 
-  const shown = actor ? entries.filter((entry) => entry.actor_id === actor) : entries;
+  const shown = useMemo(
+    () => (actor ? entries.filter((entry) => entry.actor_id === actor) : entries),
+    [actor, entries]
+  );
 
   // Grouped after filtering, so a day with nothing left in it takes its heading
-  // with it rather than leaving a dated gap.
-  const days: { day: string; rows: ActivityEntry[] }[] = [];
-  for (const entry of shown) {
-    const day = dayOf(entry.created_at);
-    const last = days[days.length - 1];
-    if (last?.day === day) last.rows.push(entry);
-    else days.push({ day, rows: [entry] });
-  }
+  // with it rather than leaving a dated gap. Memoised: the grouping walks every
+  // row, and a re-render that changed nothing should not walk them again.
+  const days = useMemo(() => {
+    const grouped: { day: string; rows: ActivityEntry[] }[] = [];
+    for (const entry of shown) {
+      const day = dayOf(entry.created_at);
+      const last = grouped[grouped.length - 1];
+      if (last?.day === day) last.rows.push(entry);
+      else grouped.push({ day, rows: [entry] });
+    }
+    return grouped;
+  }, [shown]);
 
   return (
     <section>

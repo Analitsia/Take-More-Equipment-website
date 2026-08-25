@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getLastCronRun, listItems } from "@/lib/queries";
 import { listLeads } from "@/lib/leads";
 import { reportError } from "@takemore/observability";
@@ -14,8 +15,12 @@ import {
   type ItemStatus,
 } from "@takemore/core";
 import { STATUS_CLASSES } from "@takemore/ui";
-import Dashboard from "./dashboard/Dashboard";
+import dynamicImport from "next/dynamic";
 import { normaliseItem, normaliseLead } from "./dashboard/metrics";
+
+// Lazy so the staff variant of this page never references the Dashboard chunk
+// at all — staff pay for the page they actually see, not for the manager's.
+const Dashboard = dynamicImport(() => import("./dashboard/Dashboard"));
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +54,38 @@ export default async function DashboardPage() {
   const [staff, lastSweep] = await Promise.all([requireStaff(), getLastCronRun()]);
   const firstName = staff.fullName.split(" ")[0];
 
+  // The Suspense boundary is what lets the page start streaming as soon as
+  // the auth check is answered: the skeleton paints while the dashboard's own
+  // queries — the heaviest reads in the app — are still on the way.
   if (canSeeCosts(staff.role)) {
-    return <ManagerDashboard greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />;
+    return (
+      <Suspense fallback={<HomeSkeleton />}>
+        <ManagerDashboard greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />
+      </Suspense>
+    );
   }
-  return <StaffToday greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />;
+  return (
+    <Suspense fallback={<HomeSkeleton />}>
+      <StaffToday greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />
+    </Suspense>
+  );
+}
+
+/** The shape of either landing page while its data is on the way. */
+function HomeSkeleton() {
+  return (
+    <div className="max-w-6xl animate-pulse" aria-busy="true" aria-label="Loading">
+      <header className="mb-6">
+        <div className="h-7 w-44 rounded-lg bg-white/[0.06]" />
+        <div className="h-4 w-64 rounded bg-white/[0.04] mt-2" />
+      </header>
+      <div className="flex flex-col gap-3">
+        <div className="h-24 rounded-2xl bg-card border border-border" />
+        <div className="h-24 rounded-2xl bg-card border border-border" />
+        <div className="h-56 rounded-2xl bg-card border border-border" />
+      </div>
+    </div>
+  );
 }
 
 /**

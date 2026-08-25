@@ -14,20 +14,27 @@ export default async function OrderPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [staff, order] = await Promise.all([requireStaff(), getOrder(id)]);
-  if (!order) notFound();
-
-  const showCosts = canSeeCosts(staff.role);
-
+  // One round for everything — each query needs only the id from the URL, so
+  // waiting for the order before asking for its lines and invoices was a full
+  // extra round trip.
+  //
   // The cost fetch is skipped entirely rather than fetched and hidden, the way
   // items/[id]/page.tsx does it. Today can_see_costs() is every approved
   // account, so this is always true — but keeping the shape is what makes
   // re-restricting one line in Postgres rather than an audit of every screen.
-  const [lines, economics, invoices] = await Promise.all([
+  // The gate chains off the (per-request cached) auth check so it still never
+  // fires for a role that may not see costs.
+  const staffPromise = requireStaff();
+  const [staff, order, lines, economics, invoices] = await Promise.all([
+    staffPromise,
+    getOrder(id),
     getOrderLines(id),
-    showCosts ? getOrderEconomics(id) : Promise.resolve({ order: null, lines: [] }),
+    staffPromise.then((s) =>
+      canSeeCosts(s.role) ? getOrderEconomics(id) : { order: null, lines: [] }
+    ),
     getOrderInvoices(id),
   ]);
+  if (!order) notFound();
 
   return (
     <div className="max-w-5xl">
