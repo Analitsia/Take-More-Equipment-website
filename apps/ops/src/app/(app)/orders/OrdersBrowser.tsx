@@ -6,6 +6,7 @@ import {
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   formatPhone,
+  isOutOnHire,
   normalisePhone,
   rands,
   type OrderStatus,
@@ -20,14 +21,19 @@ import type { OrderRow } from "@/lib/orders";
  * the difference between a list somebody uses and a list somebody avoids.
  */
 
-type Filter = "all" | "draft" | "paid" | "void";
+type Filter = "all" | "draft" | "paid" | "out" | "void";
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "Everything" },
   { value: "draft", label: "Open" },
   { value: "paid", label: "Paid" },
+  // Rentals whose machines are still out. The one filter that is about where
+  // the stock is rather than where the money is.
+  { value: "out", label: "Out on hire" },
   { value: "void", label: "Cancelled" },
 ];
+
+
 
 // One formatter for the whole list — constructing one per row is the kind of
 // hidden cost that makes a long list feel heavier than it is.
@@ -65,7 +71,8 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
     const asPhone = normalisePhone(query);
 
     return orders.filter((order) => {
-      if (filter !== "all" && order.status !== filter) return false;
+      if (filter === "out" ? !isOutOnHire(order) : filter !== "all" && order.status !== filter)
+        return false;
       if (!term) return true;
 
       const haystack = [
@@ -150,6 +157,10 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
                     <p className="text-[11px] font-light text-muted truncate">
                       {[
                         `${machines} machine${machines === 1 ? "" : "s"}`,
+                        order.kind === "hire" && order.hire_start && order.hire_end
+                          ? `${orderDate.format(new Date(order.hire_start))} – ${orderDate.format(new Date(order.hire_end))}`
+                          : null,
+                        order.kind === "hire" && order.hire_returned_at ? "returned" : null,
                         order.delivery ? "delivered" : null,
                         order.payment_method
                           ? PAYMENT_METHOD_LABELS[order.payment_method]
@@ -162,10 +173,17 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-light border ${STATUS_CHROME[order.status]}`}
-                    >
-                      {ORDER_STATUS_LABELS[order.status]}
+                    <span className="flex items-center gap-1.5">
+                      {order.kind === "hire" && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-light border border-white/15 text-white/80">
+                          {isOutOnHire(order) ? "Rental · out" : "Rental"}
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-light border ${STATUS_CHROME[order.status]}`}
+                      >
+                        {ORDER_STATUS_LABELS[order.status]}
+                      </span>
                     </span>
                     {order.charged_total_cents !== null && order.status !== "draft" && (
                       <span className="text-xs font-light text-white/80 tabular-nums">

@@ -26,7 +26,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1050,7 +1050,11 @@ export type Database = {
           delivery_fee_cents: number
           delivery_km: number | null
           delivery_km_source: string | null
+          hire_end: string | null
+          hire_returned_at: string | null
+          hire_start: string | null
           id: string
+          kind: string
           lead_id: string | null
           notes: string | null
           paid_at: string | null
@@ -1073,7 +1077,11 @@ export type Database = {
           delivery_fee_cents?: number
           delivery_km?: number | null
           delivery_km_source?: string | null
+          hire_end?: string | null
+          hire_returned_at?: string | null
+          hire_start?: string | null
           id?: string
+          kind?: string
           lead_id?: string | null
           notes?: string | null
           paid_at?: string | null
@@ -1096,7 +1104,11 @@ export type Database = {
           delivery_fee_cents?: number
           delivery_km?: number | null
           delivery_km_source?: string | null
+          hire_end?: string | null
+          hire_returned_at?: string | null
+          hire_start?: string | null
           id?: string
+          kind?: string
           lead_id?: string | null
           notes?: string | null
           paid_at?: string | null
@@ -1770,6 +1782,14 @@ export type Database = {
           request_id: string
         }[]
       }
+      confirm_hire_paid: {
+        Args: {
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_order_id: string
+          p_reference?: string
+        }
+        Returns: Json
+      }
       confirm_order_paid: {
         Args: {
           p_method: Database["public"]["Enums"]["payment_method"]
@@ -1780,6 +1800,11 @@ export type Database = {
         Returns: Json
       }
       delivery_fee_cents: { Args: { p_km: number }; Returns: number }
+      hire_daily_rate_cents: { Args: { p_list_cents: number }; Returns: number }
+      hire_fee_cents: {
+        Args: { p_days: number; p_list_cents: number }
+        Returns: number
+      }
       issue_invoice: {
         Args: { p_issuer: Json; p_kind: string; p_order_id: string }
         Returns: Json
@@ -1810,6 +1835,7 @@ export type Database = {
         Returns: undefined
       }
       reopen_order: { Args: { p_order_id: string }; Returns: Json }
+      return_hire: { Args: { p_order_id: string }; Returns: Json }
       run_stock_match: { Args: never; Returns: number }
       search_everything: {
         Args: { p_limit?: number; p_query: string }

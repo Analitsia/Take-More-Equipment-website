@@ -1,6 +1,13 @@
 import { supabase } from "./supabase";
 import { reportError } from "@takemore/observability";
-import type { InvoiceDocument, InvoiceKind, ItemStatus, OrderStatus, PaymentMethod } from "@takemore/core";
+import type {
+  InvoiceDocument,
+  InvoiceKind,
+  ItemStatus,
+  OrderKind,
+  OrderStatus,
+  PaymentMethod,
+} from "@takemore/core";
 import type { MediaRef } from "./media";
 
 /**
@@ -26,6 +33,10 @@ export type OrderRow = {
   id: string;
   code: string;
   status: OrderStatus;
+  kind: OrderKind;
+  hire_start: string | null;
+  hire_end: string | null;
+  hire_returned_at: string | null;
   sold_total_cents: number | null;
   delivery: boolean;
   delivery_fee_cents: number;
@@ -39,7 +50,8 @@ export type OrderRow = {
 };
 
 const ORDER_LIST_SELECT = `
-  id, code, status, sold_total_cents, delivery, delivery_fee_cents,
+  id, code, status, kind, hire_start, hire_end, hire_returned_at,
+  sold_total_cents, delivery, delivery_fee_cents,
   charged_total_cents, payment_method, paid_at, created_at, voided_at,
   lead:leads(id, full_name, business_name, phone),
   lines:order_lines(item_id)
@@ -68,6 +80,13 @@ export type OrderDetail = {
   id: string;
   code: string;
   status: OrderStatus;
+  /** Sale or hire. Frozen by the database once a machine is on the order. */
+  kind: OrderKind;
+  /** `2026-09-01`. Both null on a sale; both required before a hire is paid. */
+  hire_start: string | null;
+  hire_end: string | null;
+  /** Stamped by return_hire(). Null on a sale, and on a hire still out. */
+  hire_returned_at: string | null;
   lead_id: string | null;
   sold_total_cents: number | null;
   delivery: boolean;
@@ -104,7 +123,8 @@ export async function getOrder(id: string): Promise<OrderDetail | null> {
   const { data, error } = await client
     .from("orders")
     .select(
-      `id, code, status, lead_id, sold_total_cents, delivery, delivery_address,
+      `id, code, status, kind, hire_start, hire_end, hire_returned_at,
+       lead_id, sold_total_cents, delivery, delivery_address,
        delivery_km, delivery_km_source, delivery_fee_cents, charged_total_cents,
        payment_method, payment_reference, paid_at, sold_by, notes, voided_at, void_reason,
        created_at,

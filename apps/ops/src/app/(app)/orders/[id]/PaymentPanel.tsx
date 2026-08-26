@@ -12,7 +12,14 @@ import {
   rands,
   type PaymentMethod,
 } from "@takemore/core";
-import { confirmPaid, discardOrder, reopenOrder, setProvisionalTotal, voidOrder } from "../actions";
+import {
+  confirmHirePaid,
+  confirmPaid,
+  discardOrder,
+  reopenOrder,
+  setProvisionalTotal,
+  voidOrder,
+} from "../actions";
 import type { OrderDetail } from "@/lib/orders";
 
 /**
@@ -34,6 +41,7 @@ export default function PaymentPanel({
   costTotalCents,
   showCosts,
   canReopen,
+  hire,
   onDone,
 }: {
   order: OrderDetail;
@@ -41,6 +49,12 @@ export default function PaymentPanel({
   costTotalCents: number | null;
   showCosts: boolean;
   canReopen: boolean;
+  /**
+   * Null on a sale. On a rental the total is not typed — it is computed from
+   * the saved dates and the asking prices, and this is that figure, previewed
+   * here and written by confirm_hire_paid() from the same rule.
+   */
+  hire: { days: number | null; totalCents: number; returned: boolean } | null;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [cents, setCents] = useState<number | null>(order.sold_total_cents);
@@ -78,10 +92,15 @@ export default function PaymentPanel({
   /** True when closing this order means deleting it rather than voiding it. */
   const discards = open && !everPaid;
 
-  const goods = paid ? (order.sold_total_cents ?? 0) : (cents ?? 0);
+  const goods = paid ? (order.sold_total_cents ?? 0) : hire ? hire.totalCents : (cents ?? 0);
   const charged = goods + order.delivery_fee_cents;
-  const off = discountCents(listTotalCents, cents);
-  const offPercent = discountPercent(listTotalCents, cents);
+  const off = hire ? null : discountCents(listTotalCents, cents);
+  const offPercent = hire ? null : discountPercent(listTotalCents, cents);
+  /**
+   * A rental's total is ready when the dates are saved and something on the
+   * order has a price. Nothing is typed, so there is nothing else to wait for.
+   */
+  const hireReady = hire !== null && Boolean(hire.days) && hire.totalCents > 0;
   /**
    * Everything in, everything out, and the share we keep.
    *
@@ -91,17 +110,26 @@ export default function PaymentPanel({
    * — while correctly diluting the percentage, since money passing straight
    * through us is takings we keep nothing of.
    */
+  /**
+   * Not on a rental. The cost of a machine is spent when it is SOLD; a hire
+   * earns against a machine that is still on the shelf afterwards, and
+   * subtracting its whole cost from one weekend's fee would report every
+   * rental as a loss. What a hire earns over a machine's life is a dashboard
+   * question, and not one this screen can answer.
+   */
   const economics =
-    costTotalCents === null
+    costTotalCents === null || hire
       ? null
       : orderEconomics(goods, order.delivery_fee_cents, costTotalCents);
   const margin = economics?.marginCents ?? null;
   const belowCost = margin !== null && margin < 0;
 
   const confirm = async () => {
-    if (!cents || cents <= 0) return;
+    if (hire ? !hireReady : !cents || cents <= 0) return;
     setSaving(true);
-    const result = await confirmPaid(order.id, cents, method, reference);
+    const result = hire
+      ? await confirmHirePaid(order.id, method, reference)
+      : await confirmPaid(order.id, cents as number, method, reference);
     setSaving(false);
     onDone(result.ok ? { ok: true, message: result.notice } : { ok: false, message: result.error });
   };
@@ -134,17 +162,19 @@ export default function PaymentPanel({
 
   return (
     <Panel
-      title={paid ? "Paid" : cancelled ? "Cancelled" : "What it sold for"}
+      title={paid ? "Paid" : cancelled ? "Cancelled" : hire ? "What the hire comes to" : "What it sold for"}
       subtitle={
         cancelled
           ? (order.void_reason ?? undefined)
           : paid
             ? undefined
-            : "The real number, after whatever you agreed."
+            : hire
+              ? "Worked out from the dates and the asking prices. Nothing to type."
+              : "The real number, after whatever you agreed."
       }
     >
       <div className="space-y-3">
-        {!paid && !cancelled && (
+        {!paid && !cancelled && !hire && (
           <Field label="Price agreed for the machines">
             <RandInput
               valueCents={cents}
@@ -163,7 +193,15 @@ export default function PaymentPanel({
 
         {/* The arithmetic. Asking, discount, delivery, and what they hand over. */}
         <dl className="space-y-1.5 text-sm border-t border-white/5 pt-3">
-          <Row label="Asking" value={rands(listTotalCents)} muted />
+          {hire ? (
+            <Row
+              label={hire.days ? `Hire, ${hire.days} day${hire.days === 1 ? "" : "s"}` : "Hire"}
+              value={hire.days ? rands(goods) : "pick the dates"}
+              muted
+            />
+          ) : (
+            <Row label="Asking" value={rands(listTotalCents)} muted />
+          )}
           {off !== null && off !== 0 && (
             <Row
               label={off > 0 ? `Discount (${offPercent}%)` : "Above asking"}
@@ -177,7 +215,7 @@ export default function PaymentPanel({
           <Row label="Customer pays" value={rands(charged)} strong />
         </dl>
 
-        {showCosts && costTotalCents !== null && (
+        {showCosts && costTotalCents !== null && !hire && (
           <dl
             className={`space-y-1.5 text-sm border rounded-xl px-3 py-2.5 ${
               belowCost
@@ -258,11 +296,17 @@ export default function PaymentPanel({
             <Button
               variant="primary"
               loading={saving}
-              disabled={!cents || cents <= 0 || !order.lead_id}
+              disabled={(hire ? !hireReady : !cents || cents <= 0) || !order.lead_id}
               onClick={confirm}
               className="w-full"
             >
-              {order.lead_id ? "Record the payment" : "Add a customer first"}
+              {!order.lead_id
+                ? "Add a customer first"
+                : hire && !hire.days
+                  ? "Save the hire dates first"
+                  : hire && !hireReady
+                    ? "Add a priced machine first"
+                    : "Record the payment"}
             </Button>
           </>
         )}
@@ -288,9 +332,13 @@ export default function PaymentPanel({
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {paid && canReopen && (
+              {/* A returned hire is finished: its machines are back in stock
+                  and reopening it would re-hold them for dates that have
+                  passed. Cancelling stays available, because the money can
+                  still have been wrong. */}
+              {paid && canReopen && !hire?.returned && (
                 <Button variant="secondary" loading={saving} onClick={reopen}>
-                  Correct the amount
+                  {hire ? "Reopen to change the dates" : "Correct the amount"}
                 </Button>
               )}
               <Button variant="danger" onClick={() => setConfirmingVoid((v) => !v)}>

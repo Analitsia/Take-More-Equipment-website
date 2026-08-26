@@ -42,6 +42,7 @@ import {
   checkInvoiceTotals,
   deliveryFeeCents,
   formatItemCode,
+  hireFeeCents,
   normaliseItemCode,
 } from "@takemore/core";
 
@@ -542,6 +543,109 @@ await db.exec(`update public.items set status = 'listed' where id='${bench2.id}'
 await db.exec(`update public.items set published_at = now() where id='${bench2.id}'`);
 r = await one(db, `select published_at p from public.items where id='${bench2.id}'`);
 check("tapping For sale once it is priced puts it back on the same page", r.p !== null);
+
+// ---------------------------------------------------------------------------
+// A hire, end to end
+// ---------------------------------------------------------------------------
+console.log("\nA HIRE, END TO END");
+
+/**
+ * The rule, pinned to its TypeScript twin over the cases that matter: the
+ * worked example from the brief, the boundary either side of day 7, a price
+ * that does not divide cleanly, and a machine with no price at all.
+ */
+for (const [list, days] of [
+  [1_000_000, 1], [1_000_000, 3], [1_000_000, 7], [1_000_000, 8], [1_000_000, 10],
+  [1_000_000, 30], [1_234_500, 10], [1_234_567, 9], [0, 10], [99, 8],
+]) {
+  r = await one(db, `select public.hire_fee_cents(${list}, ${days}) f`);
+  check(`hire fee for R${list / 100} × ${days} days matches hireFeeCents()`,
+        num(r.f) === hireFeeCents(list, days), `${r.f} vs ${hireFeeCents(list, days)}`);
+}
+r = await one(db, "select public.hire_fee_cents(1000000, 10) f");
+check("R10 000 for 10 days is R3 820, as specified", num(r.f) === 382_000, `R${num(r.f) / 100}`);
+r = await one(db, "select app.hire_days('2026-09-01', '2026-09-01') one, app.hire_days('2026-09-01', '2026-09-10') ten");
+check("out and back on the same day is one day, not zero", num(r.one) === 1 && num(r.ten) === 10);
+
+const tenK = await make("Ten thousand", 1_000_000, 400_000, 50_000);
+const odd = await make("Odd price", 1_234_500, 400_000, 50_000);
+const hirer = await one(db, `insert into public.leads (full_name, email, source)
+                             values ('Hirer', 'h@schema.test', 'walk_in') returning id`);
+
+const hire = await one(db, "insert into public.orders (status, kind) values ('draft', 'hire') returning id, code");
+await db.exec(`select public.add_order_line('${hire.id}', '${tenK.sku}')`);
+await db.exec(`select public.add_order_line('${hire.id}', '${odd.sku}')`);
+check("a hire cannot be turned into a sale once it has machines on it",
+      await refuses(db, `update public.orders set kind = 'sale' where id='${hire.id}'`));
+await db.exec(`update public.orders set lead_id='${hirer.id}' where id='${hire.id}'`);
+
+check("a hire cannot be paid without its dates",
+      await refuses(db, `select public.confirm_hire_paid('${hire.id}', 'card_machine', null)`));
+check("the dates cannot be the wrong way round",
+      await refuses(db, `update public.orders set hire_start='2026-09-10', hire_end='2026-09-01' where id='${hire.id}'`));
+await db.exec(`update public.orders set hire_start='2026-09-01', hire_end='2026-09-10', sold_total_cents = 1
+               where id='${hire.id}'`);
+r = await one(db, `select sold_total_cents t from public.orders where id='${hire.id}'`);
+check("a draft hire never carries a typed total", r.t === null, String(r.t));
+
+check("the sale RPC refuses a hire",
+      await refuses(db, `select public.confirm_order_paid('${hire.id}', 382000, 'card_machine', null)`));
+check("the hire RPC refuses a sale",
+      await refuses(db, `select public.confirm_hire_paid('${order.id}', 'card_machine', null)`));
+
+const hireRevenueBefore = num((await one(db, `select coalesce(sum(revenue_cents),0) r from public.money_by_month`)).r);
+await db.exec(`select public.confirm_hire_paid('${hire.id}', 'card_machine', 'SLIP-H1')`);
+
+const expectedOdd = hireFeeCents(1_234_500, 10);
+r = await one(db, `select status, sold_total_cents t, charged_total_cents c from public.orders where id='${hire.id}'`);
+check("the hire total is computed from the dates and the asking prices",
+      r.status === "paid" && num(r.t) === 382_000 + expectedOdd, `R${num(r.t) / 100}`);
+rows = await all(db, `select i.status, i.sale_price_cents s, i.sold_at, i.published_at, l.sold_price_cents ls
+                      from public.order_lines l join public.items i on i.id=l.item_id
+                      where l.order_id='${hire.id}' order by l.position`);
+check("each line records what that machine earned", num(rows[0].ls) === 382_000 && num(rows[1].ls) === expectedOdd);
+check("the machines are held, off the website, and NOT sold",
+      rows.every((x) => x.status === "reserved" && x.s === null && x.sold_at === null && x.published_at === null),
+      rows.map((x) => x.status).join(","));
+const hireRevenueAfter = num((await one(db, `select coalesce(sum(revenue_cents),0) r from public.money_by_month`)).r);
+check("the per-machine money views did not count a hire as a sale", hireRevenueAfter === hireRevenueBefore);
+r = await one(db, `select status from public.leads where id='${hirer.id}'`);
+check("the hirer became a customer — money changed hands", r.status === "customer", r.status);
+r = await one(db, "select summary from public.activity_log where entity='order' and action='status_changed' order by created_at desc limit 1");
+check("the activity log says it was a hire", /hire 10 days/.test(r.summary), r.summary);
+
+const other = await one(db, "insert into public.orders (status) values ('draft') returning id");
+check("a machine out on hire cannot go on another order",
+      await refuses(db, `select public.add_order_line('${other.id}', '${tenK.sku}')`));
+rows = await all(db, `select on_order from public.search_sellable_items('${tenK.sku}', 5, null)`);
+check("and the picker says which order it is out on", rows[0]?.on_order === hire.code, String(rows[0]?.on_order));
+
+// The invoice for a hire: one line per machine at its fee, no discount line.
+await db.exec(`select public.issue_invoice('${hire.id}', 'invoice', '${issuer()}'::jsonb)`);
+stored = await one(db, `select document d, total_cents t from public.order_invoices
+                        where order_id='${hire.id}' order by issued_at desc limit 1`);
+{
+  const doc = typeof stored.d === "string" ? JSON.parse(stored.d) : stored.d;
+  check("the hire invoice adds up", checkInvoiceTotals(doc) === null, checkInvoiceTotals(doc) ?? "");
+  check("it carries the period", doc.hire?.days === 10 && doc.hire?.start === "2026-09-01", JSON.stringify(doc.hire));
+  check("there is no discount line on a hire", doc.adjustment_cents === 0 && doc.lines.length === 2);
+  check("and it asks for exactly what the order says the customer pays",
+        num(stored.t) === num((await one(db, `select charged_total_cents c from public.orders where id='${hire.id}'`)).c));
+}
+
+check("a sale cannot be 'returned'",
+      await refuses(db, `select public.return_hire('${order.id}')`));
+await db.exec(`select public.return_hire('${hire.id}')`);
+rows = await all(db, `select i.status from public.order_lines l join public.items i on i.id=l.item_id where l.order_id='${hire.id}'`);
+check("returning puts the machines back where they came from", rows.every((x) => x.status === "listed"), rows.map((x) => x.status).join(","));
+r = await one(db, `select hire_returned_at ret, status, sold_total_cents t from public.orders where id='${hire.id}'`);
+check("the hire is stamped returned and still paid", r.ret !== null && r.status === "paid" && num(r.t) === 382_000 + expectedOdd);
+check("it cannot be returned twice", await refuses(db, `select public.return_hire('${hire.id}')`));
+await db.exec(`select public.add_order_line('${other.id}', '${tenK.sku}')`);
+r = await one(db, `select count(*) c from public.order_lines where order_id='${other.id}'`);
+check("a returned machine can go out again on another order", num(r.c) === 1);
+rows = await all(db, `select on_order from public.search_sellable_items('${odd.sku}', 5, null)`);
+check("and the picker no longer names the finished hire", rows[0]?.on_order === null, String(rows[0]?.on_order));
 
 console.log("\nTHE PICKER");
 rows = await all(db, `select sku, rank from public.search_sellable_items('${typed}', 10, null)`);

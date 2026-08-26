@@ -6,12 +6,18 @@ import { useRouter } from "next/navigation";
 import { Panel } from "@takemore/ui";
 import { StatusPill } from "@takemore/ui";
 import {
+  ORDER_KINDS,
+  ORDER_KIND_LABELS,
   ORDER_STATUS_LABELS,
   allocateSoldTotal,
   canReopenSale,
   canSeeCosts,
+  hireDailyRateCents,
+  hireDays,
+  hireFeeCents,
   rands,
   type AppRole,
+  type OrderKind,
   type OrderStatus,
 } from "@takemore/core";
 import ItemThumb from "@/components/ItemThumb";
@@ -25,10 +31,11 @@ import type {
 import CustomerPicker from "./CustomerPicker";
 import ProductPicker from "./ProductPicker";
 import DeliveryPanel from "./DeliveryPanel";
+import HirePanel from "./HirePanel";
 import PaymentPanel from "./PaymentPanel";
 import NotesPanel from "./NotesPanel";
 import InvoicePanel from "./InvoicePanel";
-import { removeLine } from "../actions";
+import { removeLine, setOrderKind } from "../actions";
 
 const STATUS_CHROME: Record<OrderStatus, string> = {
   draft: "border-accent/40 text-accent",
@@ -71,8 +78,17 @@ export default function OrderScreen({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const locked = order.status !== "draft";
+  const hire = order.kind === "hire";
+  /**
+   * The number of days the hire is priced on, from the SAVED dates — the
+   * figures on this screen must agree with what confirm_hire_paid() is about to
+   * write, and it reads the row, not the boxes.
+   */
+  const days = hire ? hireDays(order.hire_start, order.hire_end) : null;
+  const hireTotal = days ? lines.reduce((sum, l) => sum + hireFeeCents(l.list_price_cents, days), 0) : 0;
   const showCosts = canSeeCosts(role) && economics !== null;
 
   const costByItem = new Map(lineCosts.map((c) => [c.item_id, c]));
@@ -91,7 +107,7 @@ export default function OrderScreen({
    * would be the one who found out.
    */
   const preview =
-    !locked && order.sold_total_cents
+    !locked && !hire && order.sold_total_cents
       ? allocateSoldTotal(
           order.sold_total_cents,
           lines.map((l) => l.list_price_cents)
@@ -102,6 +118,14 @@ export default function OrderScreen({
     setError(result.ok ? null : (result.message ?? "That did not work."));
     setNotice(result.ok ? (result.message ?? null) : null);
     startTransition(() => router.refresh());
+  };
+
+  const switchKind = async (kind: OrderKind) => {
+    if (kind === order.kind) return;
+    setSwitching(true);
+    const result = await setOrderKind(order.id, kind);
+    setSwitching(false);
+    handled(result.ok ? { ok: true } : { ok: false, message: result.error });
   };
 
   const drop = async (itemId: string) => {
@@ -127,11 +151,22 @@ export default function OrderScreen({
             })}
           </p>
         </div>
-        <span
-          className={`px-2.5 py-1 rounded-full text-[11px] font-light border ${STATUS_CHROME[order.status]}`}
-        >
-          {ORDER_STATUS_LABELS[order.status]}
-        </span>
+        <div className="flex items-center gap-2">
+          {hire && (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-light border border-white/15 text-white/80">
+              {order.hire_returned_at
+                ? "Rental · returned"
+                : order.status === "paid"
+                  ? "Rental · out"
+                  : "Rental"}
+            </span>
+          )}
+          <span
+            className={`px-2.5 py-1 rounded-full text-[11px] font-light border ${STATUS_CHROME[order.status]}`}
+          >
+            {ORDER_STATUS_LABELS[order.status]}
+          </span>
+        </div>
       </header>
 
       {error && (
@@ -145,6 +180,40 @@ export default function OrderScreen({
         </div>
       )}
 
+      {/* First, because it changes what every panel below means. A sale
+          sells the machines; a rental sends them out for a period at a rate
+          worked out from the asking price, and takes them back. The database
+          freezes the choice once a machine is on the order, so the chips go
+          quiet rather than offering a switch that would be refused. */}
+      {!locked && (
+        <Panel
+          title="What is this order?"
+          subtitle={
+            lines.length > 0
+              ? "Take the machines off the order to change this."
+              : "A sale sells the machines. A rental sends them out and takes them back."
+          }
+        >
+          <div className="flex gap-2">
+            {ORDER_KINDS.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => switchKind(kind)}
+                disabled={switching || lines.length > 0}
+                className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors disabled:cursor-not-allowed ${
+                  order.kind === kind
+                    ? "border-accent/70 bg-accent/10 text-accent"
+                    : "border-border text-white/70 hover:border-white/25 disabled:opacity-40"
+                }`}
+              >
+                {kind === "sale" ? "Normal sale" : ORDER_KIND_LABELS[kind]}
+              </button>
+            ))}
+          </div>
+        </Panel>
+      )}
+
       <CustomerPicker order={order} locked={locked} onDone={handled} />
 
       <Panel
@@ -152,7 +221,9 @@ export default function OrderScreen({
         subtitle={
           locked
             ? undefined
-            : "Type the code off the sticker, or search for it."
+            : hire
+              ? "Type the code off the sticker. Each machine hires at 4% of its asking price a day."
+              : "Type the code off the sticker, or search for it."
         }
       >
         <div className="space-y-3">
@@ -224,7 +295,17 @@ export default function OrderScreen({
                             would cost new — which is the argument, not a cost. */}
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] tabular-nums">
                           <Figure label="Asking" value={rands(line.list_price_cents)} />
-                          {line.retail_price_cents ? (
+                          {hire && (
+                            <Figure label="Per day" value={rands(hireDailyRateCents(line.list_price_cents))} />
+                          )}
+                          {hire && days ? (
+                            <Figure
+                              label={locked ? "Earned" : `Hire, ${days} day${days === 1 ? "" : "s"}`}
+                              value={rands(line.sold_price_cents ?? hireFeeCents(line.list_price_cents, days))}
+                              accent
+                            />
+                          ) : null}
+                          {!hire && line.retail_price_cents ? (
                             <Figure label="New" value={rands(line.retail_price_cents)} />
                           ) : null}
                           {cost && (
@@ -234,7 +315,7 @@ export default function OrderScreen({
                               <Figure label="Cost" value={rands(cost.cost_total_cents)} strong />
                             </>
                           )}
-                          {share !== null && (
+                          {!hire && share !== null && (
                             <Figure
                               label={locked ? "Sold for" : "Will record"}
                               value={rands(share)}
@@ -253,12 +334,17 @@ export default function OrderScreen({
           {lines.length > 0 && (
             <div className="border-t border-white/5 pt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] tabular-nums justify-end">
               <Figure label="Asking" value={rands(listTotal)} strong />
-              {retailTotal > 0 && <Figure label="New would cost" value={rands(retailTotal)} />}
+              {hire && days ? (
+                <Figure label={`Hire, ${days} day${days === 1 ? "" : "s"}`} value={rands(hireTotal)} strong accent />
+              ) : null}
+              {!hire && retailTotal > 0 && <Figure label="New would cost" value={rands(retailTotal)} />}
               {costTotal !== null && <Figure label="Cost floor" value={rands(costTotal)} strong />}
             </div>
           )}
         </div>
       </Panel>
+
+      {hire && <HirePanel order={order} lines={lines} locked={locked} onDone={handled} />}
 
       <DeliveryPanel order={order} locked={locked} onDone={handled} />
 
@@ -278,6 +364,7 @@ export default function OrderScreen({
         // an actor and it explains itself on the customer's timeline, which is
         // what makes that safe to hand to whoever is standing at the counter.
         canReopen={canReopenSale(role)}
+        hire={hire ? { days, totalCents: hireTotal, returned: Boolean(order.hire_returned_at) } : null}
         onDone={handled}
       />
 

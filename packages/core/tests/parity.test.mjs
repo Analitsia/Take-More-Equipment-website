@@ -26,6 +26,7 @@ import {
   TRANSITIONS,
   deliveryFeeCents,
   formatItemCode,
+  hireFeeCents,
   normaliseItemCode,
   normalisePhone,
   slugify,
@@ -293,6 +294,38 @@ distances.forEach((km, i) => {
 deliveryFeeCents(100) === 115_000
   ? ok("100 km is R1 150, as specified")
   : fail("100 km is R1 150", `got ${deliveryFeeCents(100)}`);
+
+// --- hire fee ---------------------------------------------------------------
+/**
+ * Same shape as the delivery fee, same reason: the screen shows a figure as the
+ * dates are typed and confirm_hire_paid() writes one from the same rule, and
+ * the customer is holding the paper that would prove a disagreement. Day 7 and
+ * day 8 are the pair that matters here; R12 345 is the price that does not
+ * divide cleanly.
+ */
+console.log("\nHIRE FEE  (TypeScript vs public.hire_fee_cents)");
+const hires = [
+  [1_000_000, 1], [1_000_000, 7], [1_000_000, 8], [1_000_000, 10], [1_000_000, 30],
+  [1_234_500, 10], [1_234_567, 9], [0, 10], [99, 8],
+];
+
+const hireRows = await sql(
+  `select ${hires
+    .map(([list, days], i) => `public.hire_fee_cents(${list}::bigint, ${days}::integer) as h${i}`)
+    .join(", ")}`
+);
+
+hires.forEach(([list, days], i) => {
+  const fromSql = Number(hireRows[0][`h${i}`]);
+  const fromTs = hireFeeCents(list, days);
+  fromSql === fromTs
+    ? ok(`R${list / 100} × ${days} days → R${fromSql / 100}`)
+    : fail(`hire_fee_cents(${list}, ${days})`, `sql=${fromSql}  ts=${fromTs}`);
+});
+
+hireFeeCents(1_000_000, 10) === 382_000
+  ? ok("R10 000 for 10 days is R3 820, as specified")
+  : fail("R10 000 for 10 days is R3 820", `got ${hireFeeCents(1_000_000, 10)}`);
 
 // --- phone ------------------------------------------------------------------
 /**

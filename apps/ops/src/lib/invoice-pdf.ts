@@ -497,6 +497,23 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   }
 
   /**
+   * The hire period, on a rental. Under the machines and above the note,
+   * because it is the one fact the lines were priced on — and a customer
+   * reading "10 days at R400/day" wants to see which ten days.
+   */
+  if (doc.hire) {
+    const days = doc.hire.days;
+    sheet.text(
+      `Hire period: ${day(doc.hire.start)} to ${day(doc.hire.end)} (${days} day${days === 1 ? "" : "s"}, both days included)`,
+      MARGIN + PAD,
+      sheet.y + 5,
+      { size: 8, color: SOFT }
+    );
+    sheet.y += ROW_LEAD + 6;
+    sheet.rule(MARGIN, sheet.y, WIDTH);
+  }
+
+  /**
    * Whatever was written on the order — a hire period, a collection
    * arrangement, "includes the stand". Take More's own spreadsheet carried
    * exactly this as an unpriced line, and it is the half of an invoice that a

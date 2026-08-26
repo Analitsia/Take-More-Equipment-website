@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { supabase, requireStaff } from "@/lib/supabase";
 import { createAdminClient } from "@takemore/db/admin";
 import { revalidateStorefront } from "@/lib/storefront";
-import { normalisePhone, type ItemStatus, type PaymentMethod } from "@takemore/core";
+import { normalisePhone, type ItemStatus, type OrderKind, type PaymentMethod } from "@takemore/core";
 import { issuerFromEnv } from "@/lib/invoice";
 import { setStage } from "../items/actions";
 
@@ -41,6 +41,14 @@ const humanise = (message: string): string => {
     return "Delivery needs an address and a distance.";
   if (message.includes("orders_draft_carries_no_payment"))
     return "An open order cannot already have a payment on it.";
+  if (message.includes("orders_hire_is_complete"))
+    return "A rental needs the day it goes out and the day it comes back.";
+  if (message.includes("orders_hire_dates_in_order"))
+    return "The return date is before the start date.";
+  if (message.includes("orders_sale_has_no_hire_fields"))
+    return "Only a rental can have hire dates.";
+  if (/confirm_hire_paid|return_hire|hire_fee_cents/i.test(message) && /does not exist|schema cache/i.test(message))
+    return "Rentals need a database change that has not been applied yet. Run the migrations.";
   if (message.includes("order_lines_order_id_item_id_key"))
     return "That machine is already on this order.";
   // The invoice tables landed in 20260820110000. Same reasoning as the schema
@@ -94,6 +102,22 @@ export async function createOrderDraft(): Promise<never> {
 
   revalidatePath("/orders");
   redirect(`/orders/${data.id}`);
+}
+
+/**
+ * Sale or rental. A plain column update: the database refuses the change once
+ * a machine is on the order, and clears the hire fields itself when the kind
+ * goes back to sale — so there is nothing to coordinate here.
+ */
+export async function setOrderKind(orderId: string, kind: OrderKind): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { error } = await client.from("orders").update({ kind }).eq("id", orderId);
+  if (error) return { ok: false, error: humanise(error.message) };
+
+  revalidatePath(`/orders/${orderId}`);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +327,31 @@ export async function setDelivery(
   return { ok: true };
 }
 
+/**
+ * When the machines go out and when they come back. Calendar days as
+ * `2026-09-01` strings, straight from the date inputs — never a Date object,
+ * which would pick up a timezone on the way through.
+ */
+export async function setHireDates(
+  orderId: string,
+  input: { start: string | null; end: string | null }
+): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { error } = await client
+    .from("orders")
+    .update({
+      hire_start: input.start?.trim() || null,
+      hire_end: input.end?.trim() || null,
+    })
+    .eq("id", orderId);
+
+  if (error) return { ok: false, error: humanise(error.message) };
+  revalidatePath(`/orders/${orderId}`);
+  return { ok: true };
+}
+
 export async function setOrderNotes(orderId: string, notes: string): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();
@@ -374,6 +423,76 @@ export async function confirmPaid(
   await revalidateSale(orderId, items);
 
   return { ok: true, notice: `${result?.code ?? "The order"} is paid.` };
+}
+
+/**
+ * The money for a rental has arrived.
+ *
+ * No total is sent: the database computes it from the dates and the asking
+ * prices in the same statement that records the payment, so what the customer
+ * paid and what the rule says are one number. The machines stay held, off the
+ * website, until returnHire().
+ */
+export async function confirmHirePaid(
+  orderId: string,
+  method: PaymentMethod,
+  reference: string
+): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { data, error } = await client.rpc("confirm_hire_paid", {
+    p_order_id: orderId,
+    p_method: method,
+    p_reference: reference.trim() || undefined,
+  });
+
+  if (error) return { ok: false, error: humanise(error.message) };
+
+  const result = data as { code?: string; items?: string[]; days?: number } | null;
+  await revalidateSale(orderId, result?.items ?? []);
+
+  return { ok: true, notice: `${result?.code ?? "The rental"} is paid.` };
+}
+
+/**
+ * The machines are back.
+ *
+ * The RPC puts each one back in the stage it was in before the order picked it
+ * up, exactly as void_order() does, and deliberately does not re-publish —
+ * setStage() knows that publishing is a second write, and it says which
+ * machines could not go back on the website rather than leaving somebody to
+ * notice.
+ */
+export async function returnHire(orderId: string): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+
+  const { data, error } = await client.rpc("return_hire", { p_order_id: orderId });
+  if (error) return { ok: false, error: humanise(error.message) };
+
+  const result = data as
+    | { code?: string; items?: string[]; restore?: { item_id: string; status: ItemStatus }[] }
+    | null;
+  const items = result?.items ?? [];
+  const restore =
+    result?.restore ?? items.map((id) => ({ item_id: id, status: "listed" as ItemStatus }));
+
+  const stuck: string[] = [];
+  for (const entry of restore) {
+    const back = await setStage(entry.item_id, entry.status);
+    if (!back.ok) stuck.push(entry.item_id);
+  }
+
+  for (const id of items) await revalidateStorefront(id);
+  await revalidateSale(orderId, items);
+
+  return {
+    ok: true,
+    notice: stuck.length
+      ? `${result?.code ?? "The rental"} is back. ${stuck.length} machine${stuck.length === 1 ? " is" : "s are"} in stock but not back on the website yet.`
+      : `${result?.code ?? "The rental"} is back and its machines are in stock again.`,
+  };
 }
 
 /**

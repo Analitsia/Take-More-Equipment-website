@@ -84,6 +84,14 @@ export type InvoiceDelivery = {
   fee_cents: Cents;
 };
 
+/** Present on a hire only: the period the lines were priced for. */
+export type InvoiceHire = {
+  /** `2026-09-01`, a calendar day. */
+  start: string;
+  end: string;
+  days: number;
+};
+
 export type InvoicePayment = {
   method: "card_machine" | "bank_transfer" | null;
   reference: string | null;
@@ -106,6 +114,11 @@ export type InvoiceDocument = {
   issuer: InvoiceIssuer;
   customer: InvoiceCustomer;
   lines: InvoiceLine[];
+  /**
+   * The hire period, when the document is for one. Absent or null on a sale,
+   * and on documents issued before hires existed.
+   */
+  hire?: InvoiceHire | null;
   /** Whatever was written on the order: a hire period, a collection arrangement. */
   note: string | null;
   subtotal_cents: Cents;

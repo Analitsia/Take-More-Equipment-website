@@ -13,6 +13,31 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   void: "Cancelled",
 };
 
+/**
+ * What the order is for. A sale sells the machines; a hire sends them out for
+ * a period at a rate derived from the asking price (see hire.ts) and takes
+ * them back. Chosen when the order is opened; the database freezes it once a
+ * machine is on the order.
+ */
+export const ORDER_KINDS = ["sale", "hire"] as const;
+export type OrderKind = (typeof ORDER_KINDS)[number];
+
+export const ORDER_KIND_LABELS: Record<OrderKind, string> = {
+  sale: "Sale",
+  hire: "Rental",
+};
+
+/**
+ * A rental whose machines are still out: paid, and not yet stamped returned.
+ * Shared by the orders list, its filter and the page header, so "out" means
+ * one thing on every screen.
+ */
+export const isOutOnHire = (order: {
+  kind: OrderKind;
+  status: OrderStatus;
+  hire_returned_at: string | null;
+}): boolean => order.kind === "hire" && order.status === "paid" && !order.hire_returned_at;
+
 export const PAYMENT_METHODS = ["card_machine", "bank_transfer"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 

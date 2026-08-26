@@ -1,7 +1,7 @@
 import { requireStaff } from "@/lib/supabase";
-import { listOrders } from "@/lib/orders";
-import { rands } from "@takemore/core";
+import { isOutOnHire, rands } from "@takemore/core";
 import NewOrderButton from "@/components/NewOrderButton";
+import { listOrders } from "@/lib/orders";
 import OrdersBrowser from "./OrdersBrowser";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,7 @@ export default async function OrdersPage() {
 
   const open = orders.filter((o) => o.status === "draft");
   const paid = orders.filter((o) => o.status === "paid");
+  const out = orders.filter(isOutOnHire);
   // What has actually been taken, ever. Charged rather than goods, because this
   // is the till's number and delivery is money that came in too.
   const taken = paid.reduce((sum, o) => sum + (o.charged_total_cents ?? 0), 0);
@@ -30,9 +31,16 @@ export default async function OrdersPage() {
               : `${paid.length} sold · ${rands(taken)}`}
           </h1>
           <p className="text-sm font-light text-muted mt-1">
-            {open.length > 0
-              ? `${open.length} still open on the counter.`
-              : "Nothing open on the counter."}
+            {[
+              open.length > 0
+                ? `${open.length} still open on the counter.`
+                : "Nothing open on the counter.",
+              out.length > 0
+                ? `${out.length} rental${out.length === 1 ? "" : "s"} out.`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
           </p>
         </div>
 
