@@ -85,6 +85,7 @@ type PublicItemRow = {
   sold: boolean | null;
   featured: boolean | null;
   tag_slugs: string[] | null;
+  published_at?: string | null;
 };
 
 /**
@@ -123,6 +124,7 @@ function toEquipment(row: PublicItemRow, images: string[]): Equipment {
     weightKg: Number(row.weight_kg ?? 0),
     sold,
     featured: row.featured ?? false,
+    publishedAt: row.published_at ?? undefined,
   };
 }
 
@@ -135,21 +137,14 @@ async function fetchStock(): Promise<Equipment[]> {
     .order("featured", { ascending: false })
     .order("published_at", { ascending: false });
 
-  if (error) {
-    // A storefront that 500s because the database hiccuped is worse than one
-    // that shows an empty catalogue for a few minutes.
-    //
-    // This tolerance is also what lets CI build both apps against a database
-    // that is not there — see .github/workflows/ci.yml, which depends on it. A
-    // build-time read that THROWS would turn every CI run red.
-    reportError(error, { where: "web/fetchStock" });
-    return [];
-  }
+  // THROWS on failure, deliberately — see `tolerant()` below for why the
+  // catch lives outside the cache rather than here.
+  if (error) throw error;
 
   const rows = (items ?? []) as unknown as PublicItemRow[];
   if (rows.length === 0) return [];
 
-  const { data: media } = await client
+  const { data: media, error: mediaError } = await client
     .from("public_item_media")
     .select("item_id, kind, storage_path, external_url, position")
     .in(
@@ -157,6 +152,10 @@ async function fetchStock(): Promise<Equipment[]> {
       rows.map((r) => r.id)
     )
     .order("position");
+
+  // A media failure used to be ignored, which cached a whole catalogue of
+  // photo-less cards for five minutes. It is a failure like any other.
+  if (mediaError) throw mediaError;
 
   const byItem = new Map<string, string[]>();
   for (const m of media ?? []) {
@@ -174,16 +173,52 @@ async function fetchStock(): Promise<Equipment[]> {
   return rows.map((row) => toEquipment(row, byItem.get(row.id) ?? []));
 }
 
-/** Cached across requests. Invalidated by the ops app through /api/revalidate. */
-export const getStock = unstable_cache(fetchStock, ["stock"], {
+/**
+ * Tolerate a failed read OUTSIDE the cache, never inside it.
+ *
+ * A storefront that 500s because the database hiccuped is worse than one that
+ * shows an empty catalogue for a moment — so callers get `fallback`, not an
+ * exception. This tolerance is also what lets CI build both apps against a
+ * database that is not there (see .github/workflows/ci.yml).
+ *
+ * But the catch used to sit INSIDE the function `unstable_cache` wrapped, which
+ * meant a single failed query returned `[]` as a perfectly good result and
+ * cached it under the stock tag for REVALIDATE_SECONDS. Every product page
+ * 404ed for five minutes, and those 404s were cached too. A thrown error is
+ * never cached, so throwing inside and catching here keeps the tag/revalidate
+ * behaviour identical while making a failure cost one request, not 300 seconds.
+ */
+function tolerant<A extends unknown[], T>(
+  cached: (...args: A) => Promise<T>,
+  where: string,
+  fallback: () => T
+): (...args: A) => Promise<T> {
+  return async (...args: A) => {
+    try {
+      return await cached(...args);
+    } catch (error) {
+      reportError(error, { where });
+      return fallback();
+    }
+  };
+}
+
+const cachedStock = unstable_cache(fetchStock, ["stock"], {
   tags: [STOCK_TAG],
   revalidate: REVALIDATE_SECONDS,
 });
 
+/** Cached across requests. Invalidated by the ops app through /api/revalidate. */
+export const getStock = tolerant(cachedStock, "web/getStock", () => []);
+
 async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
   const client = createPublicClient();
 
-  const [{ data: categories }, { data: divisions }, { data: tags }] = await Promise.all([
+  const [
+    { data: categories, error: categoriesError },
+    { data: divisions, error: divisionsError },
+    { data: tags, error: tagsError },
+  ] = await Promise.all([
     client
       .from("public_categories")
       .select("name, icon, blurb, position, division_slug, division_name, division_position")
@@ -191,6 +226,10 @@ async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
     client.from("divisions").select("slug, name, blurb, position").order("position"),
     client.from("tags").select("name, slug, position").order("position"),
   ]);
+
+  // Thrown, not swallowed: an empty vocabulary must never be cached as a fact.
+  const failure = categoriesError ?? divisionsError ?? tagsError;
+  if (failure) throw failure;
 
   // Counts come from the stock we already have rather than the view's own
   // count, so the tile and the catalogue can never disagree about how many
@@ -229,10 +268,14 @@ async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
   };
 }
 
-export const getVocabulary = unstable_cache(fetchVocabulary, ["vocabulary"], {
+const cachedVocabulary = unstable_cache(fetchVocabulary, ["vocabulary"], {
   tags: [STOCK_TAG],
   revalidate: REVALIDATE_SECONDS,
 });
+
+const EMPTY_VOCABULARY: Vocabulary = { divisions: [], categories: [], tags: [] };
+
+export const getVocabulary = tolerant(cachedVocabulary, "web/getVocabulary", () => EMPTY_VOCABULARY);
 
 export async function getBySlug(slug: string): Promise<Equipment | undefined> {
   const stock = await getStock();
@@ -247,13 +290,14 @@ export async function getBySlug(slug: string): Promise<Equipment | undefined> {
  * real category_id server-side, and a lead filed under a category the matcher
  * recognises scores thirty points where free text alone scores eight.
  */
-export const getCategoryChoices = unstable_cache(
+const cachedCategoryChoices = unstable_cache(
   async (): Promise<CategoryChoice[]> => {
     const client = createPublicClient();
-    const { data } = await client
+    const { data, error } = await client
       .from("public_categories")
       .select("slug, name, position, division_slug, division_name, division_position")
       .order("position");
+    if (error) throw error;
     return (data ?? [])
       .filter((row): row is NonNullable<typeof row> & { slug: string; name: string } =>
         !!row.slug && !!row.name
@@ -271,6 +315,12 @@ export const getCategoryChoices = unstable_cache(
   },
   ["category-choices"],
   { tags: [STOCK_TAG], revalidate: REVALIDATE_SECONDS }
+);
+
+export const getCategoryChoices = tolerant(
+  cachedCategoryChoices,
+  "web/getCategoryChoices",
+  () => []
 );
 
 /**

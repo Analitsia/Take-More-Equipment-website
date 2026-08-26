@@ -26,8 +26,20 @@ const supabaseOrigin = (() => {
   }
 })();
 
+/**
+ * Only the production deployment may be indexed.
+ *
+ * Every Vercel preview and the local dev server serve the same pages on a
+ * different host; without this a *.vercel.app alias can end up in a search
+ * result ahead of the real domain. Production stays indexable and every page
+ * carries a canonical resolved against metadataBase, so the production alias
+ * itself defers to the domain too.
+ */
+const indexable = process.env.VERCEL_ENV === "production";
+
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${site.domain}`),
+  ...(indexable ? {} : { robots: { index: false, follow: false } }),
   title: "Take More — Refurbished Catering Equipment, Cape Town",
   description:
     "Commercial catering equipment rebuilt in our Cape Town workshop and priced 40–60% below new. Every unit load-tested, graded, photographed and covered by a written 6-month parts-and-labour warranty.",

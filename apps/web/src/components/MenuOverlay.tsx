@@ -45,20 +45,23 @@ export default function MenuOverlay({
   const categoryBlocks = (() => {
     const lines = (index?.divisions ?? []).filter((d) => d.count > 0);
     const categories = index?.categories ?? [];
-    if (lines.length > 1) {
-      return lines.map((line) => ({
-        label: line.name,
-        categories: categories.filter((c) => c.divisionSlug === line.slug),
-      }));
-    }
-    return [
-      {
-        label: "Categories",
-        categories: categories.filter((c) =>
-          lines.some((line) => line.slug === c.divisionSlug)
-        ),
-      },
-    ];
+    const blocks =
+      lines.length > 1
+        ? lines.map((line) => ({
+            label: line.name,
+            categories: categories.filter((c) => c.divisionSlug === line.slug),
+          }))
+        : [
+            {
+              label: "Categories",
+              categories: categories.filter((c) =>
+                lines.some((line) => line.slug === c.divisionSlug)
+              ),
+            },
+          ];
+    // An empty catalogue — launch day, or the index still loading — gets no
+    // "Categories" heading over nothing.
+    return blocks.filter((block) => block.categories.length > 0);
   })();
 
   useEffect(() => {

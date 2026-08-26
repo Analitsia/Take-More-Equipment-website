@@ -5,6 +5,7 @@ import { ContentSection } from "@/components/Prose";
 import { formatDate, posts } from "@/data/posts";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/blog" },
   title: "Journal — Take More",
   description:
     "Buying guides and notes from the workshop: what equipment should actually cost, what to check before you pay, and how we grade and warranty condition.",

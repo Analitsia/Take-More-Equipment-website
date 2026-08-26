@@ -194,7 +194,10 @@ export default function FilterPanel({
         </div>
 
         <div className={`${open ? "block pt-5" : "hidden"} lg:block lg:pt-6`}>
-          {categoryGroups.map((group) => (
+          {/* A heading over nothing reads as "your filters are wrong" — on an
+              empty catalogue, or a line with no categories, the group is not
+              drawn at all. */}
+          {categoryGroups.filter((group) => group.categories.length > 0).map((group) => (
             <Group key={group.label} label={group.label}>
               {group.categories.map((category) => (
                 <Row
@@ -236,6 +239,7 @@ export default function FilterPanel({
             ))}
           </Group>
 
+          {vocabulary.tags.length > 0 && (
           <Group label="Specification">
             {vocabulary.tags.map((tag) => (
               <Row
@@ -246,6 +250,7 @@ export default function FilterPanel({
               />
             ))}
           </Group>
+          )}
 
           <Group label="Availability">
             <Row

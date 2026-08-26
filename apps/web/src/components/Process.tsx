@@ -51,7 +51,7 @@ export default function Process() {
       <div className="text-center mb-10 md:mb-16 flex flex-col items-center">
         <Subheading text="How It Works" />
         <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight max-w-3xl leading-tight">
-          Why We Can Sell A R98 000 Combi For R42 500
+          Why We Can Sell The Same Combi For Less Than Half
         </h2>
         {/* The three-way frame: the two alternatives a buyer is actually weighing,
             and why the third one is the only one that gives them both halves. */}

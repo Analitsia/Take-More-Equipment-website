@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 import FeaturedStock from "@/components/FeaturedStock";
 import Catalogue from "@/components/Catalogue";
+import EmptyCatalogue from "@/components/EmptyCatalogue";
 import About from "@/components/About";
 import Process from "@/components/Process";
 import Testimonials from "@/components/Testimonials";
@@ -8,6 +10,12 @@ import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
 import { MAX_FEATURED } from "@takemore/core";
 import { getCategoryChoices, getStock, getVocabulary } from "@/lib/stock";
+import { enquiryFormEnabled } from "@/lib/forms";
+
+/** Title and description come from the root layout; this only pins the canonical. */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Page() {
   // Fetched once here and handed down, rather than each section reaching for
@@ -24,13 +32,19 @@ export default async function Page() {
   // a repair run in the SQL editor — from turning the highlights row back into
   // the catalogue. `getStock` already sorts featured first, then newest.
   const featured = stock.filter((item) => item.featured).slice(0, MAX_FEATURED);
+  const formEnabled = enquiryFormEnabled();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Hero />
       {/* Stock leads the page — the stats and the story follow it. */}
       {featured.length > 0 && <FeaturedStock items={featured} />}
-      <Catalogue stock={stock} vocabulary={vocabulary} />
+      {/* An empty catalogue is a statement, not a filter result. See EmptyCatalogue. */}
+      {stock.length > 0 ? (
+        <Catalogue stock={stock} vocabulary={vocabulary} />
+      ) : (
+        <EmptyCatalogue categories={categories} formEnabled={formEnabled} />
+      )}
       {/* Process makes the argument once. It used to be made three times in a
           row — Process, then a "Why Take More" card grid restating the same
           price/rebuild/warranty claims, then the proof panel below in the same
@@ -44,7 +58,9 @@ export default async function Page() {
           the page rather than down — still the right destination, since that is
           where the claim it makes is spelled out. */}
       <About />
-      <CtaBand categories={categories} />
+      {/* The closing band keeps its form even on launch day: a visitor who
+          scrolled past the empty-catalogue panel gets one more chance to ask. */}
+      <CtaBand categories={categories} formEnabled={formEnabled} />
       <Footer />
     </div>
   );

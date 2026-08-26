@@ -6,6 +6,7 @@ import Subheading from "@/components/Subheading";
 import { site, whatsappLink } from "@/data/site";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/delivery" },
   title: "Delivery & Collection — Take More",
   description:
     "Collect free from Montague Gardens, book quoted Cape Town delivery within 48 hours, or ship small items nationwide by courier.",

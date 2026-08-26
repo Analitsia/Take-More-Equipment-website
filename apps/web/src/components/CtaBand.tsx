@@ -9,8 +9,11 @@ import type { CategoryChoice } from "@/data/equipment";
 // Closing CTA — Phase 1 sells by enquiry, so this is the primary conversion point.
 export default function CtaBand({
   categories = [],
+  formEnabled = true,
 }: {
   categories?: CategoryChoice[];
+  /** From `enquiryFormEnabled()` on the server — see EnquiryForm. */
+  formEnabled?: boolean;
 }) {
   return (
     <section className="py-12 md:py-14 md:py-24 px-6 md:px-12 w-full max-w-[1440px] mx-auto">
@@ -71,7 +74,12 @@ export default function CtaBand({
             the only way to answer was to start a WhatsApp conversation, which
             is a much bigger ask than typing an email address.
           */}
-          <EnquiryForm mode="general" categories={categories} className="bg-background" />
+          <EnquiryForm
+            mode="general"
+            categories={categories}
+            className="bg-background"
+            enabled={formEnabled}
+          />
         </div>
       </motion.div>
     </section>

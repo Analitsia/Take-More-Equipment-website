@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
-import { processors, published } from "@/data/launch";
+import { contact, isVerified, processors, published } from "@/data/launch";
 import { site } from "@/data/site";
 
 /**
@@ -32,6 +32,7 @@ const sentenceList = (items: string[]): string =>
     : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy" },
   title: "Privacy — Take More",
   description:
     "What Take More Catering Equipment collects when you enquire, why we keep it, who sees it, and how to have it deleted.",
@@ -145,11 +146,26 @@ export default function PrivacyPage() {
             <dl className="flex flex-col gap-3 max-w-md">
               <Particular label="Responsible party" value={site.legalName} />
               <Particular label="Registration number" value={site.registrationNumber} />
-              <Particular label="Information Officer" value={site.informationOfficer} />
+              {/* Only once a real person has been named. The placeholder used to
+                  render "Not yet appointed" as though it were a name, which is
+                  worse than saying nothing — the sentence below covers the gap. */}
+              {isVerified(contact.informationOfficer) && (
+                <Particular label="Information Officer" value={site.informationOfficer} />
+              )}
               <Particular label="Address" value={site.address} />
               <Particular label="Email" value={site.email} href={`mailto:${site.email}`} />
               <Particular label="Phone" value={site.phone} />
             </dl>
+            {!isVerified(contact.informationOfficer) && (
+              <p className="text-muted font-light text-sm md:text-base leading-relaxed mt-5 max-w-md">
+                Questions about your information, including who is responsible for it,
+                go to{" "}
+                <a href={`mailto:${site.email}`} className="text-white/90 hover:text-accent transition-colors">
+                  {site.email}
+                </a>
+                .
+              </p>
+            )}
           </section>
 
           <div className="pt-8 border-t border-border">

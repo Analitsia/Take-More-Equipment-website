@@ -73,6 +73,8 @@ export type Equipment = {
   sold?: boolean;
   /** Surfaced in the highlighted row above the catalogue. */
   featured?: boolean;
+  /** ISO timestamp of publication, when the view supplied one. Feeds the sitemap. */
+  publishedAt?: string;
 };
 
 /**
@@ -191,6 +193,28 @@ export type PriceBandId = (typeof PRICE_BANDS)[number]["id"];
  * two lines. Kept deliberately.
  */
 export const rands = (amount: number) => `R${amount.toLocaleString("en-ZA")}`;
+
+/**
+ * What the visitor reads where a price goes.
+ *
+ * The mapper uses 0 as the "not priced" sentinel, and "R0" on a card, in a
+ * <title> and in a WhatsApp preview reads as a free machine — or a broken site.
+ * Every place a price is rendered goes through here, so an unpriced unit says
+ * the same honest thing everywhere.
+ */
+export const PRICE_ON_REQUEST = "Price on request";
+export const priceLabel = (amount: number) => (amount > 0 ? rands(amount) : PRICE_ON_REQUEST);
+
+/**
+ * The percentage saved against new, or null when there is nothing honest to
+ * say — no retail anchor, no price yet, or a retail figure below our own ask
+ * (which would render as "Save -20%").
+ */
+export const savingPercent = (price: number, retailPrice?: number): number | null => {
+  if (!retailPrice || price <= 0 || retailPrice <= price) return null;
+  const saving = Math.round(((retailPrice - price) / retailPrice) * 100);
+  return saving > 0 ? saving : null;
+};
 
 /**
  * Millimetres in, centimetres out.

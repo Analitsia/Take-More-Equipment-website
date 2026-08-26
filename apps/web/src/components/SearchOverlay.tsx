@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
-import { rands } from "@/data/equipment";
+import { priceLabel } from "@/data/equipment";
 import useCatalogueIndex from "@/hooks/useCatalogueIndex";
 
 /**
@@ -94,13 +94,24 @@ export default function SearchOverlay({
                     onClick={onClose}
                     className="flex items-center gap-3 sm:gap-4 px-5 sm:px-6 py-3.5 sm:py-4 hover:bg-white/[0.04] transition-colors group"
                   >
-                    <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-border shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.image ?? ""}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
+                    <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-border shrink-0 flex items-center justify-center text-muted">
+                      {item.image ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        /* No photograph yet: a quiet placeholder rather than a
+                           broken-image icon from `src=""`. */
+                        <iconify-icon
+                          icon="solar:gallery-linear"
+                          width="18"
+                          height="18"
+                          aria-hidden="true"
+                        ></iconify-icon>
+                      )}
                     </span>
                     <span className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm font-medium tracking-tight truncate group-hover:text-accent transition-colors">
@@ -114,7 +125,7 @@ export default function SearchOverlay({
                     </span>
                     <span className="flex flex-col items-end shrink-0">
                       <span className="text-sm font-medium tracking-tight">
-                        {rands(item.price)}
+                        {priceLabel(item.price)}
                       </span>
                       {item.sold && (
                         <span className="text-[11px] font-light text-accent">Sold</span>

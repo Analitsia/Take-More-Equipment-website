@@ -3,6 +3,7 @@ import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
 import EnquiryForm from "@/components/EnquiryForm";
 import { getCategoryChoices } from "@/lib/stock";
+import { enquiryFormEnabled } from "@/lib/forms";
 import { site, whatsappLink } from "@/data/site";
 
 /**
@@ -17,6 +18,7 @@ import { site, whatsappLink } from "@/data/site";
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/wanted" },
   title: "Looking for something specific? — Take More",
   description:
     "Tell us the catering equipment you need and your budget. Most of our stock sells before it reaches the website — we will message you when yours comes through the workshop.",
@@ -42,6 +44,7 @@ const steps = [
 
 export default async function WantedPage() {
   const categories = await getCategoryChoices();
+  const formEnabled = enquiryFormEnabled();
 
   return (
     <PageShell
@@ -83,7 +86,7 @@ export default async function WantedPage() {
             </div>
           </div>
 
-          <EnquiryForm mode="general" categories={categories} />
+          <EnquiryForm mode="general" categories={categories} enabled={formEnabled} />
         </div>
       </ContentSection>
     </PageShell>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { rands, type Equipment } from "@/data/equipment";
+import { priceLabel, rands, savingPercent, type Equipment } from "@/data/equipment";
 
 /**
  * The stock card. Structurally identical to the template's CarCard — same
@@ -29,9 +29,11 @@ export default function EquipmentCard({
   decorative = false,
 }: Equipment & { variant?: "carousel" | "grid"; decorative?: boolean }) {
   const image = images[0];
-  const saving = retailPrice
-    ? Math.round(((retailPrice - price) / retailPrice) * 100)
-    : null;
+  // Null rather than "Save -20%" when the retail anchor is below our own ask.
+  const saving = savingPercent(price, retailPrice);
+  // Unbadged stock has an empty brand; " Countertop Oven" with a leading space
+  // is what a screen reader and a search result would otherwise get.
+  const name = [brand, title].filter(Boolean).join(" ");
 
   const grid = variant === "grid";
   // Carousel cards are viewport-relative on mobile so several are in play at
@@ -83,7 +85,7 @@ export default function EquipmentCard({
     >
       <Link
         href={`/stock/${slug}`}
-        aria-label={`${brand} ${title}`}
+        aria-label={name}
         className="absolute inset-0 z-20"
         tabIndex={decorative ? -1 : undefined}
         aria-hidden={decorative || undefined}
@@ -91,7 +93,7 @@ export default function EquipmentCard({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image}
-        alt={`${brand} ${title}`}
+        alt={name}
         className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out ${
           sold ? "grayscale-[0.6]" : ""
         }`}
@@ -205,7 +207,7 @@ export default function EquipmentCard({
                   grid ? "text-[13px] sm:text-base" : "text-base md:text-lg"
                 }`}
               >
-                {rands(price)}
+                {priceLabel(price)}
               </span>
               {saving !== null && (
                 <span

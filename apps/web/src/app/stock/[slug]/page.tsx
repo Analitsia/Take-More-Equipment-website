@@ -8,8 +8,17 @@ import EquipmentCard from "@/components/EquipmentCard";
 import EnquiryForm from "@/components/EnquiryForm";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
-import { WARRANTY_MONTHS, cm, deliveryFor, rands, relatedTo } from "@/data/equipment";
+import {
+  WARRANTY_MONTHS,
+  cm,
+  deliveryFor,
+  priceLabel,
+  rands,
+  relatedTo,
+  savingPercent,
+} from "@/data/equipment";
 import { getBySlug, getGallery, getStock } from "@/lib/stock";
+import { enquiryFormEnabled } from "@/lib/forms";
 import { productEnquiry, site, whatsappLink } from "@/data/site";
 
 /**
@@ -47,10 +56,11 @@ export async function generateMetadata({
   if (!item) return { title: "Not found — Take More" };
 
   return {
-    title: `${named(item)} — ${rands(item.price)} | Take More`,
+    title: `${named(item)} — ${priceLabel(item.price)} | Take More`,
     description: item.description.slice(0, 155),
+    alternates: { canonical: `/stock/${item.slug}` },
     openGraph: {
-      title: `${named(item)} — ${rands(item.price)}`,
+      title: `${named(item)} — ${priceLabel(item.price)}`,
       description: item.description.slice(0, 155),
       images: item.images.length ? [item.images[0]] : [],
     },
@@ -66,10 +76,38 @@ export default async function ProductPage({
   const item = await getBySlug(slug);
   if (!item) notFound();
 
-  const saving = item.retailPrice
-    ? Math.round(((item.retailPrice - item.price) / item.retailPrice) * 100)
-    : null;
+  // Null rather than "Save -20%" when the retail anchor sits below our own ask.
+  const saving = savingPercent(item.price, item.retailPrice);
   const delivery = deliveryFor(item);
+  const formEnabled = enquiryFormEnabled();
+
+  /**
+   * schema.org Product, for the rich result. Only facts already on the page:
+   * the price is omitted rather than sent as 0 when a unit is unpriced, and
+   * `<` is escaped so a description can never close the script tag.
+   */
+  const canonical = `https://${site.domain}/stock/${item.slug}`;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: named(item),
+    ...(item.images.length ? { image: item.images } : {}),
+    ...(item.description ? { description: item.description } : {}),
+    ...(item.sku ? { sku: item.sku } : {}),
+    ...(item.brand ? { brand: { "@type": "Brand", name: item.brand } } : {}),
+    itemCondition: "https://schema.org/RefurbishedCondition",
+    url: canonical,
+    offers: {
+      "@type": "Offer",
+      url: canonical,
+      priceCurrency: "ZAR",
+      ...(item.price > 0 ? { price: item.price } : {}),
+      itemCondition: "https://schema.org/RefurbishedCondition",
+      availability: item.sold ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+      seller: { "@type": "Organization", name: site.legalName },
+    },
+  };
+  const structuredDataJson = JSON.stringify(structuredData).replace(/</g, "\\u003c");
   const stock = await getStock();
   const related = relatedTo(stock, item);
   // Full-size renditions plus any video, for the gallery; the card-sized photos
@@ -111,6 +149,10 @@ export default async function ProductPage({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: structuredDataJson }}
+      />
       <Navbar variant="solid" />
 
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-4 md:pt-8 pb-16 md:pb-24">
@@ -169,7 +211,7 @@ export default async function ProductPage({
                     {item.sold ? "Sold for" : "Our price"}
                   </span>
                   <span className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tighter">
-                    {rands(item.price)}
+                    {priceLabel(item.price)}
                   </span>
                 </div>
                 {item.retailPrice && (
@@ -259,6 +301,7 @@ export default async function ProductPage({
               itemSlug={item.slug}
               itemTitle={item.title}
               className="mt-4"
+              enabled={formEnabled}
             />
           </div>
         </div>

@@ -6,6 +6,7 @@ import Subheading from "@/components/Subheading";
 import { GRADES, WARRANTY_MONTHS } from "@/data/equipment";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/conditions" },
   title: "Condition & Warranty — Take More",
   description:
     "What Grade A, B and C mean, what we replace before a unit is listed, and the terms of the six-month parts-and-labour warranty.",

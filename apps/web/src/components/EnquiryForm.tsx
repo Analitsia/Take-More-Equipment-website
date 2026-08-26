@@ -4,7 +4,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Turnstile } from "@takemore/ui";
 import { submitEnquiry, type EnquiryResult } from "@/app/actions/enquiry";
-import { site } from "@/data/site";
+import { site, whatsappLink } from "@/data/site";
 import type { CategoryChoice } from "@/data/equipment";
 
 /**
@@ -62,6 +62,7 @@ export default function EnquiryForm({
   itemTitle,
   categories = [],
   className = "",
+  enabled = true,
 }: {
   mode?: Mode;
   itemSlug?: string;
@@ -70,6 +71,13 @@ export default function EnquiryForm({
    *  category is resolved from the item itself. */
   categories?: CategoryChoice[];
   className?: string;
+  /**
+   * Decided on the server by `enquiryFormEnabled()` in src/lib/forms.ts. False
+   * means the server action would refuse every submission (production with
+   * Turnstile unconfigured), so the WhatsApp and phone fallback renders INSTEAD
+   * of a form the visitor would fill in and then be turned away from.
+   */
+  enabled?: boolean;
 }) {
   const [state, action] = useActionState<EnquiryResult | null, FormData>(
     submitEnquiry,
@@ -107,6 +115,51 @@ export default function EnquiryForm({
   useEffect(() => {
     if (state && !state.ok) setAttempts((n) => n + 1);
   }, [state]);
+
+  if (!enabled) {
+    const message =
+      itemTitle && onProduct
+        ? `Hi Take More, I'm asking about the ${itemTitle}:`
+        : "Hi Take More, I'm looking for the following equipment:";
+    return (
+      <div className={`bg-card border border-border rounded-[2rem] p-6 sm:p-8 ${className}`}>
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="w-5 h-1 rounded-full bg-accent" />
+          <span className="text-accent uppercase text-xs tracking-wider font-normal">
+            {copy.eyebrow}
+          </span>
+        </div>
+        <h3 className="text-xl sm:text-2xl font-medium tracking-tight mb-3">{copy.heading}</h3>
+        <p className="text-sm font-light text-muted leading-relaxed mb-6">
+          Our web form is offline for the moment. WhatsApp or call us instead — a person
+          answers both, and we write down what you are after either way.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <a
+            href={whatsappLink(message)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-between gap-3 bg-accent text-background rounded-2xl px-6 py-4 hover:opacity-90 transition-opacity"
+          >
+            <span className="text-sm font-medium">WhatsApp us</span>
+            <iconify-icon icon="solar:chat-round-line-linear" width="18" height="18"></iconify-icon>
+          </a>
+          <a
+            href={`tel:${site.phone.replace(/\s/g, "")}`}
+            className="flex-1 flex items-center justify-between gap-3 border border-border rounded-2xl px-6 py-4 hover:border-white/25 transition-colors"
+          >
+            <span className="text-sm font-light">{site.phone}</span>
+            <iconify-icon
+              icon="solar:phone-linear"
+              width="18"
+              height="18"
+              className="text-accent"
+            ></iconify-icon>
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (state?.ok) {
     return (

@@ -18,6 +18,7 @@ const saving = savingRange();
 const lineCost = newLineCost();
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About Us — Take More Catering Equipment, Cape Town",
   description: saving
     ? `A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it ${saving} below new.`

@@ -32,7 +32,7 @@ export async function GET() {
       })),
     },
     {
-      // NOT CDN-cached, deliberately.
+      // NOT CDN-cached, deliberately — `private`, never `s-maxage`.
       //
       // An `s-maxage` here looks like a free win and is actually a bug: the
       // edge would keep serving the old body for the full window even after
@@ -40,7 +40,12 @@ export async function GET() {
       // published item shows on its own detail page while staying invisible in
       // search and the menu. Caching belongs one layer down, on getStock(),
       // where the publish loop can actually reach it.
-      headers: { "cache-control": "no-store" },
+      //
+      // A short browser-private TTL is a different thing: it stops one visitor
+      // re-downloading the same index every time they open the search or the
+      // menu on the next page, and it cannot block revalidateTag() because no
+      // shared cache ever holds it.
+      headers: { "cache-control": "private, max-age=60" },
     }
   );
 }

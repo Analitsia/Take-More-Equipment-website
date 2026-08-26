@@ -59,6 +59,32 @@ const nextConfig = {
    */
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
 
+  poweredByHeader: false,
+
+  /**
+   * Baseline response headers.
+   *
+   * Deliberately NO X-Frame-Options: the ops app's Website tab shows this site
+   * in a frame from a different origin, and the site holds no session, so
+   * there is nothing a frame could trick a visitor into doing. No MIME
+   * sniffing, a referrer policy that keeps full URLs off third parties, and no
+   * device permissions — a catalogue asks for none. A Content-Security-Policy
+   * is deferred: it needs entries for Supabase, Turnstile, Sentry's tunnel and
+   * Google Fonts, and one entry short takes the site down.
+   */
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+        ],
+      },
+    ];
+  },
+
   // Workspace packages are consumed as TypeScript source — no build step, no
   // dist/ to go stale.
   transpilePackages: ["@takemore/core", "@takemore/db", "@takemore/ui", "@takemore/observability"],
