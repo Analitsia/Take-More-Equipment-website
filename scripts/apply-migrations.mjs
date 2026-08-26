@@ -97,13 +97,16 @@ for (const migration of migrations) {
   const body = readFileSync(join(migrationsDir, migration.file), "utf8");
   process.stdout.write(`  apply    ${label} ... `);
   try {
-    await sql(body);
-    // Recorded only after the DDL succeeds, so a failed migration is not
-    // remembered as done.
+    // One transaction per file, with the bookkeeping row inside it. A failure
+    // anywhere in the file rolls the whole file back — no half-applied DDL to
+    // hand-repair — and the record cannot be lost between two requests, which
+    // is how a migration ends up applied but unrecorded and then re-applied.
+    // This is also exactly what scripts/test-schema.mjs does, so what the
+    // test proved is what production gets.
     await sql(
-      `insert into supabase_migrations.schema_migrations (version, name)
+      `begin;\n${body}\n;\ninsert into supabase_migrations.schema_migrations (version, name)
        values ('${migration.version}', '${migration.name.replace(/'/g, "''")}')
-       on conflict (version) do nothing`
+       on conflict (version) do nothing;\ncommit;`
     );
     console.log("ok");
     ran++;

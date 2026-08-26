@@ -37,6 +37,10 @@ const OUTPUTS = [
   { file: "apps/web/src/app/apple-icon.png", size: 180 },
   { file: "apps/ops/src/app/icon.png", size: 64 },
   { file: "apps/ops/src/app/apple-icon.png", size: 180 },
+  // The installable-app icons the ops manifest points at. 512 doubles as the
+  // maskable one; the tile already leaves enough margin for a round mask.
+  { file: "apps/ops/public/pwa-192.png", size: 192 },
+  { file: "apps/ops/public/pwa-512.png", size: 512 },
 ];
 
 /** Renders the tile at a generous size, then downsamples — cleaner edges. */

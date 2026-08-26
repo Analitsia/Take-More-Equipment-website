@@ -32,6 +32,14 @@ export const metadata: Metadata = {
   description: "Stock intake, workshop and publishing for Take More Equipment.",
   // A tool, not a page. Nothing here should ever be indexed or previewed.
   robots: { index: false, follow: false },
+  // What makes "Add to Home Screen" on an iPhone open this as an app in its
+  // own window rather than as a Safari tab with a URL bar. Android reads the
+  // manifest (manifest.ts) for the same thing.
+  appleWebApp: {
+    capable: true,
+    title: "Take More Ops",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {

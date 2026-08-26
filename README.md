@@ -26,7 +26,7 @@ remember:
 | Enforcement | What it stops |
 |---|---|
 | `npm run check:launch` in CI, on every push | A stock-photo URL anywhere in the storefront source; a fact marked verified that was never changed; a malformed phone number; an undocumented environment variable |
-| A throw at module load in `launch.ts` | A **production build** with placeholder contact details. The deploy fails, naming what is missing |
+| A throw at module load in `launch.ts` | A **production build** with placeholder contact details, once `launchState` is `"live"`. Before that it warns and builds — so the placeholders ARE published until cutover |
 | A database trigger | A published item whose only photograph is a stand-in |
 
 > **On the nine customer testimonials:** every one of them is invented. They are
@@ -60,8 +60,8 @@ npm run dev                    # storefront on :3000
 npm run dev --workspace=@takemore/ops   # ops on :3001
 ```
 
-Do not run `npm run build` while `npm run dev` is running — both use the same
-`.next` directory, and the build overwrites the dev server's assets.
+The dev server writes to `.next-dev` and the production build to `.next`, so
+running one while the other is up is harmless.
 
 ## Checks
 
@@ -69,7 +69,7 @@ Do not run `npm run build` while `npm run dev` is running — both use the same
 npm run typecheck        # every workspace
 npm run check:launch     # is the site telling the truth? No credentials needed
 npm run check:secrets    # no credential-shaped strings in tracked files
-npm test                 # RLS + parity + lead loop + email. Needs .env.local
+npm test                 # schema + RLS + parity + lead + order loops + email. Needs .env.local
 npm run check:launch:db  # placeholder media and dead photos on live stock
 ```
 
@@ -85,11 +85,12 @@ accounts under `@takemore.test` and clean up in a `finally`.
   scan, both builds. **No secrets required**: the builds run against a
   deliberately unreachable Supabase URL, which works because every build-time
   read in the storefront tolerates a dead database.
-- **`live.yml`** — pushes to `main` and manual dispatch only. The suites that
-  need a real project. Never on a pull request, because a fork gets no secrets.
+- **`live.yml`** — manual dispatch only. The suites that need a real project,
+  and they write to it. Never on a pull request, because a fork gets no secrets.
 
 Git hooks (husky): `pre-commit` scans staged files for credentials and runs the
-launch gate; `pre-push` runs typecheck and the launch gate. `tsc` is deliberately
+launch gate when storefront source is staged; `pre-push` runs typecheck and the
+launch gate. CI also builds every migration from zero (`test:schema`). `tsc` is deliberately
 not in `pre-commit` — it cannot be scoped to staged files, and a slow hook is a
 hook people bypass.
 
@@ -99,9 +100,10 @@ Enquiries are captured (`/wanted`, the closing band on the homepage, and a form
 on every item page), stored as people with wants, and matched against new stock
 nightly at 04:00.
 
-Both public forms are behind Cloudflare Turnstile. **In production they refuse
-every submission until it is configured** — deliberately, so an unprotected form
-cannot ship silently. `GET /api/health` reports `turnstileConfigured`.
+The storefront's enquiry form is behind Cloudflare Turnstile. **In production it
+steps aside and shows the WhatsApp and phone details until both keys are set on
+the storefront project** — deliberately, so an unprotected form cannot ship
+silently. The ops app has no public form.
 
 Nothing sends by email until Resend is configured; the one-tap WhatsApp queue
 works on day one, with the staff member as the sender. Campaign sends go through
@@ -113,12 +115,14 @@ See the [runbook](docs/runbook.md) for the variables and the sending flow.
 ## Deploying
 
 `main` is the production branch; every push to it deploys. Work on a branch and
-open a PR — Vercel builds a preview for each one, and CI has to pass.
+open a PR — Vercel builds a preview for each one, and CI has to pass. The live
+suites (`live.yml`) are **manual only** since the database became the one staff
+work in; run them from the Actions tab out of hours.
 
 Each app is its own Vercel project, with **Root Directory set to its own
 directory** (`apps/web` / `apps/ops`). With the root left at `.` the build
 succeeds and the deploy then fails looking for a manifest at the repository root.
 
-A production deploy will refuse to build while the contact details in
-`launch.ts` are still placeholders. That is the system working — see
+Once `launchState` is `"live"`, a production deploy refuses to build while any
+contact detail in `launch.ts` is still a placeholder. Until then it warns. See
 [`docs/launch-checklist.md`](docs/launch-checklist.md).

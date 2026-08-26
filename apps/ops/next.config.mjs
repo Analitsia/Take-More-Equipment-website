@@ -28,6 +28,37 @@ const nextConfig = {
    */
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
 
+  // Nothing about this app needs to introduce itself in a response header.
+  poweredByHeader: false,
+
+  /**
+   * The baseline response headers for a customer database behind a login.
+   *
+   * No frames from anywhere — there is no legitimate reason for another site
+   * to embed the ops app, and clickjacking is the attack that needs one. No
+   * MIME sniffing. A referrer policy that keeps item and order URLs off other
+   * people's logs. The camera is allowed because intake photographs are taken
+   * from this page; nothing else on the device is asked for.
+   *
+   * A Content-Security-Policy is deliberately NOT here yet: Supabase, the
+   * Sentry tunnel, Google Fonts and Cloudflare all need entries, and a CSP
+   * that is one entry short takes the app down in a way that looks like a bug
+   * in whatever it blocked. It is a piece of work for after launch.
+   */
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=()" },
+        ],
+      },
+    ];
+  },
+
   // Workspace packages are consumed as TypeScript source — no build step, no
   // dist/ to go stale.
   transpilePackages: [

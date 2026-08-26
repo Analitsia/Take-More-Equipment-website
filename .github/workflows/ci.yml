@@ -82,6 +82,12 @@ jobs:
       - name: No secrets in the tree
         run: npm run check:secrets
 
+      # Every migration, from zero, against a real Postgres (WASM, from npm).
+      # Needs no credentials and is the only check that can say a migration is
+      # broken before it touches the live project.
+      - name: Schema builds and the database rules hold
+        run: npm run test:schema
+
       - name: Build storefront
         run: npm run build --workspace=@takemore/web
 

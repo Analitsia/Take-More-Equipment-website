@@ -32,10 +32,6 @@ export const dynamic = "force-dynamic";
 const STALE_AFTER_HOURS = 26;
 
 export async function GET() {
-  const turnstileConfigured = Boolean(
-    process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-  );
-
   try {
     const admin = createAdminClient();
 
@@ -57,7 +53,7 @@ export async function GET() {
       // is a 503 with an honest reason rather than a failure — the alert fires,
       // somebody looks, and the reason explains itself.
       return NextResponse.json(
-        { ok: false, reason: "the nightly sweep has never run", turnstileConfigured },
+        { ok: false, reason: "the nightly sweep has never run" },
         { status: 503 }
       );
     }
@@ -73,7 +69,7 @@ export async function GET() {
 
     if (data.ok !== true) {
       return NextResponse.json(
-        { ok: false, reason: `the nightly sweep ${state}`, lastRunAt: data.started_at, turnstileConfigured },
+        { ok: false, reason: `the nightly sweep ${state}`, lastRunAt: data.started_at },
         { status: 503 }
       );
     }
@@ -84,7 +80,6 @@ export async function GET() {
           ok: false,
           reason: `the nightly sweep last ran ${Math.floor(ageHours)} hours ago`,
           lastRunAt: data.started_at,
-          turnstileConfigured,
         },
         { status: 503 }
       );
@@ -94,10 +89,9 @@ export async function GET() {
       ok: true,
       lastRunAt: data.started_at,
       ageHours: Math.round(ageHours * 10) / 10,
-      // Surfaced because an unconfigured Turnstile takes both public forms
-      // offline in production, by design — so it must be visible from outside
-      // rather than only in a log somebody would have to think to read.
-      turnstileConfigured,
+      // `turnstileConfigured` used to be reported here. It measured the wrong
+      // deployment: Turnstile guards the storefront's enquiry form, and the
+      // ops app has had no public form since the access request was removed.
     });
   } catch (thrown) {
     reportError(thrown, { where: "api/health" });

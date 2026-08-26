@@ -248,13 +248,13 @@ if (!secret) {
     );
   }
 
+  // Nothing about configuration is reported by /api/health any more. It used
+  // to say whether Turnstile was set up, measured on the ops deployment —
+  // which is the wrong one; the enquiry form lives on the storefront.
   if (health.body && "turnstileConfigured" in health.body) {
-    ok(
-      "/api/health reports whether Turnstile is configured",
-      health.body.turnstileConfigured ? "configured" : "not configured"
-    );
+    fail("/api/health does not disclose configuration", "turnstileConfigured is still in the payload");
   } else {
-    fail("/api/health reports whether Turnstile is configured", "field is absent");
+    ok("/api/health does not disclose configuration");
   }
 }
 

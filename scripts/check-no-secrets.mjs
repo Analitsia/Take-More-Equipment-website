@@ -47,6 +47,16 @@ const PATTERNS = [
     fix: "Rotate it at vercel.com/account/tokens.",
   },
   {
+    name: "Google API key",
+    re: /\bAIza[0-9A-Za-z_-]{35}\b/,
+    fix: "Rotate it in Google Cloud → APIs & Services → Credentials.",
+  },
+  {
+    name: "a JWT (legacy Supabase key, or an OIDC token)",
+    re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+    fix: "Rotate it where it was issued. The legacy anon/service_role keys rotate in Supabase → Settings → API.",
+  },
+  {
     name: "Sentry auth token",
     re: /\bsntrys_[A-Za-z0-9_.-]{20,}/,
     fix: "Rotate it in Sentry under Settings → Auth Tokens.",
@@ -81,8 +91,6 @@ const looksLikeAnExample = (value) =>
 const ALLOWED = new Set([
   "scripts/check-no-secrets.mjs",
   ".env.example",
-  "docs/runbook.md",
-  "docs/launch-checklist.md",
 ]);
 
 const listFiles = () => {
@@ -111,7 +119,11 @@ for (const file of listFiles()) {
     // Skip anything large or binary — a key is not hiding in a PNG, and
     // reading one in wastes the budget this hook is supposed to stay inside.
     if (statSync(file).size > 512_000) continue;
-    text = readFileSync(file, "utf8");
+    // In --staged mode read what is actually about to be committed, not the
+    // working copy: `git add -p` and a later edit make those two differ.
+    text = stagedOnly
+      ? execFileSync("git", ["show", `:${file}`], { encoding: "utf8", maxBuffer: 1_000_000 })
+      : readFileSync(file, "utf8");
     if (text.includes("\0")) continue; // a null byte means it is not text
   } catch {
     continue; // deleted between listing and reading, or unreadable

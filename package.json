@@ -22,7 +22,7 @@
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff",
-    "db:types": "node scripts/gen-types.mjs",
+    "db:types": "node --env-file-if-exists=.env.local scripts/gen-types.mjs",
     "test:schema": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-schema.mjs",
     "test:rls": "node --env-file-if-exists=.env.local packages/db/tests/rls.test.mjs",
     "test:parity": "node --env-file-if-exists=.env.local packages/core/tests/parity.test.mjs",

@@ -124,8 +124,9 @@ async function visit(cookie, path, expect = {}) {
     const digest = body.match(/Digest: (\d+)/)?.[1];
     return fail(`GET ${path}`, `server exception${digest ? ` (digest ${digest})` : ""}`);
   }
-  if (expect.contains && !body.includes(expect.contains)) {
-    return fail(`GET ${path}`, `rendered, but "${expect.contains}" is missing`);
+  const wanted = expect.contains ? [expect.contains].flat() : [];
+  if (wanted.length && !wanted.some((needle) => body.includes(needle))) {
+    return fail(`GET ${path}`, `rendered, but "${wanted.join('" / "')}" is missing`);
   }
 
   ok(`GET ${path}`, expect.contains ? `found "${expect.contains}"` : `${body.length} bytes`);
@@ -185,9 +186,10 @@ async function run(cookie) {
 
   // Signed in as an owner, so / is the Dashboard rather than the worker's page.
   // "Tied up now" is a tile only the Dashboard renders, and only once
-  // item_analytics has come back with rows — so this one assertion covers the
-  // role branch, the view, the RLS guard and the render in a single request.
-  await visit(cookie, "/", { contains: "Tied up now" });
+  // item_analytics has come back with rows; on an empty database the page
+  // deliberately says "No stock yet" instead. Either proves the role branch,
+  // the view, the RLS guard and the render in a single request.
+  await visit(cookie, "/", { contains: ["Tied up now", "No stock yet"] });
   thumbnailsAreStills("/items", await visit(cookie, "/items"));
   thumbnailsAreStills("/board", await visit(cookie, "/board"));
   await redirects(cookie, "/money", "/");

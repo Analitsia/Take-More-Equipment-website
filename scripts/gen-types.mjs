@@ -12,7 +12,11 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 
-const PROJECT_REF = "btiyizeyjedleeaddxuh";
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF;
+if (!PROJECT_REF) {
+  console.error("SUPABASE_PROJECT_REF is not set. Run through npm (npm run db:types) so .env.local is loaded.");
+  process.exit(1);
+}
 const OUT = "packages/db/src/types.generated.ts";
 
 const HEADER = `/**

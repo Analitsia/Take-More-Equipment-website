@@ -24,10 +24,12 @@
 
 name: Live suites
 
+# Since August 2026 this is MANUAL ONLY. The database is now the one staff
+# work in every day, and a routine push must not create and delete machines
+# and customers on the stock board while somebody is standing at the counter.
+# Run it from the Actions tab, out of hours, or once a second project exists.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 concurrency:
   group: live

@@ -11,10 +11,12 @@ out of date.
 
 ## 1. Contact details — **blocking**
 
-**A production build fails while these are the mockup values.** Not a warning: an
-error that stops the deploy, with a message naming exactly what is missing. That
-is deliberate — the mockup shipped an invented phone number on every CTA, in the
-footer, and inside the POPIA privacy notice.
+**Once `launchState` is `"live"`, a production build fails while any of these is
+still the mockup value** — an error that stops the deploy, naming what is
+missing. **Until then it only warns, and the placeholders are published.** The
+mockup shipped an invented phone number on every CTA, in the footer, and inside
+the POPIA privacy notice; the phone, WhatsApp, address and registration number
+have since been verified, and the four below have not.
 
 Edit **`apps/web/src/data/launch.ts`**, in the `contact` block. For each one, set
 the real value and put today's date in `verified`:
@@ -129,19 +131,20 @@ specifically.
 
 ### Cloudflare Turnstile — needed, free
 
-Bot protection on the enquiry form and the staff access-request form.
+Bot protection on the storefront's enquiry form. The ops app has no public form.
 
 1. Cloudflare dashboard → Turnstile → add a widget for your domain.
-2. Set on **both** Vercel projects:
+2. Set on the **storefront** Vercel project — both, never one:
    - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
    - `TURNSTILE_SECRET_KEY`
 3. Submit the enquiry form on the deployed site.
 4. Set `security.turnstile` to `true` and dated in `launch.ts`.
 
-> **In production, both forms refuse everything until these are set.** That is
-> deliberate — an unguarded public form must not be able to ship silently — but
-> it means setting these before the first production deploy, not after.
-> `GET /api/health` reports `turnstileConfigured` so you can check from outside.
+> **In production the form does not render until these are set** — visitors see
+> the WhatsApp number and phone in its place. That is deliberate: an unguarded
+> public form must not be able to ship silently, and a form that takes a
+> visitor's typing and then refuses it is worse than none. Set them before the
+> domain points here.
 
 ### Sentry — optional, free tier
 
@@ -157,16 +160,6 @@ else changes.
 
 Sentry is already named as a sub-processor in the privacy notice, with PII
 scrubbing configured.
-
-### Access-request throttle
-
-- `ACCESS_REQUEST_IP_PEPPER` on the ops project. Any long random string:
-  ```bash
-  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-  ```
-  It salts the hash of a requester's IP, so the database stores a fingerprint and
-  never an address — an IP is personal information under POPIA. Without it the
-  per-origin throttle is inactive and says so in the logs.
 
 ### Email — only when you want to send
 
@@ -258,11 +251,11 @@ without them:
 `SUPABASE_SECRET_KEY` · `SUPABASE_PROJECT_REF` · `SUPABASE_ACCESS_TOKEN` ·
 `REVALIDATE_SECRET`
 
-> **One decision worth making:** those suites write to the **production**
-> database. They clean up after themselves, and they only run on pushes to `main`
-> and on demand — never on a schedule, never on a pull request. A second Supabase
-> project for testing is the right eventual answer, at which point a nightly run
-> becomes sensible.
+> **Those suites write to the production database.** They clean up after
+> themselves, and since August 2026 they run **only on demand** — never on push,
+> never on a schedule, never on a pull request — because that database is now
+> the one staff work in. A second Supabase project for testing is the right
+> eventual answer, at which point a nightly run becomes sensible.
 
 ---
 

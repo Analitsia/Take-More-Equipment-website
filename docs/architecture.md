@@ -240,7 +240,9 @@ search, enquiry form + WhatsApp CTA, SEO/OG/schema.org `Product`, plus a bare-bo
 how the business already sells.
 
 ### Phase 2 — Ops PWA (the ERP)
-Installable PWA, mobile-first. Fast intake flow: photograph → classify → price → publish.
+Installable web app (a manifest and home-screen icons; deliberately no service worker, so
+offline is an honest banner rather than a stale stock list), mobile-first. Fast intake flow:
+photograph → classify → price → publish.
 Client-side image compression before upload (warehouse phones, weak signal). Kanban board
 over `status`, realtime-synced. STALE: costs are visible to every approved account
 (`20260819090100`) and ranks are gone (`20260819110000`).
@@ -277,7 +279,8 @@ service window), then a personalised handover message built from the buyer's che
 answers. In-app notification when an item sells.
 
 ### Phase 5 — Lead nurture & stock matching
-Capture enquiries as `leads` with `lead_interests` tags. A nightly Inngest job matches newly
+Capture enquiries as `leads` with `lead_interests` tags. A nightly job (a Vercel cron hitting
+`/api/match`, declared in `apps/ops/vercel.json` — Inngest was never adopted) matches newly
 published items against past interests and queues a personalised WhatsApp/email outreach for
 staff approval before sending. Marketing templates cost ~R1.50 each, so approval before
 send is deliberate.
@@ -340,8 +343,8 @@ Bob Go courier integration slots into Phase 3 or 6 depending on how soon small i
   same webhook three times and assert exactly one order transition. Send a webhook with a
   bad signature and assert rejection.
 - **Publish loop:** create an item in ops → confirm it appears on the site within one
-  revalidation cycle → mark sold → confirm the SOLD badge shows and the item *stays* visible
-  → unpublish → confirm it disappears.
+  revalidation cycle → sell it through the till → confirm it comes off the site
+  (`confirm_order_paid()` clears `published_at`) → confirm it disappears.
 - **Field test:** a staff member intakes five real items on their own phone over warehouse
   wifi, timed. If intake takes longer than ~90 seconds per item, the flow needs rework —
   adoption dies on friction here.

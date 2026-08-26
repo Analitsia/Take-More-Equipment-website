@@ -395,11 +395,28 @@ if (!existsSync(envExample)) {
     join(ROOT, "apps", "web", "src"),
     join(ROOT, "apps", "ops", "src"),
     join(ROOT, "packages"),
+    // The app roots: next.config, instrumentation and the Sentry configs read
+    // variables too, and were outside the scan until August 2026.
+    ...["web", "ops"].flatMap((app) =>
+      ["next.config.mjs", "instrumentation.ts", "instrumentation-client.ts", "sentry.server.config.ts", "sentry.edge.config.ts"]
+        .map((file) => join(ROOT, "apps", app, file))
+    ),
   ];
 
   const used = new Map();
+  const scanFile = (full) => {
+    const text = readFileSync(full, "utf8");
+    for (const match of text.matchAll(/process\.env\.([A-Z0-9_]+)/g)) {
+      if (!used.has(match[1])) used.set(match[1], relative(ROOT, full).split(sep).join("/"));
+    }
+  };
   for (const root of scanRoots) {
     if (!existsSync(root)) continue;
+    // Roots are directories OR single files (the app-level configs above).
+    if (statSync(root).isFile()) {
+      scanFile(root);
+      continue;
+    }
     (function walk(dir) {
       for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
@@ -407,10 +424,7 @@ if (!existsSync(envExample)) {
           if (entry === "node_modules" || entry === ".next") continue;
           walk(full);
         } else if (/\.(ts|tsx|mjs|js)$/.test(entry)) {
-          const text = readFileSync(full, "utf8");
-          for (const match of text.matchAll(/process\.env\.([A-Z0-9_]+)/g)) {
-            if (!used.has(match[1])) used.set(match[1], relative(ROOT, full).split(sep).join("/"));
-          }
+          scanFile(full);
         }
       }
     })(root);
@@ -424,6 +438,38 @@ if (!existsSync(envExample)) {
     pass(`every environment variable the code reads is documented (${used.size} found)`);
   } else {
     fail(`${undocumented.length} environment variable(s) missing from .env.example`, undocumented);
+  }
+}
+
+// ── Rule 7 — Turnstile is both halves or neither ───────────────────────────
+//
+// The widget needs NEXT_PUBLIC_TURNSTILE_SITE_KEY; the server action needs
+// TURNSTILE_SECRET_KEY. One without the other is the worst of both: with only
+// the secret, every submission fails "complete the check" for a check that
+// never rendered; with only the site key, production refuses every submission
+// after the visitor has filled in the whole form. The storefront now hides the
+// form when either is missing in production, but a half-configured pair is
+// still a mistake somebody should hear about before deploying.
+
+section("Turnstile configuration");
+
+{
+  const siteKey = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const secret = !!process.env.TURNSTILE_SECRET_KEY;
+  if (siteKey === secret) {
+    pass(
+      siteKey
+        ? "both Turnstile variables are set in this environment"
+        : "neither Turnstile variable is set in this environment (form falls back to WhatsApp in production)"
+    );
+  } else {
+    warn("exactly one of the two Turnstile variables is set — it must be both or neither", [
+      `NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${siteKey ? "set" : "missing"}`,
+      `TURNSTILE_SECRET_KEY: ${secret ? "set" : "missing"}`,
+      "",
+      "Set both on the Vercel project (or neither) — a half-configured pair breaks the form",
+      "in a way that the visitor only discovers after filling it in.",
+    ]);
   }
 }
 

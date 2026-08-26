@@ -3,12 +3,18 @@
 Scope only. Read on demand; this file is not loaded automatically.
 
 ## Now
-- **Set `GOOGLE_MAPS_API_KEY` on the ops Vercel project**, with
-  `BUSINESS_ORIGIN_ADDRESS` beside it. Until then the order screen asks the salesperson to
-  type the kilometres, which works and prices identically — the fee is computed from
-  whatever distance is stored, by a trigger.
-- **Deploy.** Everything under "Shipped" below is applied to the database and running
-  locally; the ops app on Vercel is still serving the commit before it.
+- **Deploy.** The 2026-08-26 launch-readiness pass is applied to the database (three
+  migrations) and running locally; both Vercel projects still serve the commit before it.
+  Push `main` and both redeploy.
+- **Set the Turnstile keys on the storefront project** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`,
+  `TURNSTILE_SECRET_KEY`, both). Until then the enquiry form steps aside in production and
+  shows WhatsApp and the phone number instead.
+- **Set `CRON_SECRET` on the ops project** if it is not already there, then
+  `OPS_URL=https://takemore-ops.vercel.app CRON_SECRET=… npm run test:match` to prove the
+  04:00 sweep is accepted. `/api/health` says "never run" until the first one.
+- **Fill the four remaining contact facts** in `apps/web/src/data/launch.ts` (email, hours,
+  information officer, domain) and flip `launchState` to `"live"` before the domain points
+  at Vercel. Until then those placeholders are published.
 - ~~Decide whether the item code should stay visible to the public.~~ **Decided: it stays,
   and the storefront now shows it.** The code is the handle a customer and a salesperson
   share — a screenshot of a product page is unidentifiable without it, and "the fridge" is
@@ -24,6 +30,39 @@ Scope only. Read on demand; this file is not loaded automatically.
   than a guess, but read off a document rather than off the register. Everything
   else on the invoice is set and verified; this is the one fact still worth
   seeing at source.
+
+## Shipped, 26 August 2026 — launch-readiness pass
+- **Production wiped of demo data.** Every invented machine, customer, order and invoice
+  is gone; codes restart at `A001`, orders at `ORD-0001`, invoices at `INV-0015`.
+- **A sale cannot be un-sold by a stray tap.** Removing a line or discarding an order is
+  refused once the order is paid (`remove_order_line()`, and a checked delete in
+  `discardOrder`). Paying a sale or a hire refuses a machine already sold or deleted.
+- **One invoice per identical document.** Issuing the same invoice twice returns the one
+  already issued instead of burning a number; the button only offers a corrected
+  document when the order has changed since.
+- **Hire invoices add up on paper.** Cents are printed when any figure has them, long
+  orders break pages before the totals, dates print in SAST.
+- **Only `listed` is live, in the database.** Leaving For sale clears `published_at`
+  whichever way the status was written, and a reserved or sold machine cannot be
+  republished (the negotiated price would have shown in `public_items`).
+- **The newsletter is on the record.** Every campaign send writes one outreach row per
+  recipient, so the seven-day cap and the customer timeline see it. A deleted person
+  leaves the queue and cannot be written to. Sending twice, fast, sends once.
+- **Unsubscribe is a button, not a visit.** Mail scanners opening the link no longer
+  opt people out; one-click (RFC 8058) POSTs to `/api/unsubscribe`.
+- **Team screen:** a deactivated person is told so on the login screen; the owner can
+  issue a new password; emails show on the roster; a database blip no longer signs the
+  whole team out; Sign out is per device, with Sign out everywhere on Account.
+- **Stock screen:** the board says when a machine moved but could not go on the site;
+  uploads time out and can be stopped and retried by photo; the last photo of a live
+  listing cannot be deleted; reverting a value saves; errors read as sentences.
+- **Storefront:** an honest empty-catalogue page, sitemap, robots, canonicals, Product
+  JSON-LD, an OG image, a 404 and error page, "Price on request" instead of R0, and a
+  failed database read no longer caches an empty site for five minutes. The enquiry
+  form steps aside rather than failing when Turnstile is unconfigured.
+- **Ops is installable** (manifest, icons, standalone) with baseline security headers on
+  both apps; functions pinned to Frankfurt next to the database; CI builds every
+  migration from zero; the live suites are manual-only.
 
 ## Shipped, August 2026
 
@@ -89,20 +128,11 @@ Scope only. Read on demand; this file is not loaded automatically.
   no project and no credentials, then drives the whole sale. The only suite that can catch a
   broken migration before it reaches something that matters.
 
-## Known broken, and not by this work
+## Known broken
 
-- **`npm run test:leads` fails one assertion**: *"a machine answering their OTHER want
-  still gets through"*. A person with two recorded wants should get a suggestion for each;
-  the second one is being suppressed by the first one's pending draft, which is exactly what
-  `20260811120000_a_message_for_each_want.sql` was written to prevent.
-
-  Deterministic — three runs, same failure. Confirmed **not** caused by the August 2026
-  work: none of those migrations mention `match_item_to_leads`, `run_stock_match`,
-  `outreach_messages` or `lead_interests`; `scripts/test-lead-loop.mjs` is untouched; and
-  building the schema with and without them produces identical matcher behaviour.
-
-  Worth an hour on its own. The consequence in the business is real but quiet: a customer
-  who asked for two different machines only ever hears about one of them.
+- Nothing at the time of writing. The `test:leads` failure recorded here earlier was the
+  test counting suggestions across the whole database while demo customers who also
+  wanted a stove were in it — the matcher was right. The assertions are per person now.
 
 ## Later, not started
 - A card machine or bank feed that reconciles itself against `orders`. Today somebody reads
@@ -122,4 +152,4 @@ Scope only. Read on demand; this file is not loaded automatically.
   a marker. Nothing here blocks a scanner later — a scanner is a keyboard, and
   `app.normalise_item_code()` already reads what it would type.
 
-Updated: 2026-08-20
+Updated: 2026-08-26

@@ -4,5 +4,8 @@
       "path": "/api/match",
       "schedule": "0 4 * * *"
     }
+  ],
+  "regions": [
+    "fra1"
   ]
 }

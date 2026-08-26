@@ -24,9 +24,14 @@ margin in the business, so it goes through one person.
 3. **They sign in and change it.** Their name in the corner → *Change password*. It asks
    for the current one, so only the person holding it can change it.
 
-**If the password is lost**, there is no reset email in this system. Deactivate the account
-and make a new one, or make a second account and deactivate the first — either takes a
-minute and nothing is lost, because the log entries stay against the name.
+**If the password is lost**, there is no reset email in this system. On Team, the row has a
+*New password* button: it makes a fresh one, shows it once, and offers the same WhatsApp
+handover. The old password stops working immediately. The account, its name and its log
+entries are untouched.
+
+**Signing out.** *Sign out* in the corner signs out that device only. *Account → Sign out
+everywhere* revokes every phone and laptop the account is signed in on — that is the one to
+press when a phone is lost, after changing the password.
 
 **Nobody has a rank.** Everybody who is signed in can do everything: take stock in, see what
 a machine cost, negotiate, sell, cancel a sale and correct one. The single exception is this
@@ -51,7 +56,7 @@ in `apps/ops/vercel.json`.
 | Signal | Where |
 |---|---|
 | A red strip on the ops dashboard | Only appears when the last run failed, never finished, or is over 26 hours old |
-| `GET /api/health` returns 503 | Wire a free pinger at it — this is the only check that survives the app being down |
+| `GET /api/health` returns 503 | Wire a free pinger at it — this is the only check that survives the app being down. It also says 503 with "never run" on a fresh deployment until the first 04:00 |
 | A Sentry cron alert | If Sentry is configured. The only one that fires on the job never starting |
 
 **What to do, in order:**
@@ -176,15 +181,16 @@ See the launch checklist.
 
 ## When a form stops accepting submissions
 
-Both public forms (the storefront enquiry, the ops access request) are behind
-Cloudflare Turnstile, and **in production they refuse everything when Turnstile
-is not configured**. That is deliberate — a form that silently loses its bot
-protection is the failure this system is built to prevent — but it means a deploy
-without the keys takes the enquiry form offline.
+The storefront enquiry form is behind Cloudflare Turnstile, and **in production
+it steps aside — showing the WhatsApp number and phone instead of a form — when
+Turnstile is not configured**. That is deliberate: a form that silently loses
+its bot protection is the failure this system is built to prevent, and a form
+that accepts a visitor's typing and then refuses it is worse than no form.
 
-Check `GET /api/health` → `turnstileConfigured`. If false, set
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` on both Vercel
-projects and redeploy.
+If the form is missing on the live site, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+and `TURNSTILE_SECRET_KEY` on the **storefront** Vercel project (both, or
+neither — `npm run check:launch` warns on one without the other) and redeploy.
+The ops app has no public form and needs neither key.
 
 Local development, preview deployments and CI all pass without the keys.
 
@@ -230,8 +236,11 @@ npm run test:match
 
 **The live suites write to the production database.** They create throwaway
 accounts under `@takemore.test`, publish and delete items, and clean up in a
-`finally`. That is why they run on push to `main` and on demand, and not on a
-schedule — see `.github/workflows/live.yml`.
+`finally`. Since the database became the one staff work in every day, they run
+**by hand only** — from the Actions tab or a terminal, out of hours — never on
+push and never on a schedule. See `.github/workflows/live.yml`. They also
+consume item codes and order numbers from the live sequences, so do not run
+them on the day before real stock goes in without expecting a gap in the codes.
 
 **`npm run test:schema` is the exception, and the one to reach for first.** It
 builds the whole schema from zero against a WASM Postgres from npm — no Docker,
@@ -346,11 +355,10 @@ the same R1 150.
 
 | Key | Where | Then |
 |---|---|---|
-| `SUPABASE_SECRET_KEY` | Supabase → Settings → API Keys | Both Vercel projects, `.env.local`, GitHub secrets |
+| `SUPABASE_SECRET_KEY` | Supabase → Settings → API Keys | Ops Vercel project only (the storefront never reads it), `.env.local`, GitHub secrets |
 | `RESEND_API_KEY` | Resend dashboard | Ops Vercel project only |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile | Storefront only. The ops app has had no unauthenticated form since the access request was removed |
 | `REVALIDATE_SECRET` | Any long random string | **Both projects, together** — they must match |
-| `ACCESS_REQUEST_IP_PEPPER` | Any long random string | Ops only. Changing it resets the per-IP throttle; nothing else |
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Tokens | `.env.local` and GitHub secrets. Not needed at runtime |
 | `GOOGLE_MAPS_API_KEY` | Google Cloud → APIs & Services → Credentials | Ops only. Restrict it to the Routes API. While it is missing or wrong, the order screen simply asks for the kilometres — nothing breaks |
 

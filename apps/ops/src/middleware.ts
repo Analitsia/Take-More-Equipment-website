@@ -61,6 +61,6 @@ export const config = {
     // tunnel (/monitoring — browser error reports, frequent and sessionless),
     // and the two API routes that authenticate with a secret header rather
     // than a cookie (/api/health for uptime checks, /api/match for cron).
-    "/((?!_next/static|_next/image|monitoring|api/health|api/match|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|monitoring|api/health|api/match|manifest.webmanifest|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
