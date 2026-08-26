@@ -127,8 +127,42 @@ const safe = (value: string | null | undefined): string =>
     // Everything still outside Latin-1, dropped rather than thrown on.
     .replace(/[^\u0020-\u00ff]/g, "");
 
-/** `R42 500`, safe to draw. */
-const money = (cents: number): string => safe(rands(cents));
+/**
+ * `R42 500` — or `R1 202.40`, once anything on the document has cents in it.
+ *
+ * rands() drops the fraction, which is right for stock priced in whole rands
+ * and wrong for a hire: the daily rate is 4 % of the asking price and very
+ * often carries cents, so three lines rounded to the rand did not add up to
+ * the total printed under them. One decision per document rather than per
+ * figure, so a column is never a mixture of R400 and R493.80.
+ *
+ * en-ZA's own decimal separator is a comma; the point is used here because the
+ * figures sit beside a rate written "R493.80/day" in the description, and two
+ * spellings of one number on one page is exactly the kind of thing a customer
+ * queries.
+ */
+type Money = (cents: number) => string;
+
+const moneyFor = (doc: InvoiceDocument): Money => {
+  const figures = [
+    doc.subtotal_cents,
+    doc.adjustment_cents,
+    doc.total_cents,
+    doc.delivery?.fee_cents ?? 0,
+    ...(doc.lines as InvoiceLine[]).flatMap((l) => [l.unit_cents, l.total_cents]),
+  ];
+  const precise = figures.some((c) => Math.abs(c) % 100 !== 0);
+
+  if (!precise) return (cents) => safe(rands(cents));
+  return (cents) => {
+    const sign = cents < 0 ? "-" : "";
+    const whole = Math.floor(Math.abs(cents) / 100).toLocaleString("en-ZA", {
+      maximumFractionDigits: 0,
+    });
+    const part = String(Math.abs(cents) % 100).padStart(2, "0");
+    return safe(`${sign}R${whole}.${part}`);
+  };
+};
 
 type Fonts = { regular: PDFFont; bold: PDFFont; mono: PDFFont };
 
@@ -155,6 +189,19 @@ class Sheet {
   break() {
     this.page = this.pdf.addPage(PAGE);
     this.y = MARGIN;
+  }
+
+  /**
+   * Start a new page unless this much more will fit on this one.
+   *
+   * The table breaks itself row by row, but everything drawn after it — the
+   * hire period, the note, the totals block, the banking panel — used to be
+   * placed wherever the last row left off, which on a long order was below the
+   * bottom edge. Called with the height of the block about to be drawn, so a
+   * block is never split and never off the page.
+   */
+  ensure(needed: number) {
+    if (this.y + needed > PAGE[1] - FLOOR) this.break();
   }
 
   private at = (down: number) => PAGE[1] - down;
@@ -349,6 +396,7 @@ function tableHead(sheet: Sheet): number {
 
 function drawRow(
   sheet: Sheet,
+  money: Money,
   row: { description: string; code: string; qty: number | null; unit: number; total: number }
 ) {
   const lines = sheet.wrap(row.description, COL.description.w - PAD * 2, 8.5);
@@ -402,6 +450,7 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   };
 
   const { issuer, customer, delivery, payment } = doc;
+  const money = moneyFor(doc);
 
   pdf.setTitle(`${doc.number} — ${invoiceAddressee(customer)}`);
   pdf.setAuthor(safe(issuer.legal_name));
@@ -428,8 +477,8 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   });
   const meta: [string, string][] = [
     ["Number", doc.number],
-    ["Date", day(doc.issued_at)],
-    [doc.kind === "invoice" ? "Paid" : "Due", day(doc.due_at)],
+    ["Date", day(doc.issued_at, "Africa/Johannesburg")],
+    [doc.kind === "invoice" ? "Paid" : "Due", day(doc.due_at, "Africa/Johannesburg")],
     ["Order", doc.order_code],
   ];
 
@@ -471,7 +520,7 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   sheet.y += tableHead(sheet);
 
   for (const line of doc.lines as InvoiceLine[]) {
-    drawRow(sheet, {
+    drawRow(sheet, money, {
       description: line.description,
       code: line.code,
       qty: line.qty,
@@ -481,7 +530,7 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   }
 
   if (delivery) {
-    drawRow(sheet, {
+    drawRow(sheet, money, {
       description: [
         "Delivery",
         delivery.address ? `to ${delivery.address}` : null,
@@ -503,8 +552,11 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
    */
   if (doc.hire) {
     const days = doc.hire.days;
+    sheet.ensure(ROW_LEAD + 6);
+    // UTC: these are calendar days ("2026-09-01"), not moments, and reading
+    // one in Johannesburg time would print the day before.
     sheet.text(
-      `Hire period: ${day(doc.hire.start)} to ${day(doc.hire.end)} (${days} day${days === 1 ? "" : "s"}, both days included)`,
+      `Hire period: ${day(doc.hire.start, "UTC")} to ${day(doc.hire.end, "UTC")} (${days} day${days === 1 ? "" : "s"}, both days included)`,
       MARGIN + PAD,
       sheet.y + 5,
       { size: 8, color: SOFT }
@@ -521,6 +573,7 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
    */
   if (doc.note) {
     const lines = sheet.wrap(doc.note, WIDTH - PAD * 2, 8);
+    sheet.ensure(lines.length * ROW_LEAD + 6);
     for (const line of lines) {
       sheet.text(line, MARGIN + PAD, sheet.y + 5, { size: 8, color: SOFT });
       sheet.y += ROW_LEAD;
@@ -530,6 +583,10 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
   }
 
   // ── The figures ─────────────────────────────────────────────────────────
+  // Up to three figure rows (14 each), the total band (26 + 44 below it) and
+  // the gap above: about 130 points. Asked for more so the banking panel that
+  // follows usually lands on the same page as the total it explains.
+  sheet.ensure(220);
   sheet.y += 12;
 
   const totalsW = 240;
@@ -588,6 +645,8 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
    * they have what they need, and pays into nothing. issuerFromEnv() enforces
    * the same all-or-nothing rule at the other end.
    */
+  // Four label rows plus the heading: about 75 points for the taller panel.
+  sheet.ensure(90);
   let blockH = 0;
   if (issuer.bank) {
     blockH = panel(sheet, MARGIN, sheet.y, half, "BANKING DETAILS", [
@@ -603,7 +662,7 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
       panel(sheet, MARGIN + half + 14, sheet.y, half, "PAYMENT RECEIVED", [
         ["Method", payment.method ? PAYMENT_METHOD_LABELS[payment.method] : null],
         ["Reference", payment.reference],
-        ["Date", day(payment.paid_at)],
+        ["Date", day(payment.paid_at, "Africa/Johannesburg")],
       ])
     );
   }
@@ -639,12 +698,18 @@ export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
  * ambiguity in international paperwork — Take More's own spreadsheet invoice
  * reads "8/4/2026" for the fourth of August, and anybody outside this country
  * reads that as the eighth of April. A month in words cannot be misread.
+ *
+ * The zone is required, not defaulted. This runs on a server whose clock is
+ * UTC, so a payment taken at 01:30 on the 5th in Cape Town is "the 4th" without
+ * it. A timestamp is read in Johannesburg time; a hire's calendar day
+ * ("2026-09-01", parsed as UTC midnight) is read in UTC so it stays the 1st.
  */
-function day(iso: string | null): string {
+function day(iso: string | null, timeZone: "Africa/Johannesburg" | "UTC"): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-ZA", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone,
   });
 }

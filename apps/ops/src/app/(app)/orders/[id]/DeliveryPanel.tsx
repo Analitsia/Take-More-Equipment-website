@@ -27,13 +27,28 @@ import type { OrderDetail } from "@/lib/orders";
  * more than the typing it saves — it hands /api/distance a string Google has
  * already resolved, so the measurement stops failing on shorthand and typos.
  */
+/**
+ * "12,5" is what a South African keyboard produces for twelve and a half, and
+ * Number("12,5") is NaN — which previewed R0 and saved null. One reading of the
+ * box, shared by the preview and the save, so they cannot disagree.
+ */
+const readKm = (raw: string): number | null => {
+  const text = raw.trim().replace(/,/g, ".");
+  if (text === "") return null;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : Number.NaN;
+};
+
 export default function DeliveryPanel({
   order,
   locked,
+  busy = false,
   onDone,
 }: {
   order: OrderDetail;
   locked: boolean;
+  /** The screen is between an action and its refresh; nothing may be tapped. */
+  busy?: boolean;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [on, setOn] = useState(order.delivery);
@@ -46,9 +61,16 @@ export default function DeliveryPanel({
   const [saving, setSaving] = useState(false);
   const [lookupNote, setLookupNote] = useState<string | null>(null);
 
-  const kmNumber = km.trim() === "" ? null : Number(km);
-  const previewFee =
-    kmNumber !== null && Number.isFinite(kmNumber) ? deliveryFeeCents(kmNumber) : 0;
+  const kmNumber = readKm(km);
+  const kmProblem =
+    kmNumber === null
+      ? null
+      : Number.isNaN(kmNumber)
+        ? "The distance has to be a number of kilometres, like 12.5."
+        : kmNumber < 0
+          ? "The distance cannot be negative."
+          : null;
+  const previewFee = kmNumber !== null && !kmProblem ? deliveryFeeCents(kmNumber) : 0;
 
   const lookUp = async () => {
     if (address.trim().length < 4) return;
@@ -82,11 +104,15 @@ export default function DeliveryPanel({
   };
 
   const save = async () => {
+    if (on && kmProblem) {
+      onDone({ ok: false, message: kmProblem });
+      return;
+    }
     setSaving(true);
     const result = await setDelivery(order.id, {
       delivery: on,
       address,
-      km: kmNumber,
+      km: on ? kmNumber : null,
       source,
     });
     setSaving(false);
@@ -143,6 +169,7 @@ export default function DeliveryPanel({
                 <Field
                   label="Distance"
                   hint={source === "google" ? "measured" : "entered by hand"}
+                  error={kmProblem}
                 >
                   <Input
                     value={km}
@@ -162,7 +189,7 @@ export default function DeliveryPanel({
               <Button
                 variant="secondary"
                 loading={looking}
-                disabled={address.trim().length < 4}
+                disabled={busy || address.trim().length < 4}
                 onClick={lookUp}
                 className="mb-0"
               >
@@ -181,7 +208,7 @@ export default function DeliveryPanel({
           </>
         )}
 
-        <Button variant="primary" loading={saving} onClick={save}>
+        <Button variant="primary" loading={saving} disabled={busy || (on && Boolean(kmProblem))} onClick={save}>
           Save delivery
         </Button>
       </div>

@@ -66,6 +66,11 @@ export async function POST(request: NextRequest) {
   if (address.length < 4) {
     return NextResponse.json({ km: null, reason: "no-address" }, { status: 400 });
   }
+  // No postal address is this long. Anything that is, is a paste or a probe,
+  // and neither should reach a metered API.
+  if (address.length > 200) {
+    return NextResponse.json({ km: null, reason: "too-long" }, { status: 400 });
+  }
 
   try {
     const response = await fetch(ROUTES_ENDPOINT, {

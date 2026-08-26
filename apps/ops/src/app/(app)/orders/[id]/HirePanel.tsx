@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Field, Input, Panel } from "@takemore/ui";
 import {
   HIRE_FULL_RATE_DAYS,
@@ -30,11 +30,21 @@ export default function HirePanel({
   order,
   lines,
   locked,
+  busy = false,
+  onDirty,
   onDone,
 }: {
   order: OrderDetail;
   lines: OrderLineRow[];
   locked: boolean;
+  /** The screen is between an action and its refresh; nothing may be tapped. */
+  busy?: boolean;
+  /**
+   * Told whenever the typed dates differ from the saved ones. The payment
+   * button reads this: confirm_hire_paid() prices the SAVED dates, so a total
+   * previewed from unsaved ones is a number the customer would not be charged.
+   */
+  onDirty?: (dirty: boolean) => void;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [start, setStart] = useState(order.hire_start ?? "");
@@ -48,8 +58,12 @@ export default function HirePanel({
   const days = hireDays(start, end);
   const savedDays = hireDays(order.hire_start, order.hire_end);
   const total = days ? lines.reduce((sum, l) => sum + hireFeeCents(l.list_price_cents, days), 0) : 0;
-  const dirty = start !== (order.hire_start ?? "") || end !== (order.hire_end ?? "");
+  const dirty = !locked && (start !== (order.hire_start ?? "") || end !== (order.hire_end ?? ""));
   const wrongWayRound = start !== "" && end !== "" && days === null;
+
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
 
   const save = async () => {
     setSaving(true);
@@ -104,7 +118,7 @@ export default function HirePanel({
                     Out on hire. The machines are held and off the website until they come back.
                   </p>
                   {!confirmingReturn ? (
-                    <Button variant="secondary" onClick={() => setConfirmingReturn(true)}>
+                    <Button variant="secondary" disabled={busy} onClick={() => setConfirmingReturn(true)}>
                       Mark as returned
                     </Button>
                   ) : (
@@ -114,7 +128,7 @@ export default function HirePanel({
                         recorded.
                       </p>
                       <div className="flex gap-2">
-                        <Button variant="primary" loading={returning} onClick={back}>
+                        <Button variant="primary" loading={returning} disabled={busy} onClick={back}>
                           Yes, they are back
                         </Button>
                         <Button variant="ghost" onClick={() => setConfirmingReturn(false)}>
@@ -189,9 +203,15 @@ export default function HirePanel({
           </p>
         )}
 
-        <Button variant="primary" loading={saving} disabled={!dirty || wrongWayRound} onClick={save}>
+        <Button variant="primary" loading={saving} disabled={busy || !dirty || wrongWayRound} onClick={save}>
           Save dates
         </Button>
+        {dirty && !wrongWayRound && (
+          <p className="text-[11px] font-light text-muted">
+            The figure above is for the dates as typed. Save them before recording the payment —
+            the payment is priced on what is saved.
+          </p>
+        )}
       </div>
     </Panel>
   );

@@ -198,6 +198,12 @@ export function draftInvoiceMessage(context: {
   totalCents: number;
   /** Set only when the machines are coming to them rather than being collected. */
   delivering: boolean;
+  /**
+   * Whether the document actually carries the banking block. A deployment
+   * with no BUSINESS_BANK_* configured prints none, and a message promising
+   * "the banking details are on it" would then be a promise the paper breaks.
+   */
+  bankOnDocument?: boolean;
 }): string {
   const total = rands(context.totalCents);
 
@@ -207,7 +213,9 @@ export function draftInvoiceMessage(context: {
       "",
       `Here is ${context.number} for what we put aside for you — ${total}.`,
       "",
-      "The banking details are on it. Send us the proof of payment and we'll get it ready.",
+      context.bankOnDocument === false
+        ? "Let us know when you're ready to pay and we'll send you the banking details."
+        : "The banking details are on it. Send us the proof of payment and we'll get it ready.",
     ].join("\n");
   }
 

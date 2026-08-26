@@ -1197,6 +1197,7 @@ export type Database = {
           body: string | null
           campaign_id: string | null
           channel: Database["public"]["Enums"]["outreach_channel"]
+          claimed_at: string | null
           created_at: string
           error: string | null
           id: string
@@ -1215,6 +1216,7 @@ export type Database = {
           body?: string | null
           campaign_id?: string | null
           channel: Database["public"]["Enums"]["outreach_channel"]
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           id?: string
@@ -1233,6 +1235,7 @@ export type Database = {
           body?: string | null
           campaign_id?: string | null
           channel?: Database["public"]["Enums"]["outreach_channel"]
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           id?: string
@@ -1833,6 +1836,10 @@ export type Database = {
           p_note?: string
         }
         Returns: undefined
+      }
+      remove_order_line: {
+        Args: { p_item_id: string; p_order_id: string }
+        Returns: Json
       }
       reopen_order: { Args: { p_order_id: string }; Returns: Json }
       return_hire: { Args: { p_order_id: string }; Returns: Json }

@@ -42,6 +42,9 @@ export default function PaymentPanel({
   showCosts,
   canReopen,
   hire,
+  busy = false,
+  track,
+  beforeConfirm,
   onDone,
 }: {
   order: OrderDetail;
@@ -54,11 +57,27 @@ export default function PaymentPanel({
    * the saved dates and the asking prices, and this is that figure, previewed
    * here and written by confirm_hire_paid() from the same rule.
    */
-  hire: { days: number | null; totalCents: number; returned: boolean } | null;
+  hire: { days: number | null; totalCents: number; returned: boolean; dirty: boolean } | null;
+  /** The screen is between an action and its refresh; nothing may be tapped. */
+  busy?: boolean;
+  /** Registers a blur-save with the screen so the payment can wait for it. */
+  track?: (save: Promise<unknown>) => void;
+  /**
+   * Awaited before the payment RPC is called. The screen blurs whatever has
+   * focus — the note, this panel's own price box — and waits for the saves
+   * that fires, so nothing typed a second ago is refused by RLS a second later
+   * because the order is already paid.
+   */
+  beforeConfirm?: () => Promise<void>;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [cents, setCents] = useState<number | null>(order.sold_total_cents);
-  const [method, setMethod] = useState<PaymentMethod>(order.payment_method ?? "card_machine");
+  /**
+   * No default. "Card machine" pre-selected meant a bank transfer recorded as
+   * a card payment by anybody who did not look, and the day's reconciliation
+   * is the first place that shows up.
+   */
+  const [method, setMethod] = useState<PaymentMethod | null>(order.payment_method ?? null);
   const [reference, setReference] = useState(order.payment_reference ?? "");
   const [saving, setSaving] = useState(false);
   const [voiding, setVoiding] = useState(false);
@@ -100,7 +119,12 @@ export default function PaymentPanel({
    * A rental's total is ready when the dates are saved and something on the
    * order has a price. Nothing is typed, so there is nothing else to wait for.
    */
-  const hireReady = hire !== null && Boolean(hire.days) && hire.totalCents > 0;
+  const hireReady = hire !== null && Boolean(hire.days) && hire.totalCents > 0 && !hire.dirty;
+  /** Everything the button needs before it may be pressed. */
+  const canConfirm =
+    (hire ? hireReady : Boolean(cents) && (cents as number) > 0) &&
+    Boolean(order.lead_id) &&
+    method !== null;
   /**
    * Everything in, everything out, and the share we keep.
    *
@@ -125,8 +149,10 @@ export default function PaymentPanel({
   const belowCost = margin !== null && margin < 0;
 
   const confirm = async () => {
-    if (hire ? !hireReady : !cents || cents <= 0) return;
+    if (!canConfirm || method === null) return;
     setSaving(true);
+    // Let the note and the price box finish saving first — see beforeConfirm.
+    await beforeConfirm?.();
     const result = hire
       ? await confirmHirePaid(order.id, method, reference)
       : await confirmPaid(order.id, cents as number, method, reference);
@@ -184,8 +210,12 @@ export default function PaymentPanel({
               // allowed to carry a goods total; it is the payment fields that
               // it may not carry.
               onBlur={() => {
-                if (cents !== order.sold_total_cents) void setProvisionalTotal(order.id, cents);
+                if (cents === order.sold_total_cents) return;
+                const saving = setProvisionalTotal(order.id, cents);
+                track?.(saving);
+                void saving;
               }}
+              disabled={busy}
               placeholder="0"
             />
           </Field>
@@ -263,7 +293,8 @@ export default function PaymentPanel({
                     key={m}
                     type="button"
                     onClick={() => setMethod(m)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors ${
+                    disabled={busy}
+                    className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors disabled:opacity-40 ${
                       method === m
                         ? "border-accent/70 bg-accent/10 text-accent"
                         : "border-border text-white/70 hover:border-white/25"
@@ -282,8 +313,13 @@ export default function PaymentPanel({
               <Input
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
+                disabled={busy}
                 placeholder={
-                  method === "card_machine" ? "Slip number" : "EFT reference"
+                  method === "card_machine"
+                    ? "Slip number"
+                    : method === "bank_transfer"
+                      ? "EFT reference"
+                      : "Slip number or EFT reference"
                 }
               />
             </Field>
@@ -296,17 +332,21 @@ export default function PaymentPanel({
             <Button
               variant="primary"
               loading={saving}
-              disabled={(hire ? !hireReady : !cents || cents <= 0) || !order.lead_id}
+              disabled={busy || !canConfirm}
               onClick={confirm}
               className="w-full"
             >
               {!order.lead_id
                 ? "Add a customer first"
-                : hire && !hire.days
+                : hire && (!hire.days || hire.dirty)
                   ? "Save the hire dates first"
                   : hire && !hireReady
                     ? "Add a priced machine first"
-                    : "Record the payment"}
+                    : !hire && (!cents || cents <= 0)
+                      ? "Type what it sold for first"
+                      : method === null
+                        ? "Choose how they paid first"
+                        : "Record the payment"}
             </Button>
           </>
         )}
@@ -337,11 +377,11 @@ export default function PaymentPanel({
                   passed. Cancelling stays available, because the money can
                   still have been wrong. */}
               {paid && canReopen && !hire?.returned && (
-                <Button variant="secondary" loading={saving} onClick={reopen}>
+                <Button variant="secondary" loading={saving} disabled={busy} onClick={reopen}>
                   {hire ? "Reopen to change the dates" : "Correct the amount"}
                 </Button>
               )}
-              <Button variant="danger" onClick={() => setConfirmingVoid((v) => !v)}>
+              <Button variant="danger" disabled={busy} onClick={() => setConfirmingVoid((v) => !v)}>
                 {discards ? "Discard this order" : "Cancel this sale"}
               </Button>
             </div>
@@ -371,7 +411,7 @@ export default function PaymentPanel({
                 <Button
                   variant="danger"
                   loading={voiding}
-                  disabled={!discards && !reason.trim()}
+                  disabled={busy || (!discards && !reason.trim())}
                   onClick={cancel}
                 >
                   {discards ? "Discard" : "Cancel"} {order.code}

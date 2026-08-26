@@ -79,15 +79,42 @@ export type IssuerResult =
  * All four parts or none. A half-filled block — a bank name and no account
  * number — is worse than no block at all: somebody paying by EFT reads it,
  * believes they have what they need, and pays into nothing.
+ *
+ * So: none set is a deployment that has chosen not to print banking, and that
+ * is allowed (the panel says so out loud). SOME set is a mistake somebody is
+ * about to ship, and it is refused with the names of the ones still missing —
+ * until now it silently dropped the block, which is exactly how a proforma
+ * goes out with no way to pay it.
  */
-const bankFrom = (env: ReturnType<typeof ENV>): InvoiceIssuer["bank"] => {
-  const bank = {
-    name: clean(env.bank_name),
-    account_name: clean(env.bank_account_name),
-    type: clean(env.bank_type),
-    number: clean(env.bank_number),
+const bankFrom = (
+  env: ReturnType<typeof ENV>
+): { ok: true; bank: InvoiceIssuer["bank"] } | { ok: false; error: string } => {
+  const parts: [string, string][] = [
+    ["BUSINESS_BANK_NAME", clean(env.bank_name)],
+    ["BUSINESS_BANK_ACCOUNT_NAME", clean(env.bank_account_name)],
+    ["BUSINESS_BANK_ACCOUNT_TYPE", clean(env.bank_type)],
+    ["BUSINESS_BANK_ACCOUNT_NUMBER", clean(env.bank_number)],
+  ];
+  const missing = parts.filter(([, value]) => !value).map(([name]) => name);
+
+  if (missing.length === parts.length) return { ok: true, bank: null };
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error:
+        `The banking details are only partly configured — ${missing.join(", ")} ` +
+        `${missing.length === 1 ? "is" : "are"} missing. Set all four, or none.`,
+    };
+  }
+  return {
+    ok: true,
+    bank: {
+      name: parts[0][1],
+      account_name: parts[1][1],
+      type: parts[2][1],
+      number: parts[3][1],
+    },
   };
-  return Object.values(bank).every(Boolean) ? bank : null;
 };
 
 export function issuerFromEnv(): IssuerResult {
@@ -120,6 +147,9 @@ export function issuerFromEnv(): IssuerResult {
     };
   }
 
+  const bank = bankFrom(env);
+  if (!bank.ok) return { ok: false, error: bank.error };
+
   /**
    * Nothing here reads a VAT number, and `InvoiceIssuer.vat_number` is typed
    * `never` so that adding one is a compile error. Take More is not a
@@ -135,7 +165,7 @@ export function issuerFromEnv(): IssuerResult {
       address,
       phone: clean(env.phone) || null,
       email: clean(env.email) || null,
-      bank: bankFrom(env),
+      bank: bank.bank,
       // Take More's own spreadsheet invoices are dated and due the same day —
       // the machine leaves when the money arrives. Zero rather than a guess at
       // thirty, which would quietly extend credit nobody agreed to give.
@@ -144,8 +174,24 @@ export function issuerFromEnv(): IssuerResult {
   };
 }
 
+/** What the order screen needs to know about this deployment's paperwork. */
+export type InvoicingStatus = {
+  /** Can a document be issued at all. */
+  ok: boolean;
+  /** Why not, when it cannot. */
+  error?: string;
+  /**
+   * Will the document carry banking details. False is allowed, but it has to
+   * be said on the screen and in the WhatsApp message — a proforma with no
+   * banking on it is a request for money with no way to send it.
+   */
+  bank: boolean;
+};
+
 /** For the order screen: can this deployment issue at all, and if not, why not. */
-export const invoicingIsConfigured = (): { ok: boolean; error?: string } => {
+export const invoicingIsConfigured = (): InvoicingStatus => {
   const result = issuerFromEnv();
-  return result.ok ? { ok: true } : { ok: false, error: result.error };
+  return result.ok
+    ? { ok: true, bank: result.issuer.bank !== null }
+    : { ok: false, error: result.error, bank: false };
 };

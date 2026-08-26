@@ -75,6 +75,11 @@ export async function POST(request: NextRequest) {
   if (input.length < 3) {
     return NextResponse.json({ suggestions: [] });
   }
+  // No address anybody is typing is this long; a paste or a probe is, and
+  // neither should be billed for.
+  if (input.length > 200) {
+    return NextResponse.json({ suggestions: [], reason: "too-long" }, { status: 400 });
+  }
 
   try {
     const response = await fetch(AUTOCOMPLETE_ENDPOINT, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Panel } from "@takemore/ui";
@@ -70,16 +70,46 @@ export default function OrderScreen({
   economics: OrderEconomics | null;
   lineCosts: OrderLineCost[];
   invoices: OrderInvoiceRow[];
-  invoicing: { ok: boolean; error?: string };
+  invoicing: { ok: boolean; error?: string; bank: boolean };
   role: AppRole;
 }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  /**
+   * `isPending` is the gap between an action finishing and the refreshed page
+   * arriving. Every control below is disabled across it — otherwise the trash
+   * button re-enables on stale data and a second tap acts on an order the
+   * screen no longer describes.
+   */
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  /** Hire dates typed but not yet saved. The pay button waits for them. */
+  const [hireDirty, setHireDirty] = useState(false);
 
+  /**
+   * Saves that happen on blur — the note, the provisional total — and are
+   * therefore still in flight when somebody taps "Record the payment" straight
+   * out of the box. The payment RPC would commit first and the note's update
+   * would then be refused by RLS, silently, and the note lost. So the panels
+   * register those promises here and the payment waits for them.
+   */
+  const pending = useRef(new Set<Promise<unknown>>());
+  const track = useCallback((save: Promise<unknown>) => {
+    pending.current.add(save);
+    void save.finally(() => pending.current.delete(save));
+  }, []);
+  const flush = useCallback(async () => {
+    // Whatever has focus is told to let go, which fires its onBlur save…
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    // …on the next tick, after which it is in the set and can be waited for.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await Promise.allSettled([...pending.current]);
+  }, []);
+
+  const busy = isPending || switching || removing !== null;
   const locked = order.status !== "draft";
   const hire = order.kind === "hire";
   /**
@@ -200,7 +230,7 @@ export default function OrderScreen({
                 key={kind}
                 type="button"
                 onClick={() => switchKind(kind)}
-                disabled={switching || lines.length > 0}
+                disabled={busy || lines.length > 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors disabled:cursor-not-allowed ${
                   order.kind === kind
                     ? "border-accent/70 bg-accent/10 text-accent"
@@ -271,7 +301,7 @@ export default function OrderScreen({
                               <button
                                 type="button"
                                 onClick={() => drop(line.item_id)}
-                                disabled={removing === line.item_id}
+                                disabled={busy}
                                 aria-label="Take this machine off the order"
                                 className="w-7 h-7 rounded-lg border border-border text-muted
                                            hover:text-status-sold hover:border-status-sold/40
@@ -344,15 +374,24 @@ export default function OrderScreen({
         </div>
       </Panel>
 
-      {hire && <HirePanel order={order} lines={lines} locked={locked} onDone={handled} />}
+      {hire && (
+        <HirePanel
+          order={order}
+          lines={lines}
+          locked={locked}
+          busy={busy}
+          onDirty={setHireDirty}
+          onDone={handled}
+        />
+      )}
 
-      <DeliveryPanel order={order} locked={locked} onDone={handled} />
+      <DeliveryPanel order={order} locked={locked} busy={busy} onDone={handled} />
 
       {/* Above the payment, because it is written DURING the conversation —
           "collecting on Saturday", "hire back on the 17th" — and below it is
           where a salesperson stops looking once the money is taken. It prints
           on the invoice, which is what makes it worth typing. */}
-      <NotesPanel order={order} locked={locked} onDone={handled} />
+      <NotesPanel order={order} locked={locked} busy={busy} track={track} onDone={handled} />
 
       <PaymentPanel
         order={order}
@@ -364,7 +403,19 @@ export default function OrderScreen({
         // an actor and it explains itself on the customer's timeline, which is
         // what makes that safe to hand to whoever is standing at the counter.
         canReopen={canReopenSale(role)}
-        hire={hire ? { days, totalCents: hireTotal, returned: Boolean(order.hire_returned_at) } : null}
+        hire={
+          hire
+            ? {
+                days,
+                totalCents: hireTotal,
+                returned: Boolean(order.hire_returned_at),
+                dirty: hireDirty,
+              }
+            : null
+        }
+        busy={busy}
+        track={track}
+        beforeConfirm={flush}
         onDone={handled}
       />
 
@@ -381,6 +432,7 @@ export default function OrderScreen({
         // has been corrected since the customer was given one.
         chargedTotalCents={order.charged_total_cents ?? 0}
         configured={invoicing}
+        busy={busy}
         onDone={handled}
       />
 

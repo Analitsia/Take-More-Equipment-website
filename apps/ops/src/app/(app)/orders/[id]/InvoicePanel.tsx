@@ -62,14 +62,20 @@ export default function InvoicePanel({
   invoices,
   chargedTotalCents,
   configured,
+  busy: screenBusy = false,
   onDone,
 }: {
   order: OrderDetail;
   invoices: OrderInvoiceRow[];
   /** What the order says the customer pays. Used to spot a document gone stale. */
   chargedTotalCents: number;
-  /** Whether this deployment has the business details to put on a document. */
-  configured: { ok: boolean; error?: string };
+  /**
+   * Whether this deployment has the business details to put on a document,
+   * and whether the document will carry banking details.
+   */
+  configured: { ok: boolean; error?: string; bank: boolean };
+  /** The screen is between an action and its refresh; nothing may be tapped. */
+  busy?: boolean;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -102,6 +108,17 @@ export default function InvoicePanel({
 
   const url = current ? `/api/invoices/${current.id}` : null;
   const filename = current ? invoiceFilename(current) : null;
+
+  /**
+   * Everything else ever issued for this order, newest first — the proforma
+   * that came before the invoice, the invoice a correction replaced. They are
+   * still on the record and still what the customer may be holding, so they
+   * are reachable here rather than only in the database.
+   */
+  const history = invoices.filter((i) => i.id !== current?.id);
+  const replacedBy = (id: string) => invoices.find((i) => i.supersedes === id) ?? null;
+
+  const disabled = screenBusy || busy;
 
   /**
    * Is this a phone, rather than a browser that merely claims it could share?
@@ -233,7 +250,7 @@ export default function InvoicePanel({
     setHint(null);
 
     const digits = whatsappDigits(order.lead?.phone);
-    const message = messageFor(current, order);
+    const message = messageFor(current, order, configured.bank);
 
     /**
      * On a phone: the share sheet, which is the only route the file itself
@@ -273,13 +290,21 @@ export default function InvoicePanel({
           ? "This sale was cancelled. The documents already issued are kept."
           : paid
             ? undefined
-            : "A proforma, with the banking details, for somebody paying by transfer."
+            : configured.bank
+              ? "A proforma, with the banking details, for somebody paying by transfer."
+              : "A proforma, for somebody paying by transfer."
       }
     >
       <div className="space-y-3">
         {!configured.ok && (
           <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
             {configured.error}
+          </p>
+        )}
+        {configured.ok && !configured.bank && !cancelled && (
+          <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5">
+            No banking details are configured on this deployment — a proforma will not carry
+            them. Somebody paying by transfer will have to be sent them another way.
           </p>
         )}
 
@@ -313,10 +338,10 @@ export default function InvoicePanel({
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" onClick={send} className="text-xs px-4 py-2">
+              <Button variant="primary" disabled={disabled} onClick={send} className="text-xs px-4 py-2">
                 Send on WhatsApp
               </Button>
-              <Button variant="secondary" onClick={print} className="text-xs px-4 py-2">
+              <Button variant="secondary" disabled={disabled} onClick={print} className="text-xs px-4 py-2">
                 Print
               </Button>
               <a
@@ -361,7 +386,7 @@ export default function InvoicePanel({
                       return;
                     }
                     setHint(null);
-                    openChat(digits, messageFor(current, order));
+                    openChat(digits, messageFor(current, order, configured.bank));
                   }}
                   className="inline-flex items-center px-1 py-2 text-[11px] font-light text-muted
                              hover:text-white transition-colors"
@@ -373,16 +398,24 @@ export default function InvoicePanel({
 
             {hint && <p className="text-[11px] font-light text-muted leading-relaxed">{hint}</p>}
 
-            {!cancelled && (
+            {/*
+              Only when there is something to issue. A paid order whose invoice
+              still matches has nothing new to say, and the old "Issue another"
+              button was how two identical numbers ended up on one sale. A
+              proforma is different: the order under it is still moving, so
+              re-issuing is a real action — and if nothing has moved, Postgres
+              hands the same document back rather than minting a twin.
+            */}
+            {!cancelled && (stale || !paid) && (
               <div className="border-t border-white/5 pt-3">
                 <Button
                   variant="ghost"
                   loading={busy}
-                  disabled={!configured.ok}
+                  disabled={disabled || !configured.ok}
                   onClick={issue}
                   className="text-xs px-3 py-2"
                 >
-                  {stale ? `Issue a corrected ${wantKind}` : `Issue another ${wantKind}`}
+                  {stale ? "Issue a corrected invoice" : "Issue an updated proforma"}
                 </Button>
                 <p className="text-[11px] font-light text-muted mt-2 leading-relaxed">
                   {/* Stated plainly because it is the property the whole design
@@ -391,6 +424,44 @@ export default function InvoicePanel({
                   A document that has been handed over is never changed. Issuing another one leaves
                   the first exactly as it was and records which replaced it.
                 </p>
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="border-t border-white/5 pt-3">
+                <p className="text-[11px] font-medium tracking-wide text-white/80 mb-1.5">
+                  Also issued for this order
+                </p>
+                <ul className="space-y-1">
+                  {history.map((past) => {
+                    const successor = replacedBy(past.id);
+                    return (
+                      <li
+                        key={past.id}
+                        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[11px] font-light text-muted"
+                      >
+                        <span className="min-w-0">
+                          <span className="font-mono tracking-widest text-white/70">{past.number}</span>
+                          {" · "}
+                          {INVOICE_HEADINGS[past.kind]} · {rands(past.total_cents)} ·{" "}
+                          {new Date(past.issued_at).toLocaleDateString("en-ZA", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {successor ? ` · replaced by ${successor.number}` : ""}
+                        </span>
+                        <a
+                          href={`/api/invoices/${past.id}?download=1`}
+                          download={invoiceFilename(past)}
+                          className="shrink-0 hover:text-white transition-colors underline-offset-2 hover:underline"
+                        >
+                          Download
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </>
@@ -404,7 +475,7 @@ export default function InvoicePanel({
             <Button
               variant={paid ? "primary" : "secondary"}
               loading={busy}
-              disabled={!configured.ok || !order.lead_id}
+              disabled={disabled || !configured.ok || !order.lead_id}
               onClick={issue}
               className="text-xs px-4 py-2"
             >
@@ -439,11 +510,16 @@ export default function InvoicePanel({
  * Postgres, the WORDING is a decision about how this business talks, and both
  * belong somewhere they can be found and changed in one place.
  */
-const messageFor = (invoice: OrderInvoiceRow | null, order: OrderDetail): string =>
+const messageFor = (
+  invoice: OrderInvoiceRow | null,
+  order: OrderDetail,
+  bankOnDocument: boolean
+): string =>
   draftInvoiceMessage({
     kind: invoice?.kind ?? "invoice",
     number: invoice?.number ?? "",
     leadName: order.lead?.full_name ?? null,
     totalCents: invoice?.total_cents ?? 0,
     delivering: order.delivery,
+    bankOnDocument,
   });

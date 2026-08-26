@@ -26,10 +26,20 @@ import { setOrderNotes } from "../actions";
 export default function NotesPanel({
   order,
   locked,
+  busy = false,
+  track,
   onDone,
 }: {
   order: OrderDetail;
   locked: boolean;
+  /** The screen is between an action and its refresh. */
+  busy?: boolean;
+  /**
+   * Hands the in-flight save to the screen, so "Record the payment" can wait
+   * for it. A blur-save racing the payment RPC lost: the order was paid by the
+   * time the note arrived, RLS refused the update, and nobody was told.
+   */
+  track?: (save: Promise<unknown>) => void;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
   const [notes, setNotes] = useState(order.notes ?? "");
@@ -55,6 +65,12 @@ export default function NotesPanel({
     if (!result.ok) onDone(result);
   };
 
+  const onBlur = () => {
+    const saving = save();
+    track?.(saving);
+    void saving;
+  };
+
   return (
     <Panel
       title="Anything else"
@@ -65,7 +81,8 @@ export default function NotesPanel({
         value={notes}
         rows={2}
         onChange={(e) => setNotes(e.target.value)}
-        onBlur={save}
+        onBlur={onBlur}
+        disabled={busy}
         placeholder="Collecting Saturday · hire back on the 17th · includes the stand"
         className="text-sm"
       />

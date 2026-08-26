@@ -28,13 +28,31 @@ import { renderInvoicePdf } from "@/lib/invoice-pdf";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * A failure is plain text, never JSON and never an attachment.
+ *
+ * The Download button is an `<a download>` pointing here. A browser following
+ * that link saves whatever comes back under the invoice's filename — so a JSON
+ * error body arrived on the desk as INV-0015.pdf containing `{"error":…}`, and
+ * looked like a corrupt invoice rather than a message.
+ */
+const refuse = (message: string, status: number) =>
+  new NextResponse(message, {
+    status,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Disposition": "inline",
+      "Cache-Control": "no-store",
+    },
+  });
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const staff = await currentStaff();
   if (!staff) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    return refuse("Not signed in.", 401);
   }
 
   const { id } = await params;
@@ -47,10 +65,10 @@ export async function GET(
     doc = await getInvoiceDocument(id);
   } catch (cause) {
     reportError(cause, { where: "api/invoices/read" });
-    return NextResponse.json({ error: "Could not read that invoice." }, { status: 500 });
+    return refuse("Could not read that invoice.", 500);
   }
   if (!doc) {
-    return NextResponse.json({ error: "No such invoice." }, { status: 404 });
+    return refuse("No such invoice.", 404);
   }
 
   let pdf: Buffer;
@@ -61,9 +79,9 @@ export async function GET(
     // rather than a broken file: a PDF that disagrees with itself is worse than
     // an error, because it gets handed over.
     reportError(cause, { where: "api/invoices/render", invoice: doc?.number });
-    return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "That invoice could not be drawn." },
-      { status: 500 }
+    return refuse(
+      cause instanceof Error ? cause.message : "That invoice could not be drawn.",
+      500
     );
   }
 

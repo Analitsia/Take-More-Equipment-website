@@ -1,10 +1,12 @@
 "use client";
 
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  useEffect,
+  useState,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from "react";
 
 /**
@@ -82,12 +84,29 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
 export function RandInput({
   valueCents,
   onChangeCents,
+  onFocus,
+  onBlur,
   className = "",
   ...props
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> & {
   valueCents: number | null;
   onChangeCents: (cents: number | null) => void;
 }) {
+  /**
+   * While the box has focus it shows what was TYPED, not the cents echoed back.
+   *
+   * Rendering `String(valueCents / 100)` on every keystroke meant "12." became
+   * "12" before the next digit could be typed, so nobody could enter R12.50 at
+   * all. The text is the box's own while it is being edited; the cents are
+   * synced back from the parent only once it is left.
+   */
+  const [focused, setFocused] = useState(false);
+  const [text, setText] = useState(valueCents === null ? "" : String(valueCents / 100));
+
+  useEffect(() => {
+    if (!focused) setText(valueCents === null ? "" : String(valueCents / 100));
+  }, [valueCents, focused]);
+
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-light text-muted pointer-events-none">
@@ -97,10 +116,20 @@ export function RandInput({
         {...props}
         type="text"
         inputMode="decimal"
-        value={valueCents === null ? "" : String(valueCents / 100)}
+        value={text}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
         onChange={(e) => {
-          const raw = e.target.value.replace(/[^\d.]/g, "");
-          if (raw === "") return onChangeCents(null);
+          // A decimal comma is what half the keyboards in this country offer.
+          const raw = e.target.value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+          setText(raw);
+          if (raw === "" || raw === ".") return onChangeCents(null);
           const rands = Number.parseFloat(raw);
           onChangeCents(Number.isFinite(rands) ? Math.round(rands * 100) : null);
         }}

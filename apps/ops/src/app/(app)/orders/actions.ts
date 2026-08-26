@@ -47,6 +47,12 @@ const humanise = (message: string): string => {
     return "The return date is before the start date.";
   if (message.includes("orders_sale_has_no_hire_fields"))
     return "Only a rental can have hire dates.";
+  if (message.includes("orders_returned_means_paid"))
+    return "A returned hire cannot be reopened. Its machines are already back in stock.";
+  if (message.includes("orders_delivery_km_check"))
+    return "The distance cannot be negative.";
+  if (/remove_order_line/i.test(message) && /does not exist|schema cache/i.test(message))
+    return "Orders need a database change that has not been applied yet. Run the migrations.";
   if (/confirm_hire_paid|return_hire|hire_fee_cents/i.test(message) && /does not exist|schema cache/i.test(message))
     return "Rentals need a database change that has not been applied yet. Run the migrations.";
   if (message.includes("order_lines_order_id_item_id_key"))
@@ -250,40 +256,32 @@ export async function addLine(
 /**
  * Take a machine back off the order and put it back where it came from.
  *
- * "Where it came from" is the load-bearing half. The line wrote down what the
- * machine was doing when it was picked up — see
- * 20260819110100_a_machine_remembers_where_it_was.sql — so a fryer that was in
- * pieces on the workshop bench goes back to the bench rather than onto the
- * board marked For sale. It is read BEFORE the line is deleted, because after
- * that there is nothing left to read.
+ * One transaction, in Postgres — remove_order_line() in
+ * 20260826120000_orders_hardening.sql. It locks the order, refuses in words if
+ * the order is no longer open, deletes the line and puts the machine back in
+ * the stage the line remembered (see 20260819110100). Before that RPC existed
+ * this deleted through RLS, which on a PAID order matched no rows and raised
+ * no error — and the code then un-sold and re-published the machine anyway.
  *
- * setStage() does the putting back rather than a direct update: it already
- * knows the publish gate fires before the status trigger and so `published_at`
- * has to be a second write, and it already re-runs the lead matcher, which is
- * exactly right for a machine that has just become available again.
+ * setStage() is still called afterwards, asking for the stage the RPC already
+ * set: it knows the publish gate fires before the status trigger and so
+ * `published_at` has to be a second write, and it re-runs the lead matcher,
+ * which is exactly right for a machine that has just become available again.
  */
 export async function removeLine(orderId: string, itemId: string): Promise<ActionResult> {
   await requireStaff();
   const client = await supabase();
 
-  const { data: line } = await client
-    .from("order_lines")
-    .select("held_from_status")
-    .eq("order_id", orderId)
-    .eq("item_id", itemId)
-    .maybeSingle();
-
-  const { error } = await client
-    .from("order_lines")
-    .delete()
-    .eq("order_id", orderId)
-    .eq("item_id", itemId);
+  const { data, error } = await client.rpc("remove_order_line", {
+    p_order_id: orderId,
+    p_item_id: itemId,
+  });
 
   if (error) return { ok: false, error: humanise(error.message) };
 
-  // 'listed' for a line written before that column existed, which is what those
-  // lines used to get unconditionally.
-  const back = await setStage(itemId, (line?.held_from_status as ItemStatus) ?? "listed");
+  const result = data as { status?: ItemStatus; sku?: string } | null;
+
+  const back = await setStage(itemId, result?.status ?? "listed");
   await revalidateSale(orderId, [itemId]);
 
   // setStage reports its own trouble — "it is not on the website yet, it needs
@@ -580,13 +578,23 @@ export async function discardOrder(orderId: string): Promise<ActionResult> {
   // `.eq("status", "draft")` a second time, on the delete itself. The read above
   // was a moment ago, and in that moment somebody else could have taken payment
   // on this very order from another phone.
-  const { error: deleteError } = await admin
+  //
+  // And `.select("id")`, because a delete that matches nothing is not an error
+  // to PostgREST. Without it the order would be left standing, paid, while the
+  // code below wiped its log and put its machines back on the shelf.
+  const { data: deleted, error: deleteError } = await admin
     .from("orders")
     .delete()
     .eq("id", orderId)
-    .eq("status", "draft");
+    .eq("status", "draft")
+    .select("id");
 
   if (deleteError) return { ok: false, error: humanise(deleteError.message) };
+  if (!deleted || deleted.length === 0)
+    return {
+      ok: false,
+      error: "Somebody just took payment on this order — it cannot be discarded.",
+    };
 
   // The one line the log had about it goes too.
   //
@@ -747,7 +755,9 @@ export async function issueInvoice(orderId: string): Promise<
 
   if (error) return { ok: false, error: humanise(error.message) };
 
-  const result = data as { id?: string; number?: string; supersedes?: string | null } | null;
+  const result = data as
+    | { id?: string; number?: string; supersedes?: string | null; reused?: boolean }
+    | null;
 
   revalidatePath(`/orders/${orderId}`);
   // The customer's timeline gained a line saying the document went out.
@@ -757,8 +767,12 @@ export async function issueInvoice(orderId: string): Promise<
     ok: true,
     invoiceId: result?.id,
     number: result?.number,
-    notice: result?.supersedes
-      ? `${result?.number} replaces the document issued before it. Send the customer this one.`
-      : `${result?.number} is ready.`,
+    notice: result?.reused
+      ? // Nothing on the order has changed since it was issued, so Postgres
+        // handed back the same document rather than spending a number on a twin.
+        `${result?.number} already says exactly this. Send the customer that one.`
+      : result?.supersedes
+        ? `${result?.number} replaces the document issued before it. Send the customer this one.`
+        : `${result?.number} is ready.`,
   };
 }

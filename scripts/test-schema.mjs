@@ -402,6 +402,32 @@ check("and it catches a document that does not add up",
       checkInvoiceTotals({ ...stored.d, total_cents: stored.d.total_cents + 1 }) !== null);
 
 /**
+ * Two taps on "Make the invoice" — a double-tap on a phone, a slow connection —
+ * used to mint INV-0015 AND INV-0016 for the same sale, identical to the cent.
+ * Nothing on the order has changed, so the second call must hand back the
+ * first document and spend no number.
+ */
+r = await one(db, issue("invoice"));
+check("issuing the same invoice again returns the document already issued, and mints no number",
+      r.issue_invoice.number === doc.number && r.issue_invoice.reused === true && r.issue_invoice.supersedes === null,
+      JSON.stringify(r.issue_invoice));
+r = await one(db, `select count(*) c from public.order_invoices where order_id='${order.id}'`);
+check("so there is still exactly one document on the record", num(r.c) === 1, `${r.c}`);
+r = await one(db, "select last_value v, is_called c from app.invoice_number_seq");
+check("and the invoice sequence did not move", num(r.v) === 15, `${r.v}`);
+
+/**
+ * The audit's critical one. removeLine() used to delete through RLS, match no
+ * rows on a paid order, and then un-sell the machine anyway. The RPC refuses
+ * in words and touches nothing.
+ */
+check("a machine cannot be taken off a PAID order",
+      await refuses(db, `select public.remove_order_line('${order.id}', '${big.id}')`));
+r = await one(db, `select i.status, (select count(*) from public.order_lines where order_id='${order.id}') c
+                   from public.items i where i.id='${big.id}'`);
+check("and it is still sold, still on the order", r.status === "sold" && num(r.c) === 2, `${r.status}, ${r.c} lines`);
+
+/**
  * The reason this is a stored document and not a view over `orders`.
  *
  * Rename the machine after the customer has walked out with the paper. A
@@ -521,6 +547,43 @@ r = await one(db, `select status from public.items where id='${legacy.id}'`);
 check("a line that remembers nothing falls back to For sale, as it always did",
       r.status === "listed", r.status);
 
+console.log("\nTAKING A MACHINE OFF");
+{
+  const off = await make("Comes off again", 700_000, 200_000, 0);
+  const draft = await one(db, "insert into public.orders (status) values ('draft') returning id");
+  await db.exec(`select public.add_order_line('${draft.id}', '${off.sku}')`);
+  r = await one(db, `select public.remove_order_line('${draft.id}', '${off.id}') x`);
+  check("taking a machine off an open order says where it went", r.x.status === "listed" && r.x.sku === off.sku, JSON.stringify(r.x));
+  r = await one(db, `select i.status, (select count(*) from public.order_lines where order_id='${draft.id}') c
+                     from public.items i where i.id='${off.id}'`);
+  check("the line is gone and the machine is back on the shelf", r.status === "listed" && num(r.c) === 0, `${r.status}, ${r.c} lines`);
+  check("taking it off twice is refused rather than ignored",
+        await refuses(db, `select public.remove_order_line('${draft.id}', '${off.id}')`));
+
+  /**
+   * Sold by hand while it sat on the order. Not on any other order, so the
+   * clash check never saw it; confirm_order_paid() would have re-sold it.
+   */
+  await db.exec(`select public.add_order_line('${draft.id}', '${off.sku}')`);
+  await db.exec(`update public.orders set lead_id='${lead.id}' where id='${draft.id}'`);
+  await db.exec(`update public.items set status='sold' where id='${off.id}'`);
+  let refusal = "";
+  try { await db.exec(`select public.confirm_order_paid('${draft.id}', 600000, 'card_machine', null)`); }
+  catch (error) { refusal = String(error.message); }
+  check("a sale refuses a machine that was sold by hand while it sat on the order, and names it",
+        refusal.includes(off.sku) && /sold/.test(refusal), refusal);
+  r = await one(db, `select status from public.orders where id='${draft.id}'`);
+  check("and the order stays open", r.status === "draft", r.status);
+  r = await one(db, `select public.remove_order_line('${draft.id}', '${off.id}') x`);
+  check("taking the sold machine off leaves it sold rather than un-selling it", r.x.status === "sold", JSON.stringify(r.x));
+}
+
+console.log("\nMONEY IN WORDS");
+for (const [cents, text] of [[40000, "R400"], [120240, "R1202.40"], [4938, "R49.38"], [5, "R0.05"], [0, "R0"]]) {
+  r = await one(db, `select app.rands_text(${cents}) t`);
+  check(`${cents} cents reads ${text}`, r.t === text, r.t);
+}
+
 console.log("\nTHE WORKSHOP IS NOT A SHOPFRONT");
 /**
  * 20260820100000. A machine on the bench has no settled price — the repair is
@@ -593,6 +656,24 @@ check("the sale RPC refuses a hire",
 check("the hire RPC refuses a sale",
       await refuses(db, `select public.confirm_hire_paid('${order.id}', 'card_machine', null)`));
 
+/**
+ * A machine sold by hand while the hire was open used to be skipped by the
+ * "leave it where they put it" branch and go out on a paid hire anyway.
+ */
+{
+  const byHand = await make("Sold by hand", 500_000, 100_000, 0);
+  await db.exec(`select public.add_order_line('${hire.id}', '${byHand.sku}')`);
+  await db.exec(`update public.items set status='sold' where id='${byHand.id}'`);
+  let refusal = "";
+  try { await db.exec(`select public.confirm_hire_paid('${hire.id}', 'card_machine', null)`); }
+  catch (error) { refusal = String(error.message); }
+  check("a hire refuses a machine that was sold by hand while it sat on the order, and names it",
+        refusal.includes(byHand.sku) && /sold/.test(refusal), refusal);
+  r = await one(db, `select status from public.orders where id='${hire.id}'`);
+  check("and the hire stays open", r.status === "draft", r.status);
+  await db.exec(`select public.remove_order_line('${hire.id}', '${byHand.id}')`);
+}
+
 const hireRevenueBefore = num((await one(db, `select coalesce(sum(revenue_cents),0) r from public.money_by_month`)).r);
 await db.exec(`select public.confirm_hire_paid('${hire.id}', 'card_machine', 'SLIP-H1')`);
 
@@ -629,6 +710,14 @@ stored = await one(db, `select document d, total_cents t from public.order_invoi
   check("the hire invoice adds up", checkInvoiceTotals(doc) === null, checkInvoiceTotals(doc) ?? "");
   check("it carries the period", doc.hire?.days === 10 && doc.hire?.start === "2026-09-01", JSON.stringify(doc.hire));
   check("there is no discount line on a hire", doc.adjustment_cents === 0 && doc.lines.length === 2);
+  // R12 345 asks R493.80 a day. Rounded to whole rands, the words on the line
+  // disagreed with the figures beside them.
+  check("a daily rate with cents in it is printed with the cents",
+        doc.lines.some((l) => l.description.includes("R493.80/day")),
+        doc.lines.map((l) => l.description).join(" | "));
+  check("and a whole-rand rate is printed without them",
+        doc.lines.some((l) => l.description.includes("at R400/day")),
+        doc.lines.map((l) => l.description).join(" | "));
   check("and it asks for exactly what the order says the customer pays",
         num(stored.t) === num((await one(db, `select charged_total_cents c from public.orders where id='${hire.id}'`)).c));
 }
@@ -641,6 +730,10 @@ check("returning puts the machines back where they came from", rows.every((x) =>
 r = await one(db, `select hire_returned_at ret, status, sold_total_cents t from public.orders where id='${hire.id}'`);
 check("the hire is stamped returned and still paid", r.ret !== null && r.status === "paid" && num(r.t) === 382_000 + expectedOdd);
 check("it cannot be returned twice", await refuses(db, `select public.return_hire('${hire.id}')`));
+let reopenRefusal = "";
+try { await db.exec(`select public.reopen_order('${hire.id}')`); } catch (error) { reopenRefusal = String(error.message); }
+check("a returned hire cannot be reopened, and says so in words rather than a constraint name",
+      /returned hire cannot be reopened/.test(reopenRefusal) && !/orders_returned_means_paid/.test(reopenRefusal), reopenRefusal);
 await db.exec(`select public.add_order_line('${other.id}', '${tenK.sku}')`);
 r = await one(db, `select count(*) c from public.order_lines where order_id='${other.id}'`);
 check("a returned machine can go out again on another order", num(r.c) === 1);
