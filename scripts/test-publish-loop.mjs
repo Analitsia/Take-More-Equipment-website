@@ -100,7 +100,7 @@ try {
     : ok("a draft is not on the public site");
 
   // ------------------------------------------------------------- publish ---
-  for (const status of ["ready", "listed"]) {
+  for (const status of ["listed"]) {
     const { error } = await admin.from("items").update({ status }).eq("id", itemId);
     if (error) throw new Error(`transition ${status}: ${error.message}`);
   }
@@ -137,23 +137,30 @@ try {
     ? ok("the homepage catalogue regenerated and shows it")
     : fail("the homepage catalogue regenerated", "the title is not in the rendered HTML");
 
-  // ------------------------------------------- sold, but STILL on the site --
+  // ---------------------------------------------- sold, and OFF the site --
+  // Only `listed` is live (20260826140000): leaving For sale clears
+  // published_at in the status trigger, whichever way the status was written.
   const { error: soldError } = await admin
     .from("items").update({ status: "sold", sale_price_cents: 4_100_000 }).eq("id", itemId);
   if (soldError) throw new Error(`sold: ${soldError.message}`);
 
   await revalidate();
   index = await catalogue();
-  const stillThere = (index.items ?? []).find((i) => i.slug === slug);
-  if (stillThere && stillThere.sold) {
-    ok(`sold — and it STAYS on the site with a sold badge  (R${stillThere.price.toLocaleString("en-ZA")})`);
-  } else if (stillThere) {
-    fail("sold items stay visible and are badged", "it is visible but not flagged sold");
-  } else {
-    fail("sold items stay visible", "it vanished — status and published_at are not independent");
-  }
+  (index.items ?? []).some((i) => i.slug === slug)
+    ? fail("selling it takes it off the site", "still visible — the negotiated price would be public")
+    : ok("selling it takes it off the site");
 
-  // ------------------------------------------------------------ unpublish --
+  // --------------------------------------- and it cannot be republished --
+  const { error: republishError } = await admin
+    .from("items").update({ published_at: new Date().toISOString() }).eq("id", itemId);
+  republishError
+    ? ok(`a sold machine cannot be put back on the site  (${republishError.message})`)
+    : fail("a sold machine cannot be put back on the site", "the publish gate let it through");
+
+  // ------------------------------------------------- back on, then off --
+  const { error: relistError } = await admin.from("items").update({ status: "listed" }).eq("id", itemId);
+  if (relistError) throw new Error(`relist: ${relistError.message}`);
+  await admin.from("items").update({ published_at: new Date().toISOString() }).eq("id", itemId);
   await admin.from("items").update({ published_at: null }).eq("id", itemId);
   await revalidate();
   index = await catalogue();
