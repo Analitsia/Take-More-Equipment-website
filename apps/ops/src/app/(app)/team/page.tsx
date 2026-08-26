@@ -1,4 +1,5 @@
 import { requireStaff, supabase } from "@/lib/supabase";
+import { createAdminClient } from "@takemore/db/admin";
 import { getRecentActivity } from "@/lib/queries";
 import { canManageTeam, type AppRole } from "@takemore/core";
 import { Panel } from "@takemore/ui";
@@ -39,8 +40,29 @@ export default async function TeamPage() {
     getRecentActivity(150),
   ]);
 
-  const everyone = data ?? [];
   const manages = canManageTeam(staff.role);
+
+  // The owner's roster shows each person's email — it is what they type into
+  // the login screen, and "which account is Thabo locked out of" is not a
+  // question a list of names can answer. Emails live in auth, not in
+  // staff_profiles, so the admin key reads them; nobody else on the team is
+  // shown them, and a failed read simply leaves the column blank.
+  const emails = new Map<string, string>();
+  if (manages) {
+    try {
+      const { data: users } = await createAdminClient().auth.admin.listUsers({ perPage: 1000 });
+      for (const user of users?.users ?? []) {
+        if (user.email) emails.set(user.id, user.email);
+      }
+    } catch (error) {
+      console.warn("team: could not read emails from auth:", error);
+    }
+  }
+
+  const everyone = (data ?? []).map((member) => ({
+    ...member,
+    email: emails.get(member.user_id) ?? null,
+  }));
 
   // Split here rather than in the component so the page can say how many are
   // waiting in its own subtitle — the first thing an owner opening this screen

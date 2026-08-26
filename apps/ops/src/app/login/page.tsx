@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { staffState } from "@/lib/supabase";
 import LoginForm from "./LoginForm";
+import SignOutButton from "@/components/SignOutButton";
 
 export default async function LoginPage({
   searchParams,
@@ -18,7 +19,10 @@ export default async function LoginPage({
   // Set when a session survives an account being turned off. Without this the
   // person is dropped on a login form with no explanation, tries the password
   // that used to work, and is told it is wrong.
-  const { revoked } = await searchParams;
+  const { revoked: flagged } = await searchParams;
+  // Either the redirect said so, or the session in the cookie says so on its
+  // own — the second case is a deactivated person opening the app directly.
+  const revoked = !!flagged || state.state === "revoked";
 
   return (
     <main className="min-h-dvh flex items-center justify-center px-6 py-12">
@@ -43,6 +47,11 @@ export default async function LoginPage({
           <p className="text-xs font-light text-muted bg-card border border-border rounded-xl px-3 py-2.5 mb-5 leading-relaxed">
             Your access to this app has been turned off. Speak to the owner if
             that is not what you expected.
+            {state.state === "revoked" && (
+              <span className="block mt-2">
+                <SignOutButton compact />
+              </span>
+            )}
           </p>
         )}
 

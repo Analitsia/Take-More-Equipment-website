@@ -2,6 +2,7 @@ import { requireStaff } from "@/lib/supabase";
 import { ROLE_LABELS } from "@takemore/core";
 import { Panel } from "@takemore/ui";
 import PasswordForm from "./PasswordForm";
+import SignOutEverywhere from "./SignOutEverywhere";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +34,17 @@ export default async function AccountPage() {
         <PasswordForm email={staff.email} />
       </Panel>
 
-      <p className="text-[11px] font-light text-muted px-1 leading-relaxed">
-        Changing your password does not sign you out here. If you think someone
-        else knows it, change it and then sign out everywhere else by signing in
-        again on your own devices.
-      </p>
+      <Panel
+        title="Other devices"
+        subtitle="Sign out on every phone and laptop this account is signed in on, this one included."
+      >
+        <p className="text-xs font-light text-muted leading-relaxed mb-3">
+          Changing your password does not by itself sign out a phone that is
+          already in. If one has been lost, change the password and then press
+          this.
+        </p>
+        <SignOutEverywhere />
+      </Panel>
     </div>
   );
 }

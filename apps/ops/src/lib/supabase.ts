@@ -85,11 +85,19 @@ export const staffState = cache(async (): Promise<StaffState> => {
   // Readable even while pending, through the "a person may read their own
   // profile" policy — otherwise the waiting screen could not read the row it
   // is waiting on.
-  const { data: profile } = await client
+  const { data: profile, error: profileError } = await client
     .from("staff_profiles")
     .select("full_name, role, active, approved_at, created_at")
     .eq("user_id", claims.sub)
     .maybeSingle();
+
+  // A failed READ is not a missing row. Treating it as one used to sign the
+  // whole team out on a database blip: every page redirected to /login, people
+  // retyped passwords that still worked, and were bounced straight back. Throw
+  // instead, so the error boundary shows "try again" and the session survives.
+  if (profileError) {
+    throw new Error(`Could not read the staff profile: ${profileError.message}`);
+  }
 
   // A session with no profile row at all. Our own request flow always writes
   // one, so this is an account created some other way — the bootstrap script
@@ -134,5 +142,9 @@ export async function requireStaff(): Promise<Session> {
   const state = await staffState();
   if (state.state === "active") return state.session;
   if (state.state === "pending") redirect("/pending");
+  // A session that still works but belongs to somebody who has been turned
+  // off. The login page says so — without the flag it shows a plain form, the
+  // person types a password that is still valid, and lands back here.
+  if (state.state === "revoked") redirect("/login?revoked=1");
   redirect("/login");
 }

@@ -7,6 +7,20 @@ import { canManageTeam } from "@takemore/core";
 
 export type TeamResult = { ok: true; password?: string } | { ok: false; error: string };
 
+/** What a warehouse reads instead of a Postgres or GoTrue sentence. */
+const humanise = (message: string): string => {
+  if (/already|exists/i.test(message)) return "That email already has an account.";
+  if (/invalid.*email|email.*invalid/i.test(message)) return "That does not look like an email address.";
+  if (/full_name/i.test(message)) return "Enter their name.";
+  if (/permission denied|row-level security/i.test(message)) return "Owners only.";
+  if (/fetch failed|network|timeout/i.test(message)) return "Could not reach the server. Check the connection and try again.";
+  return "That did not work. Try again in a moment.";
+};
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const makePassword = () => crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+
 /**
  * Add somebody to the team.
  *
@@ -30,27 +44,30 @@ export async function inviteStaff(
   const staff = await requireStaff();
   if (!canManageTeam(staff.role)) return { ok: false, error: "Owners only." };
 
+  // Checked here, not only by the database: the constraint's message names a
+  // relation and a check, and the person reading it is holding a phone.
+  const address = email.trim().toLowerCase();
+  const name = fullName.trim().replace(/\s+/g, " ");
+  if (!EMAIL.test(address)) return { ok: false, error: "That does not look like an email address." };
+  if (name.length < 2) return { ok: false, error: "Enter their name." };
+
   const admin = createAdminClient();
-  const password = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  const password = makePassword();
 
   const { data, error } = await admin.auth.admin.createUser({
-    email: email.trim().toLowerCase(),
+    email: address,
     password,
     email_confirm: true,
   });
 
   if (error) {
-    return {
-      ok: false,
-      error: error.message.includes("already")
-        ? "That email already has an account."
-        : error.message,
-    };
+    console.error("inviteStaff: createUser failed:", error.message);
+    return { ok: false, error: humanise(error.message) };
   }
 
   const { error: profileError } = await admin.from("staff_profiles").insert({
     user_id: data.user.id,
-    full_name: fullName.trim(),
+    full_name: name,
     // Everybody lands as 'staff' and it means nothing — 20260819110000 made
     // every rank the same. The column stays because it is what makes putting
     // ranks back a one-line decision rather than a migration.
@@ -64,11 +81,42 @@ export async function inviteStaff(
   if (profileError) {
     // Do not leave an auth user with no profile — it would be an account that
     // can authenticate but is not staff, which is confusing to debug later.
-    await admin.auth.admin.deleteUser(data.user.id);
-    return { ok: false, error: profileError.message };
+    const { error: rollbackError } = await admin.auth.admin.deleteUser(data.user.id);
+    if (rollbackError) {
+      console.error("inviteStaff: profile insert failed AND the auth user could not be removed:", rollbackError.message);
+    }
+    console.error("inviteStaff: profile insert failed:", profileError.message);
+    return { ok: false, error: humanise(profileError.message) };
   }
 
   revalidatePath("/team");
+  return { ok: true, password };
+}
+
+/**
+ * A new password for somebody who lost theirs.
+ *
+ * There is no reset email in this system, and remaking the account — the old
+ * answer — loses the name on every log entry from that day on. So the owner
+ * hands out a fresh password the same way the first one was handed out: shown
+ * once, sent over WhatsApp, changed by the person once they are in.
+ *
+ * Not for yourself: your own password is changed on the Account page against
+ * the current one, which is what keeps an unlocked phone from locking you out.
+ */
+export async function resetPassword(userId: string): Promise<TeamResult> {
+  const staff = await requireStaff();
+  if (!canManageTeam(staff.role)) return { ok: false, error: "Owners only." };
+  if (userId === staff.userId)
+    return { ok: false, error: "Change your own password from Account." };
+
+  const password = makePassword();
+  const { error } = await createAdminClient().auth.admin.updateUserById(userId, { password });
+  if (error) {
+    console.error("resetPassword failed:", error.message);
+    return { ok: false, error: humanise(error.message) };
+  }
+
   return { ok: true, password };
 }
 
@@ -107,7 +155,7 @@ export async function approveRequest(userId: string): Promise<TeamResult> {
     // quietly handing back access that was deliberately taken away.
     .is("approved_at", null);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath("/team");
   revalidatePath("/", "layout");
@@ -143,7 +191,7 @@ export async function rejectRequest(userId: string): Promise<TeamResult> {
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) return { ok: false, error: humanise(readError.message) };
   if (!target) return { ok: false, error: "That request no longer exists." };
   if (target.approved_at)
     return {
@@ -153,7 +201,7 @@ export async function rejectRequest(userId: string): Promise<TeamResult> {
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath("/team");
   revalidatePath("/", "layout");
@@ -177,7 +225,7 @@ export async function setActive(userId: string, active: boolean): Promise<TeamRe
 
   const client = await supabase();
   const { error } = await client.from("staff_profiles").update({ active }).eq("user_id", userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath("/team");
   return { ok: true };
