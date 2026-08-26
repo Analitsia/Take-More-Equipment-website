@@ -357,16 +357,30 @@ function FirstItemPrompt() {
  * queued nothing is the normal case and does not need a row on the dashboard.
  */
 function SweepStatus({ run }: { run: Sweep }) {
-  // Never run at all is normal on a fresh deployment, and there is nothing
-  // useful to say about it until 04:00 has come around once.
-  if (!run) return null;
+  // Never run at all is normal on a fresh deployment. It still gets a line —
+  // a quiet one — because "nothing to show" and "the cron was never wired up"
+  // look identical otherwise, and the second went unnoticed for three days once.
+  if (!run) {
+    return (
+      <p className="text-[11px] font-light text-muted mb-4">
+        The nightly stock match has not run yet. It runs at 04:00; until then, Outreach
+        still works by hand.
+      </p>
+    );
+  }
 
-  const ageHours = (Date.now() - new Date(run.started_at).getTime()) / 3_600_000;
+  const ageMs = Date.now() - new Date(run.started_at).getTime();
+  const ageHours = ageMs / 3_600_000;
   // 26, not 24: a daily job jitters, and clocks change twice a year. A warning
   // that cries wolf monthly is one nobody reads.
   const stale = ageHours > 26;
   const failed = run.ok === false;
-  const unfinished = run.ok === null;
+  // A run with no verdict is only "never finished" once it has had time to. A
+  // sweep started ninety seconds ago is in flight, and calling that a failure
+  // on the page somebody lands on right after pressing "Run match now" is
+  // crying wolf on purpose.
+  const inFlight = run.ok === null && !run.finished_at && ageMs < 2 * 60_000;
+  const unfinished = run.ok === null && !inFlight;
 
   if (!stale && !failed && !unfinished) return null;
 

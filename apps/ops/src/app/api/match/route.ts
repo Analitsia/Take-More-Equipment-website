@@ -19,8 +19,8 @@ import { cronFinish, cronStart, reportError } from "@takemore/observability";
  * running this hourly, nightly or twice by accident produces the same queue.
  *
  * Wire it up in Vercel with a cron on this path. Vercel signs its own cron
- * requests with CRON_SECRET; the REVALIDATE_SECRET header is accepted too so
- * the loop can be exercised by hand from a terminal.
+ * requests with CRON_SECRET; the x-revalidate-secret HEADER is accepted too so
+ * the loop can be exercised by hand from a terminal. Never the query string.
  *
  * ── Being able to tell when this stops working ────────────────────────────
  *
@@ -61,13 +61,11 @@ function authorised(request: NextRequest): boolean {
 
   const shared = process.env.REVALIDATE_SECRET;
   if (shared) {
-    // Header first. The query-string form is still accepted because it is what
-    // makes a manual run possible from a phone or a plain curl, but it lands in
-    // access logs — so it is the fallback, never the documented way.
-    const provided =
-      request.headers.get("x-revalidate-secret") ??
-      request.nextUrl.searchParams.get("secret") ??
-      "";
+    // Header only. A `?secret=` in the query string used to be accepted as a
+    // fallback for a manual run from a phone; it also landed the secret in
+    // every access log and browser history between here and Vercel. A manual
+    // run is `curl -H 'x-revalidate-secret: …'`, or the button in Outreach.
+    const provided = request.headers.get("x-revalidate-secret") ?? "";
     if (safeEqual(provided, shared)) return true;
   }
 

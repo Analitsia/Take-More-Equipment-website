@@ -15,8 +15,13 @@ export default async function LeadsPage() {
     getCategories(),
   ]);
 
+  // The same test as app.lead_is_reachable() and lead_demand.contactable:
+  // consent AND an address to honour it with, on at least one channel. Consent
+  // with nothing to send to is not somebody we may message.
   const reachable = leads.filter(
-    (l) => !l.unsubscribed_at && (l.email_consent_at || l.whatsapp_consent_at)
+    (l) =>
+      !l.unsubscribed_at &&
+      ((l.email_consent_at && l.email) || (l.whatsapp_consent_at && l.phone_e164))
   ).length;
 
   return (

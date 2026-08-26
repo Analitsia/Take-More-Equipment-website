@@ -117,6 +117,7 @@ type MessageForSending = {
     unsubscribed_at: string | null;
     email_consent_at: string | null;
     unsubscribe_token: string;
+    deleted_at: string | null;
   } | null;
   interest: WantRef;
   item: {
@@ -134,7 +135,7 @@ type MessageForSending = {
 
 const MESSAGE_SELECT = `
   id, state, lead_id, interest_id, reason,
-  lead:leads(full_name, email, unsubscribed_at, email_consent_at, unsubscribe_token),
+  lead:leads(full_name, email, unsubscribed_at, email_consent_at, unsubscribe_token, deleted_at),
   interest:lead_interests(description,
                           category:categories(name),
                           subcategory:subcategories(name)),
@@ -183,6 +184,51 @@ function composeFor(message: MessageForSending): {
 }
 
 /**
+ * How long a claim holds before the row may be tried again.
+ *
+ * A send is a few seconds. A claim older than this belongs to a process that
+ * died between claiming and finishing, and holding the row forever for it
+ * would mean a draft nobody can send and nobody can see why.
+ */
+const CLAIM_TTL_MS = 2 * 60_000;
+
+/**
+ * Take the row, atomically, before anything is sent.
+ *
+ * Two taps on Send used to be two emails: both requests read the row as
+ * `queued`, both handed it to Resend, and both wrote `sent`. This is the one
+ * UPDATE that can only succeed for one of them — the `claimed_at is null`
+ * condition is evaluated inside Postgres, so whichever request lands second
+ * touches zero rows and stops. `expectedState` is `queued` for a first send
+ * and `sent` for a resend, so a claim never moves a row it did not expect.
+ *
+ * Returns true when this caller now owns the row.
+ */
+async function claimMessage(
+  messageId: string,
+  expectedState: OutreachState
+): Promise<boolean> {
+  const client = await supabase();
+  const stale = new Date(Date.now() - CLAIM_TTL_MS).toISOString();
+  const { count, error } = await client
+    .from("outreach_messages")
+    .update({ claimed_at: new Date().toISOString() }, { count: "exact" })
+    .eq("id", messageId)
+    .eq("state", expectedState)
+    .or(`claimed_at.is.null,claimed_at.lt.${stale}`);
+  if (error) return false;
+  return (count ?? 0) > 0;
+}
+
+/** Let go of a claim after a send that did not happen. */
+async function releaseClaim(messageId: string): Promise<void> {
+  const client = await supabase();
+  await client.from("outreach_messages").update({ claimed_at: null }).eq("id", messageId);
+}
+
+const BUSY = "That one is being sent right now. Give it a moment.";
+
+/**
  * Send one queued match by email, now, from the server.
  *
  * `body` is what the staff member has in front of them — possibly edited, and
@@ -219,8 +265,12 @@ async function deliverEmail(
 
   // Re-checked at the moment of sending, not just at the moment of queueing.
   // Somebody can opt out in the days a suggestion sits waiting, and the queue is
-  // a snapshot.
-  if (!lead?.email) return { ok: false, error: "No email address on file." };
+  // a snapshot. A deleted person is the strongest form of that — the database
+  // refuses the write too (outreach_messages_refuse_deleted), but the sentence
+  // here is the one a staff member actually reads.
+  if (!lead) return { ok: false, error: "That person is no longer on the system." };
+  if (lead.deleted_at) return { ok: false, error: "That person has been deleted. Nothing sent." };
+  if (!lead.email) return { ok: false, error: "No email address on file." };
   if (lead.unsubscribed_at) return { ok: false, error: "They have opted out. Nothing sent." };
   if (!lead.email_consent_at) {
     return {
@@ -244,6 +294,11 @@ async function deliverEmail(
   );
   if (blocked) return { ok: false, error: blocked };
 
+  // Every check above can be passed by two requests at once. This cannot.
+  if (!(await claimMessage(messageId, resend ? "sent" : "queued"))) {
+    return { ok: false, error: BUSY };
+  }
+
   const composed = composeFor(message);
   const finalBody = body ?? composed.body;
 
@@ -260,7 +315,7 @@ async function deliverEmail(
     // lets it be tried again — `failed` is the one state that does not block.
     await client
       .from("outreach_messages")
-      .update({ state: "failed", body: finalBody, error: result.error })
+      .update({ state: "failed", body: finalBody, error: result.error, claimed_at: null })
       .eq("id", messageId);
     revalidatePath("/outreach");
     return { ok: false, error: result.error };
@@ -274,10 +329,14 @@ async function deliverEmail(
       sent_at: new Date().toISOString(),
       sent_by: staffUserId,
       error: null,
+      claimed_at: null,
     })
     .eq("id", messageId);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    await releaseClaim(messageId);
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/outreach");
   revalidatePath("/leads");
@@ -305,15 +364,22 @@ export async function markSent(
 
   const { data: message } = await client
     .from("outreach_messages")
-    .select("lead_id, interest_id, state")
+    .select("lead_id, interest_id, state, lead:leads(deleted_at)")
     .eq("id", messageId)
     .maybeSingle();
 
   if (!message) return { ok: false, error: "That suggestion is no longer there." };
   if (message.state === "sent") return { ok: true, notice: "Already sent." };
+  if ((message.lead as { deleted_at: string | null } | null)?.deleted_at) {
+    return { ok: false, error: "That person has been deleted. Nothing logged." };
+  }
 
   const blocked = await capsBlocking(message.lead_id, message.interest_id);
   if (blocked) return { ok: false, error: blocked };
+
+  // Same claim as the email path. Nothing is delivered from here, but two taps
+  // still wrote two timeline entries and two last_contacted_at bumps.
+  if (!(await claimMessage(messageId, "queued"))) return { ok: false, error: BUSY };
 
   const { error } = await client
     .from("outreach_messages")
@@ -322,10 +388,14 @@ export async function markSent(
       body,
       sent_at: new Date().toISOString(),
       sent_by: staff.userId,
+      claimed_at: null,
     })
     .eq("id", messageId);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    await releaseClaim(messageId);
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/outreach");
   revalidatePath("/leads");
@@ -493,7 +563,23 @@ export async function emailLeadAboutItem(
 
   if (!messageId) return { ok: false, error: "Could not start that message." };
 
-  return deliverEmail(messageId, null, staff.userId);
+  const sent = await deliverEmail(messageId, null, staff.userId);
+
+  // The matcher may have queued the same pairing on WhatsApp — it prefers that
+  // channel where it can. Now that the email has gone, that draft is a second
+  // message about the same machine waiting for somebody to tap it. Retire it,
+  // and say why, so the queue does not quietly offer a duplicate tomorrow.
+  if (sent.ok) {
+    await client
+      .from("outreach_messages")
+      .update({ state: "skipped", skipped_reason: "emailed instead" })
+      .eq("lead_id", leadId)
+      .eq("item_id", itemId)
+      .eq("channel", "whatsapp")
+      .eq("state", "queued");
+  }
+
+  return sent;
 }
 
 /**
@@ -530,8 +616,10 @@ export async function skipMessage(
  */
 export async function runMatchNow(): Promise<OutreachResult> {
   const staff = await requireStaff();
+  // Any approved account, since ranks were removed — atLeast() says yes to
+  // every staff role. Kept as the seam where a rank would go back.
   if (!atLeast(staff.role, "manager")) {
-    return { ok: false, error: "Managers and owners only." };
+    return { ok: false, error: "Not permitted." };
   }
 
   const client = await supabase();

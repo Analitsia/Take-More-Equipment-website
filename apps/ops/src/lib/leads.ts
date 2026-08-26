@@ -154,6 +154,13 @@ export type QueuedMessage = {
     email: string | null;
     phone: string | null;
     phone_e164: string | null;
+    /**
+     * Read so the queue can drop a deleted person's drafts. The database
+     * retires them on delete too (leads_retire_outreach), and refuses to mark
+     * anything sent to a deleted lead; this is the read-side belt to that
+     * pair of braces.
+     */
+    deleted_at: string | null;
   } | null;
   /**
    * The want this suggestion answers.
@@ -188,7 +195,7 @@ export type QueuedMessage = {
  */
 const OUTREACH_SELECT = `
   id, channel, state, reason, body, match_score, created_at, sent_at,
-  lead:leads(id, full_name, email, phone, phone_e164),
+  lead:leads(id, full_name, email, phone, phone_e164, deleted_at),
   interest:lead_interests(id, description,
                           category:categories(name),
                           subcategory:subcategories(name)),
@@ -210,7 +217,12 @@ export async function getQueuedOutreach(): Promise<QueuedMessage[]> {
     .limit(200);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as QueuedMessage[];
+  // A queued draft for somebody who has since been deleted must not be shown,
+  // let alone sent. The trigger that skips them on delete makes this rare; the
+  // filter makes it impossible.
+  return ((data ?? []) as unknown as QueuedMessage[]).filter(
+    (message) => message.lead !== null && message.lead.deleted_at === null
+  );
 }
 
 /**
@@ -378,6 +390,8 @@ export type CampaignRow = {
   sent_at: string | null;
   error: string | null;
   created_at: string;
+  /** Last touched. What decides whether a `sending` campaign is stuck. */
+  updated_at: string;
 };
 
 export async function listCampaigns(): Promise<CampaignRow[]> {
@@ -385,7 +399,7 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
   const { data, error } = await client
     .from("outreach_campaigns")
     .select(
-      "id, name, subject, intro, state, item_ids, recipient_count, sent_at, error, created_at"
+      "id, name, subject, intro, state, item_ids, recipient_count, sent_at, error, created_at, updated_at"
     )
     .order("created_at", { ascending: false })
     .limit(50);

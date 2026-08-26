@@ -88,25 +88,42 @@ export async function createLead(formData: FormData): Promise<never> {
       error.message.includes("leads_email_key") || error.message.includes("leads_phone_key");
     if (!duplicate) throw new Error(humanise(error.message));
 
-    const existing = await client
-      .from("leads")
-      .select("id")
-      .is("deleted_at", null)
-      .or(
-        [
-          email ? `email.ilike.${email}` : null,
-          // Matched on the generated column, so "082…" finds the row stored as
-          // "+27…" — which is the whole reason that column exists.
-          phone ? `phone_e164.eq.${normalisePhone(phone)}` : null,
-        ]
-          .filter(Boolean)
-          .join(",")
-      )
-      .limit(1)
-      .maybeSingle();
+    // Two chained lookups rather than one `.or()` string. The or-grammar is
+    // comma-separated and a value is dropped in raw, so an address with a comma
+    // in it broke the filter, and `_` and `%` are LIKE wildcards — an email of
+    // "a_b@x.com" matched "acb@x.com". Chained filters take the value as a
+    // parameter; the wildcards still have to be escaped by hand.
+    const likeLiteral = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-    if (!existing.data) throw new Error(humanise(error.message));
-    leadId = existing.data.id;
+    let leadFound: { id: string } | null = null;
+
+    if (email) {
+      const byEmail = await client
+        .from("leads")
+        .select("id")
+        .is("deleted_at", null)
+        .ilike("email", likeLiteral(email))
+        .limit(1)
+        .maybeSingle();
+      leadFound = byEmail.data;
+    }
+
+    const e164 = phone ? normalisePhone(phone) : null;
+    if (!leadFound && e164) {
+      // Matched on the generated column, so "082…" finds the row stored as
+      // "+27…" — which is the whole reason that column exists.
+      const byPhone = await client
+        .from("leads")
+        .select("id")
+        .is("deleted_at", null)
+        .eq("phone_e164", e164)
+        .limit(1)
+        .maybeSingle();
+      leadFound = byPhone.data;
+    }
+
+    if (!leadFound) throw new Error(humanise(error.message));
+    leadId = leadFound.id;
   }
 
   // What they came in asking for, captured in the same breath as their name.
@@ -119,12 +136,19 @@ export async function createLead(formData: FormData): Promise<never> {
   const wants = read("wants");
   const categoryId = read("category_id");
   if (wants || categoryId) {
-    await client.from("lead_interests").insert({
+    const { error: interestError } = await client.from("lead_interests").insert({
       lead_id: leadId,
       description: wants ?? "",
       category_id: categoryId,
       created_by: staff.userId,
     });
+    // The person is saved; their want is not. Say so rather than opening the
+    // page as if it were — the worker would assume the matcher knows about it.
+    if (interestError) {
+      throw new Error(
+        `Saved them, but not what they want: ${humanise(interestError.message)}. Add it from their page.`
+      );
+    }
   }
 
   revalidatePath("/leads");
@@ -373,6 +397,24 @@ export async function softDeleteLead(id: string): Promise<ActionResult> {
     .eq("id", id);
 
   if (error) return { ok: false, error: humanise(error.message) };
+
+  // Their drafts leave the queue with them. The database does this too, in
+  // leads_retire_outreach, so a delete from anywhere else is covered; this is
+  // the same statement from the app's side so the queue is clean before the
+  // page under the staff member re-renders.
+  const { error: retireError } = await client
+    .from("outreach_messages")
+    .update({ state: "skipped", skipped_reason: "lead deleted" })
+    .eq("lead_id", id)
+    .eq("state", "queued");
+  if (retireError) {
+    return {
+      ok: false,
+      error: `Deleted, but their queued messages could not be cleared: ${humanise(retireError.message)}`,
+    };
+  }
+
   revalidatePath("/leads");
+  revalidatePath("/outreach");
   return { ok: true };
 }

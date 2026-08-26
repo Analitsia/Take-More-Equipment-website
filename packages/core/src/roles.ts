@@ -18,8 +18,23 @@ export type AppRole = (typeof APP_ROLES)[number];
 /** Higher outranks lower. Nothing in the app compares these today. */
 const RANK: Record<AppRole, number> = { staff: 1, manager: 2, owner: 3 };
 
-export const atLeast = (role: AppRole, required: AppRole) =>
-  RANK[role] >= RANK[required];
+/**
+ * Does this role clear the bar? Since 20260819110000: always, for anyone who
+ * is signed in at all.
+ *
+ * The twin of `app.at_least()`, which returns is_staff() whatever rank was
+ * asked for. This used to compare RANK and the two disagreed — the button was
+ * hidden from a staff account that Postgres would have let through, which is
+ * the exact screen-refuses-somebody-at-the-counter failure the migration
+ * removed. `required` stays in the signature, and the call sites keep naming
+ * a rank, so that restoring the comparison below is the whole change on the
+ * day a non-family employee is hired. Keep it in step with the SQL.
+ */
+export const atLeast = (role: AppRole, required: AppRole): boolean => {
+  void RANK[role];
+  void RANK[required];
+  return true;
+};
 
 /**
  * Everybody signed in sees what a machine cost.

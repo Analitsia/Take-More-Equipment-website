@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { createPublicClient } from "@takemore/db";
-import { reportError } from "@takemore/observability";
+import { redirect } from "next/navigation";
 import { site } from "@/data/site";
+import { unsubscribeByToken } from "./actions";
 
 /**
  * The opt-out, and it has to be this easy.
@@ -31,19 +31,16 @@ export const dynamic = "force-dynamic";
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; done?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, done: doneFlag } = await searchParams;
+  const done = doneFlag === "1";
+  const canAsk = !done && !!token && /^[0-9a-f-]{36}$/i.test(token);
 
-  let done = false;
-  if (token) {
-    const client = createPublicClient();
-    const { data, error } = await client.rpc("unsubscribe", { p_token: token });
-    // A failed opt-out is the one failure here that has legal weight: the
-    // person asked to be left alone and the system did not record it. The token
-    // is deliberately not passed to the reporter — it identifies the customer.
-    if (error) reportError(error, { where: "web/unsubscribe" });
-    done = data === true;
+  async function confirm() {
+    "use server";
+    const ok = token ? await unsubscribeByToken(token) : false;
+    redirect(ok ? "/unsubscribe?done=1" : "/unsubscribe");
   }
 
   return (
@@ -72,6 +69,25 @@ export default async function UnsubscribePage({
                 If you are in the middle of buying something from us, that conversation
                 carries on as normal. This only stops the marketing.
               </p>
+            </>
+          ) : canAsk ? (
+            <>
+              <h1 className="text-3xl md:text-5xl font-medium tracking-tighter leading-[1.1] mb-6">
+                Stop the equipment updates?
+              </h1>
+              <p className="text-muted font-light text-sm md:text-base leading-relaxed mb-8">
+                Press the button and we will not email you about stock again. It
+                takes effect immediately. If you are in the middle of buying
+                something from us, that conversation carries on as normal.
+              </p>
+              <form action={confirm}>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 bg-accent text-background rounded-full px-6 py-3 text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  Unsubscribe me
+                </button>
+              </form>
             </>
           ) : (
             <>

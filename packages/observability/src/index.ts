@@ -110,14 +110,46 @@ export function scrub(value: unknown, depth = 0, seen = new WeakSet<object>()): 
   return out;
 }
 
-/** Anything can be thrown in JavaScript. Get something loggable out of it. */
+/**
+ * Addresses and numbers that appear INSIDE a message string.
+ *
+ * The key-based scrub above catches `{ email: … }`. It cannot catch a Postgres
+ * error whose `details` reads `Key (email)=(sipho@example.com) already exists`,
+ * which is exactly what a duplicate-lead insert says — so every string that
+ * is about to be logged is masked as well. E.164 is a `+` and 8–15 digits;
+ * the local `0…` spelling is caught by the same run of digits.
+ */
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const PHONE_RE = /(?<![\w.])\+?\d[\d\s().-]{6,}\d(?![\w])/g;
+
+export const maskPersonal = (text: string): string =>
+  text.replace(EMAIL_RE, REDACTED).replace(PHONE_RE, (match) =>
+    // Leave short numbers alone — an id, a count, a port — and mask anything
+    // with enough digits to be a phone.
+    match.replace(/\D/g, "").length >= 8 ? REDACTED : match
+  );
+
+/**
+ * Anything can be thrown in JavaScript. Get something loggable out of it.
+ *
+ * A PostgrestError is a plain object with `message`, `details`, `hint` and
+ * `code`. `details` and `hint` quote the offending row — which for the leads
+ * table is somebody's email or phone — so they are dropped, not stringified,
+ * and what remains is masked.
+ */
 const describe = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
+  if (error instanceof Error) return maskPersonal(error.message);
+  if (typeof error === "string") return maskPersonal(error);
   try {
-    return JSON.stringify(error);
+    if (error && typeof error === "object") {
+      const { details: _details, hint: _hint, ...rest } = error as Record<string, unknown>;
+      void _details;
+      void _hint;
+      return maskPersonal(JSON.stringify(rest));
+    }
+    return maskPersonal(JSON.stringify(error));
   } catch {
-    return String(error);
+    return maskPersonal(String(error));
   }
 };
 
@@ -157,12 +189,12 @@ export function reportMessage(
     const where = context?.where ?? "unknown";
     const extra = context ? (scrub({ ...context }) as Record<string, unknown>) : undefined;
 
-    const line = `${TAG} ${where}: ${message}`;
+    const line = `${TAG} ${where}: ${maskPersonal(message)}`;
     if (level === "error") console.error(line, extra ?? "");
     else if (level === "warning") console.warn(line, extra ?? "");
     else console.info(line, extra ?? "");
 
-    Sentry.captureMessage(message, { level, tags: { where }, extra });
+    Sentry.captureMessage(maskPersonal(message), { level, tags: { where }, extra });
   } catch {
     // See rule 1.
   }

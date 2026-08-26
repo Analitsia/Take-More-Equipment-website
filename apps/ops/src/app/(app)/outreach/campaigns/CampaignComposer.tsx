@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input, Panel, Textarea } from "@takemore/ui";
 import { rands } from "@takemore/core";
 import type { CampaignRow } from "@/lib/leads";
-import { createCampaign, deleteCampaign, type CampaignResult } from "./actions";
+import {
+  createCampaign,
+  deleteCampaign,
+  resetStuckCampaign,
+  type CampaignResult,
+} from "./actions";
 import PreviewDialog from "./PreviewDialog";
 
 /**
@@ -51,6 +56,12 @@ export default function CampaignComposer({
   };
 
   const month = new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
+
+  // Mirrors STUCK_AFTER_MINUTES in actions.ts. The server refuses a reset
+  // inside the window whatever this says; this only decides when to offer it.
+  const stuckSince = Date.now() - 15 * 60_000;
+  const isStuck = (campaign: CampaignRow) =>
+    campaign.state === "sending" && new Date(campaign.updated_at).getTime() < stuckSince;
 
   return (
     <div className="space-y-4">
@@ -159,7 +170,11 @@ export default function CampaignComposer({
                         ? `sent to ${campaign.recipient_count ?? 0} on ${new Date(
                             campaign.sent_at
                           ).toLocaleDateString("en-ZA")}`
-                        : "draft",
+                        : campaign.state === "sending"
+                          ? isStuck(campaign)
+                            ? "stuck while sending"
+                            : "sending now"
+                          : "draft",
                     ].join(" · ")}
                   </p>
                   {campaign.error && (
@@ -194,15 +209,44 @@ export default function CampaignComposer({
                       Preview &amp; send
                     </Button>
                   </div>
+                ) : isStuck(campaign) ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-light border border-status-sold/40 text-status-sold">
+                      Stuck
+                    </span>
+                    {/* The send died between claiming the campaign and
+                        finishing it. Only offered after fifteen minutes, and
+                        the server enforces the same window, because resetting
+                        one that is still in flight is how a newsletter goes
+                        out twice. */}
+                    <Button
+                      variant="ghost"
+                      className="text-[11px] px-2 py-1.5"
+                      loading={busy === campaign.id}
+                      onClick={async () => {
+                        setBusy(campaign.id);
+                        report(await resetStuckCampaign(campaign.id));
+                        setBusy(null);
+                      }}
+                    >
+                      Reset to draft
+                    </Button>
+                  </div>
                 ) : (
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-light border shrink-0 ${
                       campaign.state === "sent"
                         ? "border-accent/40 text-accent"
-                        : "border-status-sold/40 text-status-sold"
+                        : campaign.state === "sending"
+                          ? "border-border text-muted"
+                          : "border-status-sold/40 text-status-sold"
                     }`}
                   >
-                    {campaign.state === "sent" ? "Sent" : campaign.state}
+                    {campaign.state === "sent"
+                      ? "Sent"
+                      : campaign.state === "sending"
+                        ? "Sending"
+                        : campaign.state}
                   </span>
                 )}
               </li>

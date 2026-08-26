@@ -17,8 +17,10 @@ import { reportError } from "@takemore/observability";
 /**
  * The monthly list of what came in.
  *
- * Manager-and-up, and the restriction is a policy on outreach_campaigns rather
- * than a hidden button — the check below is the courtesy, RLS is the rule.
+ * Any approved account may send one — ranks were removed in
+ * 20260819110000_one_team_no_ranks.sql, and atLeast() now says yes to every
+ * staff role. The checks below are kept as the seam where a rank would go
+ * back; the policy on outreach_campaigns is the rule either way.
  *
  * The audience is resolved at SEND time from a filter, never stored as a list of
  * addresses. A stored list is correct on the day it is built and wrong on the
@@ -211,6 +213,71 @@ export async function deleteCampaign(id: string): Promise<CampaignResult> {
 }
 
 /**
+ * How long a campaign may sit in `sending` before it is presumed dead.
+ *
+ * A real send of a few hundred addresses is seconds; Vercel's function limit
+ * is under a minute. Fifteen minutes is generous enough that nobody resets a
+ * send that is actually still running, and short enough that the newsletter
+ * is not stuck until somebody with database access notices.
+ */
+const STUCK_AFTER_MINUTES = 15;
+
+/**
+ * Put a campaign that got stuck in `sending` back to draft.
+ *
+ * sendCampaign() claims the row as `sending` before it talks to Resend, and if
+ * the function dies between the claim and the final update — a timeout, a
+ * deploy landing mid-batch — the row stays `sending` forever, with no button
+ * anywhere that can move it. This is that button. The guard on updated_at is
+ * the whole safety: a campaign touched in the last fifteen minutes may still
+ * be in flight, and resetting THAT one is how a newsletter goes out twice.
+ *
+ * Nothing here knows whether any emails went before the crash. The person
+ * pressing it is told so, and the per-recipient rows in outreach_messages are
+ * the place to look before sending again.
+ */
+export async function resetStuckCampaign(id: string): Promise<CampaignResult> {
+  const staff = await requireStaff();
+  if (!atLeast(staff.role, "manager")) return { ok: false, error: "Managers and owners only." };
+
+  const client = await supabase();
+  const cutoff = new Date(Date.now() - STUCK_AFTER_MINUTES * 60_000).toISOString();
+
+  const { error, count } = await client
+    .from("outreach_campaigns")
+    .update(
+      { state: "draft", error: "Got stuck while sending and was reset to a draft." },
+      { count: "exact" }
+    )
+    .eq("id", id)
+    .eq("state", "sending")
+    .lt("updated_at", cutoff);
+
+  if (error) return { ok: false, error: error.message };
+  if (count === 0) {
+    return {
+      ok: false,
+      error: `Only a campaign that has been stuck for more than ${STUCK_AFTER_MINUTES} minutes can be reset — this one may still be sending.`,
+    };
+  }
+
+  const { count: alreadySent } = await client
+    .from("outreach_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", id)
+    .eq("state", "sent");
+
+  revalidatePath("/outreach/campaigns");
+  return {
+    ok: true,
+    notice:
+      alreadySent && alreadySent > 0
+        ? `Back to a draft. ${alreadySent} ${alreadySent === 1 ? "person" : "people"} already received it before it got stuck — check before sending again.`
+        : "Back to a draft. Nothing was recorded as sent before it got stuck.",
+  };
+}
+
+/**
  * Build the body one recipient at a time.
  *
  * Not a template with a merge field: each person gets their own unsubscribe
@@ -304,13 +371,14 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
 
   const { data: audience } = await client
     .from("leads")
-    .select("full_name, email, unsubscribe_token")
+    .select("id, full_name, email, unsubscribe_token")
     .is("deleted_at", null)
     .is("unsubscribed_at", null)
     .not("email_consent_at", "is", null)
     .not("email", "is", null);
 
   const recipients = (audience ?? []) as unknown as {
+    id: string;
     full_name: string | null;
     email: string;
     unsubscribe_token: string;
@@ -337,18 +405,55 @@ export async function sendCampaign(id: string): Promise<CampaignResult> {
     }))
   );
 
+  const sentAt = new Date().toISOString();
+
+  // One outreach row per person it reached. This is what makes the newsletter
+  // count: the seven-day cap in match_item_to_leads() and capsBlocking() both
+  // read `sent` rows, and until these were written a customer who got the
+  // monthly list on Monday could get a match email on Tuesday. The row is born
+  // `sent` — there was never a queue to sit in — and the timeline trigger
+  // fires on insert, so their page reads "Sent the newsletter: <subject>".
+  //
+  // outreach_campaign_once absorbs a repeat, which is why `ignoreDuplicates`
+  // rather than a plain insert: a re-run after a partial failure must not
+  // fall over on the people who already have a row.
+  const delivered = new Set(result.delivered);
+  const reached = recipients.filter((lead) => delivered.has(lead.email));
+
+  if (reached.length > 0) {
+    const { error: logError } = await client.from("outreach_messages").upsert(
+      reached.map((lead) => ({
+        lead_id: lead.id,
+        campaign_id: id,
+        channel: "email" as const,
+        state: "sent" as const,
+        body: campaign.subject,
+        sent_at: sentAt,
+        sent_by: staff.userId,
+      })),
+      { onConflict: "lead_id,campaign_id", ignoreDuplicates: true }
+    );
+    if (logError) {
+      // The emails have gone; the ledger being short is the lesser failure,
+      // but it is one somebody must hear about, because the caps read it.
+      reportError(logError, { where: "ops/sendCampaign", stage: "log-recipients", campaignId: id });
+      result.errors.push("Sent, but could not record every recipient on their timeline.");
+    }
+  }
+
   await client
     .from("outreach_campaigns")
     .update({
       state: result.sent > 0 ? "sent" : "failed",
       recipient_count: result.sent,
-      sent_at: new Date().toISOString(),
+      sent_at: sentAt,
       sent_by: staff.userId,
       error: result.errors.length ? result.errors.join(" · ") : null,
     })
     .eq("id", id);
 
   revalidatePath("/outreach/campaigns");
+  revalidatePath("/outreach");
   revalidatePath("/leads");
 
   if (result.sent === 0) {

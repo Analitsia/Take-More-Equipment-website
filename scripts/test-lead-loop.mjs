@@ -112,6 +112,23 @@ async function makeItem({ title, categorySlug, description, priceCents }) {
 const publish = (id) =>
   sql(`update public.items set status = 'listed', published_at = now() where id = '${id}'`);
 
+/**
+ * How many drafts THIS person has waiting for THIS machine.
+ *
+ * match_item_to_leads() returns how many it queued across the whole database,
+ * and this suite runs against production, where real customers with real wants
+ * also match a stove. Asserting on the global count therefore failed the moment
+ * anybody else in the list wanted one. The rule under test is about one person,
+ * so the assertions count for one person; the global number is printed
+ * alongside because it is still worth a glance.
+ */
+const queuedFor = async (leadId, itemId) => {
+  const rows = await sql(`
+    select count(*)::int as n from public.outreach_messages
+    where lead_id = '${leadId}' and item_id = '${itemId}' and state = 'queued'`);
+  return rows[0].n;
+};
+
 async function setup() {
   await cleanup();
 
@@ -126,6 +143,9 @@ async function setup() {
   stoveId = await makeItem({
     title: "Stove",
     categorySlug: "cooking",
+    // The words matter: a bare category match scores 30 and the floor is 40,
+    // so the want below has to share vocabulary with this description for the
+    // stove to be offered at all. That is the matcher working, not the fixture.
     description:
       "A six burner gas stove created by the lead loop suite, long enough to clear the publish gate.",
     priceCents: 1800000,
@@ -219,7 +239,11 @@ async function run() {
   await publish(itemId);
 
   matched = await sql(`select public.match_item_to_leads('${itemId}') as n`);
-  check("a live machine matching their category queues one suggestion", matched[0].n === 1, `${matched[0].n} queued`);
+  check(
+    "a live machine matching their category queues one suggestion",
+    (await queuedFor(leadId, itemId)) === 1,
+    `1 for this person · ${matched[0].n} queued across the database`
+  );
 
   rows = await sql(`
     select channel, match_score, reason, state
@@ -273,8 +297,8 @@ async function run() {
   matched = await sql(`select public.match_item_to_leads('${stoveId}') as n`);
   check(
     "a machine answering their OTHER want still gets through",
-    matched[0].n === 1,
-    "a pending fridge draft does not silence the stove"
+    (await queuedFor(leadId, stoveId)) === 1,
+    `a pending fridge draft does not silence the stove · ${matched[0].n} queued across the database`
   );
 
   await publish(secondFridgeId);
@@ -339,7 +363,14 @@ async function run() {
   check("nothing is ever queued for them again", matched[0].n === 0);
 
   rows = await sql(`select public.run_stock_match() as n`);
-  check("and the nightly sweep does not resurrect them", Number(rows[0].n) === 0, `${rows[0].n} queued across all stock`);
+  const resurrected = await sql(`
+    select count(*)::int as n from public.outreach_messages
+    where lead_id = '${leadId}' and state = 'queued'`);
+  check(
+    "and the nightly sweep does not resurrect them",
+    resurrected[0].n === 0,
+    `${resurrected[0].n} for this person · ${rows[0].n} queued across all stock`
+  );
 }
 
 try {

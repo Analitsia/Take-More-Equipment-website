@@ -55,6 +55,15 @@ export type SendResult = { ok: true; id: string } | { ok: false; error: string }
 const unsubscribeUrl = (token: string) =>
   `${STOREFRONT.replace(/\/$/, "")}/unsubscribe?token=${token}`;
 
+/**
+ * The one-click endpoint for the List-Unsubscribe header (RFC 8058). Mail
+ * clients POST to it; a GET redirects to the page above. Separate from the
+ * page because a GET on the page must never opt anybody out — see
+ * apps/web/src/app/unsubscribe/page.tsx.
+ */
+const oneClickUnsubscribeUrl = (token: string) =>
+  `${STOREFRONT.replace(/\/$/, "")}/api/unsubscribe?token=${token}`;
+
 const escape = (text: string) =>
   text
     .replace(/&/g, "&amp;")
@@ -214,7 +223,7 @@ export async function sendMarketingEmail({
       text: `${body}\n\n---\nStop these: ${url}`,
       html: wrap(body, unsubscribeToken, media),
       headers: {
-        "List-Unsubscribe": `<${url}>`,
+        "List-Unsubscribe": `<${oneClickUnsubscribeUrl(unsubscribeToken)}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
@@ -244,15 +253,24 @@ export type BatchRecipient = {
  */
 export async function sendMarketingBatch(
   recipients: BatchRecipient[]
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+): Promise<{ sent: number; failed: number; errors: string[]; delivered: string[] }> {
   const resend = client();
   if (!resend) {
-    return { sent: 0, failed: recipients.length, errors: ["RESEND_API_KEY is not set."] };
+    return {
+      sent: 0,
+      failed: recipients.length,
+      errors: ["RESEND_API_KEY is not set."],
+      delivered: [],
+    };
   }
 
   let sent = 0;
   let failed = 0;
   const errors: string[] = [];
+  // WHO it went to, not only how many. Resend accepts or refuses a chunk
+  // whole, so this is every address in every chunk that was accepted — which
+  // is what the caller needs to write one outreach row per person.
+  const delivered: string[] = [];
 
   for (let i = 0; i < recipients.length; i += 100) {
     const chunk = recipients.slice(i, i + 100);
@@ -268,7 +286,7 @@ export async function sendMarketingBatch(
             text: `${recipient.body}\n\n---\nStop these: ${url}`,
             html: wrap(recipient.body, recipient.unsubscribeToken, recipient.media),
             headers: {
-              "List-Unsubscribe": `<${url}>`,
+              "List-Unsubscribe": `<${oneClickUnsubscribeUrl(recipient.unsubscribeToken)}>`,
               "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
             },
           };
@@ -280,6 +298,7 @@ export async function sendMarketingBatch(
         errors.push(error.message);
       } else {
         sent += data?.data?.length ?? chunk.length;
+        delivered.push(...chunk.map((recipient) => recipient.to));
       }
     } catch (thrown) {
       failed += chunk.length;
@@ -289,7 +308,7 @@ export async function sendMarketingBatch(
 
   // Deduplicated: a hundred copies of the same DNS error is not a hundred
   // different problems, and the campaign row has one text column for this.
-  return { sent, failed, errors: [...new Set(errors)] };
+  return { sent, failed, errors: [...new Set(errors)], delivered };
 }
 
 /** Whether the newsletter can be sent at all, for the UI to say so up front. */

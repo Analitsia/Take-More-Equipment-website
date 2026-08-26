@@ -69,7 +69,7 @@ section("Compliance headers");
 const checks = [
   [
     "List-Unsubscribe header is set",
-    /"List-Unsubscribe":\s*`?<?\$\{url\}/,
+    /"List-Unsubscribe":\s*`<\$\{oneClickUnsubscribeUrl\(/,
     "Gmail and Yahoo require this for bulk senders (RFC 8058).",
   ],
   [
