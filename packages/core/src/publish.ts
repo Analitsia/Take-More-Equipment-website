@@ -12,6 +12,19 @@
 
 import type { Cents } from "./money.ts";
 
+/**
+ * The title every draft is born with. The database refuses to publish an item
+ * still carrying it (see 20260809090000), so the checklist must refuse it too —
+ * otherwise "A title" is ticked on a machine the gate will turn away.
+ */
+export const UNTITLED = "Untitled item";
+
+/** True for a blank title or the default one, however it is spaced or cased. */
+export const isUntitled = (title: string | null | undefined): boolean => {
+  const trimmed = (title ?? "").trim();
+  return trimmed.length === 0 || trimmed.toLowerCase() === UNTITLED.toLowerCase();
+};
+
 export type PublishCandidate = {
   title: string | null;
   description: string | null;
@@ -54,7 +67,7 @@ export function publishChecklist(item: PublishCandidate): PublishRequirement[] {
     {
       id: "title",
       label: "A title",
-      met: !!item.title && item.title.trim().length > 2,
+      met: !!item.title && item.title.trim().length > 2 && !isUntitled(item.title),
     },
     {
       id: "category",

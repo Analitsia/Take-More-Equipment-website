@@ -11,6 +11,7 @@ import {
   isLiveStage,
   MAX_FEATURED,
   STAGES,
+  UNTITLED,
   rands,
   type AppRole,
   type ItemStatus,
@@ -58,6 +59,7 @@ export default function ItemEditor({
   activity,
   role,
   featuredCount,
+  storefrontUrl,
 }: {
   item: Item;
   divisions: { id: string; name: string; slug: string }[];
@@ -70,6 +72,8 @@ export default function ItemEditor({
   role: AppRole;
   /** Highlight slots already taken, this item included if it holds one. */
   featuredCount: number;
+  /** Where the public site is, resolved on the server — see page.tsx. */
+  storefrontUrl: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -129,12 +133,44 @@ export default function ItemEditor({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
+  /**
+   * What the database holds right now, field by field — kept up to date after
+   * every successful save. Every blur compares against THIS, not the `item`
+   * prop the page rendered with. The prop never changes between saves, so
+   * comparing against it meant typing a value, saving it, then putting the
+   * original back was "no change" and never written: the box showed the old
+   * figure while the database kept the wrong one.
+   */
+  const lastSaved = useRef<Record<string, unknown>>({
+    title: item.title ?? "",
+    brand: item.brand ?? "",
+    model: item.model ?? "",
+    category_id: item.category_id ?? "",
+    subcategory_id: item.subcategory_id ?? "",
+    condition_grade: item.condition_grade ?? "",
+    description: item.description ?? "",
+    capacity: item.capacity ?? "",
+    power: item.power ?? "",
+    width_mm: item.width_mm ?? null,
+    depth_mm: item.depth_mm ?? null,
+    height_mm: item.height_mm ?? null,
+    weight_kg: item.weight_kg ?? "",
+    list_price_cents: item.list_price_cents ?? null,
+    retail_price_cents: item.retail_price_cents ?? null,
+  });
+
   const save = useCallback(
     async (patch: ItemPatch) => {
       setSaveState("saving");
       setError(null);
       const result = await updateItem(item.id, patch);
       if (result.ok) {
+        // Nulls are stored as the form's own idea of empty (see the initial
+        // values above) so a later comparison of "" against null does not
+        // count as a change.
+        for (const [key, value] of Object.entries(patch)) {
+          lastSaved.current[key] = value === null && key in form ? "" : value;
+        }
         setSaveState("saved");
         if (savedTimer.current) clearTimeout(savedTimer.current);
         savedTimer.current = setTimeout(() => setSaveState("idle"), 1800);
@@ -146,6 +182,8 @@ export default function ItemEditor({
       // own optimistic change when the database says no.
       return result;
     },
+    // `form` is read only for its keys, which never change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [item.id]
   );
 
@@ -155,8 +193,17 @@ export default function ItemEditor({
     onChange: (e: any) => setForm((f) => ({ ...f, [key]: e.target.value })),
     onBlur: () => {
       const raw = (form as any)[key];
-      const original = item[key] ?? "";
+      const original = lastSaved.current[key] ?? "";
       if (String(raw) === String(original)) return;
+      // The one field the database will not take empty. Refusing it here says
+      // so in plain words and puts the last saved title back, instead of
+      // sending null and showing "null value in column" to a warehouse.
+      if (key === "title" && String(raw).trim() === "") {
+        setForm((f) => ({ ...f, title: String(lastSaved.current.title ?? "") }));
+        setSaveState("error");
+        setError("The title cannot be empty.");
+        return;
+      }
       const value = transform ? transform(raw) : raw === "" ? null : raw;
       save({ [key]: value } as ItemPatch);
     },
@@ -179,7 +226,7 @@ export default function ItemEditor({
       onChange: (e: any) => setForm((f) => ({ ...f, [key]: e.target.value })),
       onBlur: () => {
         const mm = toMm(form[key]);
-        if (mm === (item[column] ?? null)) return;
+        if (mm === (lastSaved.current[column] ?? null)) return;
         save({ [column]: mm } as ItemPatch);
       },
     };
@@ -238,15 +285,41 @@ export default function ItemEditor({
     }
   }
 
+  /** The stage being moved to, while the move is in flight. */
+  const [changing, setChanging] = useState<ItemStatus | null>(null);
+
   async function onStatus(next: ItemStatus) {
+    if (changing) return;
+    setChanging(next);
     setError(null);
     setNotice(null);
-    const result = await setStage(item.id, next);
-    if (!result.ok) return setError(result.error);
-    // The stage change also puts the machine on or off the website, which is a
-    // thing that happened without anyone asking — so it is said out loud.
-    if (result.notice) setNotice(result.notice);
-    startTransition(() => router.refresh());
+    try {
+      const result = await setStage(item.id, next);
+      if (!result.ok) return setError(result.error);
+      // The stage change also puts the machine on or off the website, which is a
+      // thing that happened without anyone asking — so it is said out loud.
+      if (result.notice) setNotice(result.notice);
+      startTransition(() => router.refresh());
+    } finally {
+      setChanging(null);
+    }
+  }
+
+  /**
+   * Tags are shown as changed the moment they are tapped, and put back if the
+   * database says no. Before this the tap fired and forgot, and a dropped
+   * connection left a chip lit for a tag that was never saved.
+   */
+  async function onToggleTag(id: string) {
+    const previous = selectedTags;
+    const next = previous.includes(id) ? previous.filter((t) => t !== id) : [...previous, id];
+    setSelectedTags(next);
+    setError(null);
+    const result = await setTags(item.id, next);
+    if (!result.ok) {
+      setSelectedTags(previous);
+      setError(result.error);
+    }
   }
 
   return (
@@ -270,7 +343,7 @@ export default function ItemEditor({
             </Link>
           </div>
           <h1 className="text-xl md:text-2xl font-medium tracking-tight truncate">
-            {form.title || "Untitled item"}
+            {form.title || UNTITLED}
           </h1>
           <p className="text-xs font-light text-muted mt-1">
             created{" "}
@@ -454,13 +527,7 @@ export default function ItemEditor({
             <ChipGroup
               options={tags.map((t) => ({ value: t.id, label: t.name }))}
               selected={selectedTags}
-              onToggle={(id) => {
-                const next = selectedTags.includes(id)
-                  ? selectedTags.filter((t) => t !== id)
-                  : [...selectedTags, id];
-                setSelectedTags(next);
-                setTags(item.id, next);
-              }}
+              onToggle={onToggleTag}
             />
           </Field>
         </div>
@@ -507,7 +574,7 @@ export default function ItemEditor({
               valueCents={listPrice}
               onChangeCents={setListPrice}
               onBlur={() => {
-                if (listPrice !== (item.list_price_cents ?? null))
+                if (listPrice !== (lastSaved.current.list_price_cents ?? null))
                   save({ list_price_cents: listPrice });
               }}
             />
@@ -517,7 +584,7 @@ export default function ItemEditor({
               valueCents={retailPrice}
               onChangeCents={setRetailPrice}
               onBlur={() => {
-                if (retailPrice !== (item.retail_price_cents ?? null))
+                if (retailPrice !== (lastSaved.current.retail_price_cents ?? null))
                   save({ retail_price_cents: retailPrice });
               }}
             />
@@ -590,23 +657,33 @@ export default function ItemEditor({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {STAGES.map((stage) => {
             const current = item.status === stage.status;
+            const tapped = changing === stage.status;
             return (
               <button
                 key={stage.status}
                 onClick={() => onStatus(stage.status)}
                 aria-pressed={current}
+                aria-busy={tapped}
+                // All four lock while one is in flight: a second tap on a slow
+                // connection used to race the first, and the machine could end
+                // up published by one and unpublished by the other.
+                disabled={changing !== null}
                 className={`text-left rounded-xl border px-3.5 py-3 transition-colors ${
                   current
                     ? "border-accent/70 bg-accent/10"
                     : "border-border hover:border-white/25"
-                }`}
+                } ${changing !== null && !tapped ? "opacity-50" : ""} disabled:cursor-wait`}
               >
                 <span className="flex items-center gap-1.5">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      stage.live ? "bg-accent" : "bg-muted"
-                    }`}
-                  />
+                  {tapped ? (
+                    <span className="w-3 h-3 shrink-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                  ) : (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        stage.live ? "bg-accent" : "bg-muted"
+                      }`}
+                    />
+                  )}
                   <span
                     className={`text-sm font-medium tracking-tight ${
                       current ? "text-accent" : "text-white/90"
@@ -663,7 +740,7 @@ export default function ItemEditor({
           <div className="flex flex-wrap items-center gap-2">
             {item.published_at && (
               <a
-                href={`${process.env.NEXT_PUBLIC_STOREFRONT_URL ?? ""}/stock/${item.slug}`}
+                href={`${storefrontUrl}/stock/${item.slug}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-light text-muted hover:text-accent transition-colors"
@@ -723,6 +800,7 @@ export default function ItemEditor({
         id={item.id}
         title={form.title}
         live={!!item.published_at}
+        onOrder={item.status === "reserved" || item.status === "sold"}
         /* Whether this is a draft nobody ever filled in — which decides
            whether deleting keeps a record or keeps nothing at all. The action
            decides it again on the server from the same five conditions; this

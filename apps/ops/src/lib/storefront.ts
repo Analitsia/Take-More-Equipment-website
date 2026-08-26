@@ -31,13 +31,27 @@ export function storefrontOrigin(): string {
  * because the storefront was briefly slow — the site self-heals through its own
  * time-based revalidation regardless. Failures are logged, not raised.
  */
+/** Said once per process, not once per save. */
+let warnedUnconfigured = false;
+
 export async function revalidateStorefront(itemId?: string): Promise<void> {
-  const base = process.env.STOREFRONT_URL;
+  // Same variable the links use, so a deployment that set only the public one
+  // still reaches the storefront rather than silently never pinging it.
+  const base = process.env.STOREFRONT_URL ?? process.env.NEXT_PUBLIC_STOREFRONT_URL;
   const secret = process.env.REVALIDATE_SECRET;
 
   // Not configured (local development, or before the storefront is deployed).
-  // Silently skip rather than noisily fail.
-  if (!base || !secret) return;
+  // Skip quietly in development; in production say so once, because a live
+  // site that never learns about a price change is a bug nobody will see here.
+  if (!base || !secret) {
+    if (process.env.NODE_ENV === "production" && !warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.warn(
+        "storefront revalidation is not configured (STOREFRONT_URL / REVALIDATE_SECRET) — the site will only refresh on its own timer"
+      );
+    }
+    return;
+  }
 
   try {
     await fetch(`${base.replace(/\/$/, "")}/api/revalidate`, {

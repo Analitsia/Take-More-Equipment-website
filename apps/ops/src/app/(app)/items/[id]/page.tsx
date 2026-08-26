@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries";
 import { getLeadsWantingItem } from "@/lib/leads";
 import { requireStaff } from "@/lib/supabase";
+import { storefrontOrigin } from "@/lib/storefront";
 import { canSeeCosts } from "@takemore/core";
 import ItemEditor from "./ItemEditor";
 import WhoWantsThis from "./WhoWantsThis";
@@ -85,6 +86,10 @@ export default async function ItemPage({
         activity={activity}
         role={staff.role}
         featuredCount={featuredCount}
+        // Resolved here, on the server, where every variable is readable. In
+        // the browser only NEXT_PUBLIC_* exists, and "View on site" used to
+        // fall back to "" and open /stock/<slug> on the ops app itself.
+        storefrontUrl={storefrontOrigin()}
       />
 
       {/* Below the editor rather than beside it: this is context for a decision

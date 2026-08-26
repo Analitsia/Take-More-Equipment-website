@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { supabase, requireStaff } from "@/lib/supabase";
 import { createAdminClient } from "@takemore/db/admin";
 import { revalidateStorefront } from "@/lib/storefront";
-import { STAGES, type CostKind, type ItemStatus } from "@takemore/core";
+import { STAGES, UNTITLED, type CostKind, type ItemStatus } from "@takemore/core";
 
 /**
  * Every mutation the ops app makes.
@@ -29,8 +29,32 @@ const humanise = (message: string): string => {
     return "Another item already uses that name.";
   if (message.includes("permission denied") || message.includes("row-level security"))
     return "You don't have permission to do that.";
+  // A cleared required box. Postgres says which column; a worker only needs to
+  // know the box they just emptied cannot be empty.
+  if (message.includes("null value in column") || message.includes("violates not-null"))
+    return "This field cannot be empty.";
+  // The positive-number checks on weight and dimensions.
+  if (
+    message.includes("check constraint") &&
+    /weight|width|depth|height|_mm|_kg/i.test(message)
+  )
+    return "Must be more than 0.";
+  if (message.includes("invalid input syntax")) return "That is not a number.";
   return message;
 };
+
+/**
+ * Whether a machine is on the website right now — the one question every
+ * write below asks before pinging the storefront. Revalidating a draft's cache
+ * is a four-second round trip for nothing, on a phone that is waiting for it.
+ */
+async function isLive(
+  client: Awaited<ReturnType<typeof supabase>>,
+  id: string
+): Promise<boolean> {
+  const { data } = await client.from("items").select("published_at").eq("id", id).maybeSingle();
+  return !!data?.published_at;
+}
 
 export async function createDraft(): Promise<never> {
   await requireStaff();
@@ -44,7 +68,7 @@ export async function createDraft(): Promise<never> {
   // column default would have supplied anyway.
   const { data, error } = await client
     .from("items")
-    .insert({ title: "Untitled item" })
+    .insert({ title: UNTITLED })
     .select("id")
     .single();
 
@@ -78,13 +102,19 @@ export async function updateItem(id: string, patch: ItemPatch): Promise<ActionRe
   await requireStaff();
   const client = await supabase();
 
-  const { error } = await client.from("items").update(patch).eq("id", id);
+  const { data, error } = await client
+    .from("items")
+    .update(patch)
+    .eq("id", id)
+    .select("published_at")
+    .maybeSingle();
   if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath(`/items/${id}`);
   revalidatePath("/items");
-  // A published item that changes is a storefront change.
-  await revalidateStorefront(id);
+  // A published item that changes is a storefront change. A draft's is not,
+  // and the write comes back with published_at so nobody has to ask twice.
+  if (data?.published_at) await revalidateStorefront(id);
   return { ok: true };
 }
 
@@ -129,14 +159,15 @@ export async function setStage(id: string, status: ItemStatus): Promise<ActionRe
     .maybeSingle();
   const wasLive = !!before?.published_at;
 
-  const { error } = await client.from("items").update({ status }).eq("id", id);
-  if (error) return { ok: false, error: humanise(error.message) };
-
-  const { data: after } = await client
+  // The write returns the row it wrote, so the state AFTER the status trigger
+  // has run comes back in the same round trip rather than a second one.
+  const { data: after, error } = await client
     .from("items")
-    .select("published_at")
+    .update({ status })
     .eq("id", id)
+    .select("published_at")
     .maybeSingle();
+  if (error) return { ok: false, error: humanise(error.message) };
   const isLive = !!after?.published_at;
 
   let notice: string | undefined;
@@ -198,18 +229,39 @@ export async function setTags(id: string, tagIds: string[]): Promise<ActionResul
   await requireStaff();
   const client = await supabase();
 
-  const { error: clearError } = await client.from("item_tags").delete().eq("item_id", id);
-  if (clearError) return { ok: false, error: humanise(clearError.message) };
+  // A diff, not a delete-and-rewrite. Clearing every tag and inserting the
+  // list again meant a dropped connection between the two statements left the
+  // machine with no tags at all — and on a live listing, that is what the
+  // storefront's filters would read while the worker saw a tick.
+  const { data: current, error: readError } = await client
+    .from("item_tags")
+    .select("tag_id")
+    .eq("item_id", id);
+  if (readError) return { ok: false, error: humanise(readError.message) };
 
-  if (tagIds.length) {
+  const have = new Set((current ?? []).map((row) => row.tag_id));
+  const want = new Set(tagIds);
+  const removed = [...have].filter((tagId) => !want.has(tagId));
+  const added = [...want].filter((tagId) => !have.has(tagId));
+
+  if (removed.length) {
     const { error } = await client
       .from("item_tags")
-      .insert(tagIds.map((tag_id) => ({ item_id: id, tag_id })));
+      .delete()
+      .eq("item_id", id)
+      .in("tag_id", removed);
+    if (error) return { ok: false, error: humanise(error.message) };
+  }
+
+  if (added.length) {
+    const { error } = await client
+      .from("item_tags")
+      .insert(added.map((tag_id) => ({ item_id: id, tag_id })));
     if (error) return { ok: false, error: humanise(error.message) };
   }
 
   revalidatePath(`/items/${id}`);
-  await revalidateStorefront(id);
+  if (await isLive(client, id)) await revalidateStorefront(id);
   return { ok: true };
 }
 
@@ -322,7 +374,7 @@ export async function recordMedia(
   if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath(`/items/${itemId}`);
-  await revalidateStorefront(itemId);
+  if (await isLive(client, itemId)) await revalidateStorefront(itemId);
   return { ok: true };
 }
 
@@ -330,13 +382,39 @@ export async function deleteMedia(itemId: string, mediaId: string): Promise<Acti
   await requireStaff();
   const client = await supabase();
 
-  const { data: media } = await client
-    .from("item_media")
-    .select("storage_path")
-    .eq("id", mediaId)
-    .maybeSingle();
+  const [{ data: media }, { data: item }, { count: photoCount }] = await Promise.all([
+    client
+      .from("item_media")
+      .select("storage_path, kind")
+      .eq("id", mediaId)
+      .eq("item_id", itemId)
+      .maybeSingle(),
+    client.from("items").select("published_at").eq("id", itemId).maybeSingle(),
+    client
+      .from("item_media")
+      .select("id", { count: "exact", head: true })
+      .eq("item_id", itemId)
+      .eq("kind", "photo"),
+  ]);
 
-  const { error } = await client.from("item_media").delete().eq("id", mediaId);
+  // A live listing keeps its last photograph. The publish gate checks for one
+  // at the moment of publishing and never again, so without this a worker
+  // replacing a bad shot — delete, then add — would leave a card on the
+  // website with no image for as long as the upload took, or for good if the
+  // upload then failed on the warehouse wifi.
+  const live = !!item?.published_at;
+  if (live && media?.kind === "photo" && (photoCount ?? 0) <= 1) {
+    return {
+      ok: false,
+      error: "Add the new photo first — this is the only one on a live listing.",
+    };
+  }
+
+  const { error } = await client
+    .from("item_media")
+    .delete()
+    .eq("id", mediaId)
+    .eq("item_id", itemId);
   if (error) return { ok: false, error: humanise(error.message) };
 
   // Best effort. An orphaned object costs a few cents of storage; a failed
@@ -346,7 +424,7 @@ export async function deleteMedia(itemId: string, mediaId: string): Promise<Acti
   }
 
   revalidatePath(`/items/${itemId}`);
-  await revalidateStorefront(itemId);
+  if (live) await revalidateStorefront(itemId);
   return { ok: true };
 }
 
@@ -358,16 +436,22 @@ export async function reorderMedia(
   await requireStaff();
   const client = await supabase();
 
+  // Sequential on purpose — an upsert would need every column of every row.
+  // Each write is scoped to this item as well as the row id, so a stale or
+  // wrong id from another machine's gallery cannot renumber that one; and the
+  // first failure stops the loop rather than leaving a half-renumbered order
+  // that reports success.
   for (const [index, id] of orderedIds.entries()) {
     const { error } = await client
       .from("item_media")
       .update({ position: index })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("item_id", itemId);
     if (error) return { ok: false, error: humanise(error.message) };
   }
 
   revalidatePath(`/items/${itemId}`);
-  await revalidateStorefront(itemId);
+  if (await isLive(client, itemId)) await revalidateStorefront(itemId);
   return { ok: true };
 }
 
@@ -442,6 +526,13 @@ export async function deleteItem(
 
   if (readError) return { ok: false, error: humanise(readError.message) };
   if (!item) return { ok: false, error: "That machine is not there any more." };
+
+  // A machine on an order is the order's, not ours to delete. Soft-deleting it
+  // would hide the row from every stock query while the order still named it,
+  // and the invoice would then point at a machine the app says does not exist.
+  if (item.status === "reserved" || item.status === "sold") {
+    return { ok: false, error: "It is on an order — cancel or finish that order first." };
+  }
 
   const [media, costs, lines] = await Promise.all([
     client.from("item_media").select("id", { count: "exact", head: true }).eq("item_id", id),

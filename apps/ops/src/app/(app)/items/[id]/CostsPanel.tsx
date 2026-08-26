@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   COST_KIND_LABELS,
@@ -62,11 +62,31 @@ export default function CostsPanel({
   const margin = marginCents(listPriceCents, null, total);
   const percent = marginPercent(listPriceCents, null, total);
 
+  /**
+   * What each fixed box last wrote. Blurring a box that has not changed used
+   * to rewrite its row anyway — new id, incurred_on stamped today, created_by
+   * set to whoever tabbed through the form — so the record said the auction
+   * price was entered this morning by someone who only glanced at it.
+   */
+  const committed = useRef<{ auction: number | null; workshop: number | null }>({
+    auction: auctionCents,
+    workshop: workshopCents,
+  });
+
   async function commitFixed(k: "auction" | "workshop", cents: number | null) {
+    if ((cents ?? null) === committed.current[k]) return;
     setError(null);
     const result = await setItemCost(itemId, k, cents);
-    if (!result.ok) setError(result.error);
-    else router.refresh();
+    if (!result.ok) return setError(result.error);
+    committed.current[k] = cents ?? null;
+    router.refresh();
+  }
+
+  async function remove(costId: string) {
+    setError(null);
+    const result = await deleteCost(itemId, costId);
+    if (!result.ok) return setError(result.error);
+    router.refresh();
   }
 
   async function add() {
@@ -83,7 +103,7 @@ export default function CostsPanel({
   return (
     <Panel
       title="What it cost us"
-      subtitle="Owners and managers only. Staff can add a cost but never see one."
+      subtitle="What was paid for it and what putting it right cost. Everyone on the team can see this."
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
@@ -118,10 +138,7 @@ export default function CostsPanel({
                     {rands(cost.amount_cents)}
                   </span>
                   <button
-                    onClick={async () => {
-                      await deleteCost(itemId, cost.id);
-                      router.refresh();
-                    }}
+                    onClick={() => remove(cost.id)}
                     aria-label="Remove"
                     className="text-muted hover:text-status-sold transition-colors"
                   >

@@ -28,10 +28,16 @@ export default function DeleteItem({
   title,
   live,
   blank,
+  onOrder,
 }: {
   id: string;
   title: string;
   live: boolean;
+  /**
+   * Reserved or sold — the machine belongs to an order now. The action refuses
+   * the delete; this is what lets the panel say so before anyone taps.
+   */
+  onOrder: boolean;
   /**
    * A draft nobody ever filled in: never on the website, no photograph, no
    * cost, not on an order. Those are discarded outright rather than kept as a
@@ -70,7 +76,11 @@ export default function DeleteItem({
         </div>
       )}
 
-      {asking ? (
+      {onOrder ? (
+        <p className="text-xs font-light text-muted">
+          It is on an order — cancel or finish that order first, then it can be deleted.
+        </p>
+      ) : asking ? (
         <div className="space-y-3">
           <div>
             <p className="text-sm font-medium tracking-tight">

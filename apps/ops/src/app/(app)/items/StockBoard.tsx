@@ -30,25 +30,32 @@ import type { ItemRow } from "@/lib/queries";
 export default function StockBoard({ items }: { items: ItemRow[] }) {
   const router = useRouter();
   const [moving, setMoving] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Both live ON the card that was tapped. A column is 70vh of scroll on a
+   * phone, and a banner at the top of the board is off-screen for whoever just
+   * pressed a button at the bottom of it. The stage commits even when the
+   * website refuses the machine — that refusal comes back as a notice, and it
+   * is the one thing a worker most needs to read.
+   */
+  const [error, setError] = useState<{ id: string; message: string } | null>(null);
+  const [notice, setNotice] = useState<{ id: string; message: string } | null>(null);
 
   async function move(id: string, to: ItemStatus) {
     setMoving(id);
     setError(null);
+    setNotice(null);
     const result = await setStage(id, to);
     setMoving(null);
-    if (!result.ok) setError(result.error);
-    else router.refresh();
+    if (!result.ok) {
+      setError({ id, message: result.error });
+      return;
+    }
+    if (result.notice) setNotice({ id, message: result.notice });
+    router.refresh();
   }
 
   return (
     <>
-      {error && (
-        <p className="text-xs text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-xl px-3 py-2.5 mb-3">
-          {error}
-        </p>
-      )}
-
       <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
         {STATUS_ORDER.map((status) => {
           const column = items.filter((i) => i.status === status);
@@ -127,6 +134,26 @@ export default function StockBoard({ items }: { items: ItemRow[] }) {
                             )}
                           </div>
                         </Link>
+
+                        {error?.id === item.id && (
+                          <p className="mx-2.5 mb-2 text-[11px] font-light text-status-sold bg-status-sold/10 border border-status-sold/30 rounded-lg px-2.5 py-2">
+                            {error.message}
+                          </p>
+                        )}
+
+                        {notice?.id === item.id && (
+                          <p
+                            className={`mx-2.5 mb-2 text-[11px] font-light rounded-lg px-2.5 py-2 border ${
+                              // The stage moved but the site said no — read as a
+                              // warning, not a confirmation.
+                              /not on the website/i.test(notice.message)
+                                ? "text-status-reserved bg-status-reserved/10 border-status-reserved/30"
+                                : "text-accent bg-accent/10 border-accent/30"
+                            }`}
+                          >
+                            {notice.message}
+                          </p>
+                        )}
 
                         {moves.length > 0 && (
                           <div className="flex flex-wrap gap-1 px-2.5 pb-2.5">

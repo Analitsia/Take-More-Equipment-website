@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@takemore/db";
+import { useLiveSearch } from "@/lib/useLiveSearch";
 
 /**
  * One box for the whole app.
@@ -16,10 +17,11 @@ import { createBrowserClient } from "@takemore/db";
  * RLS policy applies exactly as it would to a direct query, and this cannot
  * become a way around one that gets tightened later.
  *
- * Debounced at 180ms: fast enough to feel live while typing, slow enough that a
- * six-letter word is one request rather than six. Requests are sequenced too —
- * a slow response for "fry" must not land after a fast one for "fryer" and
- * overwrite it, which is the classic bug in every search box like this.
+ * Debounce, request sequencing and failure handling all live in
+ * useLiveSearch(), shared with the order screen's picker — see that file for
+ * the "fry" / "fryer" bug the ticketing exists to prevent. A failed request is
+ * reported as a failure, not as an empty result: "nothing matches" on a dropped
+ * connection sends somebody to re-type a code that was right.
  */
 
 type Hit = {
@@ -31,24 +33,27 @@ type Hit = {
 };
 
 const MIN_QUERY = 2;
-const DEBOUNCE_MS = 180;
 
 export default function GlobalSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<Hit[]>([]);
-  const [loading, setLoading] = useState(false);
   const [cursor, setCursor] = useState(0);
   const input = useRef<HTMLInputElement | null>(null);
 
-  /** Monotonic request id. Anything but the newest response is discarded. */
-  const latest = useRef(0);
+  const { hits, loading, tooShort, failed } = useLiveSearch<Hit>(query, async (term) => {
+    const client = createBrowserClient();
+    const { data, error } = await client.rpc("search_everything", {
+      p_query: term,
+      p_limit: 12,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Hit[];
+  });
 
   const close = useCallback(() => {
     setOpen(false);
     setQuery("");
-    setHits([]);
     setCursor(0);
   }, []);
 
@@ -68,28 +73,10 @@ export default function GlobalSearch() {
     if (open) input.current?.focus();
   }, [open]);
 
+  // A new answer starts the keyboard cursor at the top of it.
   useEffect(() => {
-    const term = query.trim();
-    if (term.length < MIN_QUERY) {
-      setHits([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const ticket = ++latest.current;
-    const timer = setTimeout(async () => {
-      const client = createBrowserClient();
-      const { data } = await client.rpc("search_everything", { p_query: term, p_limit: 12 });
-      // Out of order, or superseded while in flight. Drop it.
-      if (ticket !== latest.current) return;
-      setHits((data ?? []) as Hit[]);
-      setCursor(0);
-      setLoading(false);
-    }, DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [query]);
+    setCursor(0);
+  }, [hits]);
 
   const go = useCallback(
     (hit: Hit) => {
@@ -171,13 +158,19 @@ export default function GlobalSearch() {
           </div>
 
           <div className="max-h-[50vh] overflow-y-auto">
-            {query.trim().length < MIN_QUERY && (
+            {tooShort && (
               <p className="px-4 py-6 text-xs font-light text-muted text-center">
-                Type at least two characters.
+                Type at least {MIN_QUERY} characters.
               </p>
             )}
 
-            {query.trim().length >= MIN_QUERY && !loading && hits.length === 0 && (
+            {!tooShort && !loading && failed && (
+              <p className="px-4 py-6 text-xs font-light text-status-sold text-center">
+                Search failed — check your signal.
+              </p>
+            )}
+
+            {!tooShort && !loading && !failed && hits.length === 0 && (
               <p className="px-4 py-6 text-xs font-light text-muted text-center">
                 Nothing matches that.
               </p>

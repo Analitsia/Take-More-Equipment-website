@@ -27,9 +27,11 @@ const MIN_QUERY = 2;
 export function useLiveSearch<T>(
   query: string,
   fetcher: (term: string) => Promise<T[]>
-): { hits: T[]; loading: boolean; tooShort: boolean } {
+): { hits: T[]; loading: boolean; tooShort: boolean; failed: boolean } {
   const [hits, setHits] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
+  /** The last answer was a failure, not an empty one. The caller says which. */
+  const [failed, setFailed] = useState(false);
   const latest = useRef(0);
 
   const term = query.trim();
@@ -39,6 +41,7 @@ export function useLiveSearch<T>(
     if (tooShort) {
       setHits([]);
       setLoading(false);
+      setFailed(false);
       return;
     }
 
@@ -47,18 +50,22 @@ export function useLiveSearch<T>(
 
     const timer = setTimeout(async () => {
       let rows: T[] = [];
+      let threw = false;
       try {
         rows = await fetcher(term);
       } catch {
-        // A refusal or a dropped connection. An empty list and no spinner says
-        // "nothing matched", which is wrong but harmless and recoverable by
-        // typing another character; an unhandled rejection in a search box is
-        // an error overlay over a warehouse screen.
+        // A refusal or a dropped connection. Reported as `failed` so the box
+        // can say "check your signal" rather than "nothing matches" — the
+        // second is wrong in a way that sends somebody to re-type a code that
+        // was right. Caught here because an unhandled rejection in a search
+        // box is an error overlay over a warehouse screen.
         rows = [];
+        threw = true;
       }
       // Out of order, or superseded while in flight. Drop it.
       if (ticket !== latest.current) return;
       setHits(rows);
+      setFailed(threw);
       setLoading(false);
     }, DEBOUNCE_MS);
 
@@ -69,5 +76,5 @@ export function useLiveSearch<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term, tooShort]);
 
-  return { hits, loading, tooShort };
+  return { hits, loading, tooShort, failed };
 }
