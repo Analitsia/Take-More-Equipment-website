@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
@@ -51,7 +52,7 @@ const principles = [
 
 export default function AboutPage() {
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="About Us"
       title={<>The kitchen you wanted, at the number you actually budgeted.</>}
       intro={

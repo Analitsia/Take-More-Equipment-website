@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
-import { MAX_FEATURED } from "@takemore/core";
+import { type ReactNode } from "react";
+import { useSegmentStock } from "./useSegmentStock";
 import { useSegment } from "./SegmentProvider";
 import SegmentSwitcher from "./SegmentSwitcher";
 import Hero from "./Hero";
@@ -18,20 +18,7 @@ export default function HomeStorefront({ stock, vocabulary, categories, formEnab
 }) {
   const { segment } = useSegment();
   const home = segment === "homestaging";
-  const selectedStock = useMemo(() => stock.filter((item) => item.segments.includes(segment)), [stock, segment]);
-  const scopedVocabulary = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of selectedStock) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
-    return {
-      ...vocabulary,
-      divisions: vocabulary.divisions.filter((d) => d.slug === segment).map((d) => ({ ...d, count: selectedStock.length })),
-      // A shared item can use a category belonging to the other segment.
-      categories: vocabulary.categories.filter((c) => c.divisionSlug === segment || counts.has(c.name))
-        .map((c) => ({ ...c, divisionSlug: segment, count: counts.get(c.name) ?? 0 })),
-      tags: vocabulary.tags.filter((tag) => selectedStock.some((item) => item.tags.includes(tag))),
-    };
-  }, [selectedStock, segment, vocabulary]);
-  const featured = selectedStock.filter((item) => item.featured).slice(0, MAX_FEATURED);
+  const { selectedStock, scopedVocabulary, featured } = useSegmentStock(stock, vocabulary, segment);
   const choices = categories.filter((c) => c.divisionSlug === segment);
   return (
     <div className="min-h-screen bg-background flex flex-col">

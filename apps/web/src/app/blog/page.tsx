@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
@@ -18,7 +19,7 @@ export default function BlogIndexPage() {
   // `lead` was undefined and `lead.slug` threw during the static build.
   if (!lead) {
     return (
-      <PageShell
+      <PageShell browse={<BrowseMore />}
         eyebrow="Journal"
         title={<>Notes from the workshop, shortly.</>}
         intro="We are writing up what we have learnt rebuilding kitchens — what equipment should actually cost, what to check before you pay, and the reasoning behind how we grade. It goes up here once the numbers in it have been checked."
@@ -53,7 +54,7 @@ export default function BlogIndexPage() {
   }
 
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="Journal"
       title={<>What we learn rebuilding kitchens for a living.</>}
       intro="Real prices, what to check before you pay for any machine, and the reasoning behind how we describe equipment condition. Written for people spending their own money on a kitchen."

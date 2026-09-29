@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
@@ -47,7 +48,7 @@ export default async function WantedPage() {
   const formEnabled = enquiryFormEnabled();
 
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="Wanted"
       title="Most of our stock sells before it reaches this website."
       intro="Tell us what you are after and we will watch for it. No obligation, no salesperson phoning you every week — one message when the machine you described comes through the workshop."

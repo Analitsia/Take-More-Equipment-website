@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 
 import { gradeLabel } from "@takemore/core";
 import type { Metadata } from "next";
@@ -6,7 +7,6 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Subheading from "@/components/Subheading";
-import EquipmentCard from "@/components/EquipmentCard";
 import EnquiryForm from "@/components/EnquiryForm";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
@@ -15,7 +15,6 @@ import {
   deliveryFor,
   priceLabel,
   rands,
-  relatedTo,
   savingPercent,
 } from "@/data/equipment";
 import { getBySlug, getGallery, getStock } from "@/lib/stock";
@@ -109,8 +108,6 @@ export default async function ProductPage({
     },
   };
   const structuredDataJson = JSON.stringify(structuredData).replace(/</g, "\\u003c");
-  const stock = await getStock();
-  const related = relatedTo(stock, item);
   // Full-size renditions plus any video, for the gallery; the card-sized photos
   // on `item` are deliberately smaller and photos-only.
   const gallery = await getGallery(slug);
@@ -356,33 +353,9 @@ export default async function ProductPage({
           </section>
         </div>
 
-        {/* Related */}
-        {related.length > 0 && (
-          <section className="mt-16 md:mt-24">
-            <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <Subheading text="Also On The Floor" />
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">
-                  You might also need
-                </h2>
-              </div>
-              <Link
-                href="/#catalogue"
-                className="hidden md:inline-flex items-center space-x-3 text-sm font-light hover:text-accent transition-colors pb-2 border-b border-white/10 hover:border-accent"
-              >
-                <span>See all stock</span>
-                <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-              {related.map((other) => (
-                <EquipmentCard key={other.slug} {...other} variant="grid" />
-              ))}
-            </div>
-          </section>
-        )}
       </main>
 
+      <BrowseMore excludeSlug={item.slug} />
       <Footer />
     </div>
   );

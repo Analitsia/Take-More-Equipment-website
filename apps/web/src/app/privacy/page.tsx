@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
@@ -98,7 +99,7 @@ const sections: Section[] = [
 
 export default function PrivacyPage() {
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="Your Details"
       title="What we do with what you tell us."
       intro="Plain version: we keep your email and what you are looking for, so we can tell you when we get one. You can stop it in one click, any time, and we never pass your details on."

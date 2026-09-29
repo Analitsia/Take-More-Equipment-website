@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
  */
 export default function NotFound() {
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="Not Found"
       title="That page is not on the floor any more."
       intro="The link may be out of date, or the machine it pointed at has sold. Everything currently for sale is on the catalogue, and if you were after something specific we can watch for the next one."

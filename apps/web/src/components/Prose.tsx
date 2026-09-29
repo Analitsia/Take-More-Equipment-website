@@ -61,7 +61,7 @@ export function ContentSection({
 }) {
   return (
     <section
-      className={`w-full max-w-[1440px] mx-auto px-6 md:px-12 pb-14 md:pb-24 ${className}`}
+      className={`w-full pb-14 md:pb-24 ${className}`}
     >
       {children}
     </section>

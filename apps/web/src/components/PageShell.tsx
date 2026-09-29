@@ -15,18 +15,20 @@ export default function PageShell({
   intro,
   crumbs = [],
   children,
+  browse,
 }: {
   eyebrow: string;
   title: React.ReactNode;
   intro?: React.ReactNode;
   crumbs?: Crumb[];
   children: React.ReactNode;
+  browse?: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar variant="solid" />
 
-      <header className="w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-6 pb-10 md:pt-20 md:pb-24">
+      <header className="w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-6 pb-8 md:pt-20 md:pb-12">
         {crumbs.length > 0 && <Breadcrumbs crumbs={crumbs} />}
         <Subheading text={eyebrow} />
         <h1 className="text-3xl sm:text-4xl md:text-6xl font-medium tracking-tighter leading-[1.15] max-w-4xl">
@@ -39,7 +41,10 @@ export default function PageShell({
         )}
       </header>
 
-      <main className="flex-1 w-full">{children}</main>
+      <main className="flex-1 w-full">
+        <div className="w-full max-w-[1440px] mx-auto px-6 md:px-12" data-page-content>{children}</div>
+        {browse}
+      </main>
 
       <Footer />
     </div>

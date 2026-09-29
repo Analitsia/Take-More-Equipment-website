@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
@@ -44,7 +45,7 @@ const workshop = [
 
 export default function ConditionsPage() {
   return (
-    <PageShell
+    <PageShell browse={<BrowseMore />}
       eyebrow="Condition & Inspection"
       title={<>A lower price should not mean a bigger gamble.</>}
       intro="Clear condition labels help you shortlist. Visit the warehouse to inspect your favourites and ask our team about each item."

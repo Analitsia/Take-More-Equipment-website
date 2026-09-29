@@ -1,3 +1,4 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -150,6 +151,7 @@ export default async function PostPage({
         )}
       </article>
 
+      <BrowseMore />
       <Footer />
     </div>
   );

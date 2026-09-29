@@ -1,10 +1,11 @@
+import BrowseMore from "@/components/BrowseMore";
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageShell from "@/components/PageShell";
 export const metadata: Metadata = { title: "Ways to Pay — Take More", description: "Explore payment options for your in-store purchase.", alternates: { canonical: "/payment-options" } };
 export default function PaymentOptions() {
-  return <PageShell eyebrow="Ways to Pay" title={<>Found your next great find?</>} intro="Visit the warehouse and choose the payment option that suits your purchase. Our team will confirm the details with you." crumbs={[{label:"Home",href:"/"},{label:"Ways to Pay"}]}>
-    <div className="grid md:grid-cols-2 gap-6 py-10">{[
+  return <PageShell browse={<BrowseMore />} eyebrow="Ways to Pay" title={<>Found your next great find?</>} intro="Visit the warehouse and choose the payment option that suits your purchase. Our team will confirm the details with you." crumbs={[{label:"Home",href:"/"},{label:"Ways to Pay"}]}>
+    <div className="grid md:grid-cols-2 gap-6 pb-10">{[
       ["Card or bank transfer", "Pay in full at the warehouse."],
       ["PayJustNow", "Ask about paying over time through PayJustNow. Subject to approval and provider terms."],
       ["Lay-by", "Pay over 2–3 months. Your item stays with us until it is paid in full."],
