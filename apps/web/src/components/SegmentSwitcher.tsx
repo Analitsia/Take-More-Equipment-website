@@ -1,7 +1,12 @@
 "use client";
 
-import { SEGMENTS, SEGMENT_LABELS } from "@takemore/core";
+import { SEGMENTS, type Segment } from "@takemore/core";
 import { useSegment } from "./SegmentProvider";
+
+const labels: Record<Segment, string> = {
+  homestaging: "Home and furniture",
+  "industrial-kitchen": "Catering Equipment",
+};
 
 export default function SegmentSwitcher() {
   const { requested, choose } = useSegment();
@@ -19,7 +24,7 @@ export default function SegmentSwitcher() {
               choose(SEGMENTS[next]);
               (event.currentTarget.parentElement?.querySelectorAll("button")[next] as HTMLButtonElement)?.focus();
             }}>
-            {SEGMENT_LABELS[value]}
+            {labels[value]}
           </button>
         ))}
       </div>
