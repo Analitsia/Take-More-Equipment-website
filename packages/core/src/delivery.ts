@@ -47,5 +47,4 @@ export const deliveryFeeCents = (km: number | null | undefined): Cents => {
 
 /** "R250 covers the first 10 km, then R10/km." Said once, on the screen. */
 export const DELIVERY_RULE_LABEL =
-  `R${DELIVERY_BASE_CENTS / 100} up to ${DELIVERY_INCLUDED_KM} km, ` +
-  `then R${DELIVERY_PER_KM_CENTS / 100} per km, rounded up`;
+  `R${DELIVERY_BASE_CENTS / 100} up to ${DELIVERY_INCLUDED_KM} km, then R${DELIVERY_PER_KM_CENTS / 100} per km, rounded up`;
