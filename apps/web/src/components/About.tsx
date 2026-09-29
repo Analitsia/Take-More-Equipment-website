@@ -17,7 +17,7 @@ export default function About() {
    * left column must also stop being half-width — otherwise the copy sits in
    * half a page beside dead space, which looks like a bug rather than a choice.
    */
-  const facts = [claims.machinesRebuilt, claims.averageSaving, claims.warranty, claims.delivery];
+  const facts = [claims.machinesRebuilt, claims.averageSaving, claims.delivery];
   const anyStats = facts.some(isVerified);
 
   return (

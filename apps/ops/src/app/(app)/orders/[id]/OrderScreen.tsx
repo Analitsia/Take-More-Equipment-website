@@ -3,11 +3,12 @@
 import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Panel } from "@takemore/ui";
+import { Button, Panel } from "@takemore/ui";
 import { StatusPill } from "@takemore/ui";
 import {
-  ORDER_KINDS,
-  ORDER_KIND_LABELS,
+  PURCHASE_OPTIONS,
+  PURCHASE_OPTION_LABELS,
+  purchaseOption,
   ORDER_STATUS_LABELS,
   allocateSoldTotal,
   canReopenSale,
@@ -17,7 +18,7 @@ import {
   hireFeeCents,
   rands,
   type AppRole,
-  type OrderKind,
+  type PurchaseOption,
   type OrderStatus,
 } from "@takemore/core";
 import ItemThumb from "@/components/ItemThumb";
@@ -32,10 +33,11 @@ import CustomerPicker from "./CustomerPicker";
 import ProductPicker from "./ProductPicker";
 import DeliveryPanel from "./DeliveryPanel";
 import HirePanel from "./HirePanel";
+import SalePlanPanel from "./SalePlanPanel";
 import PaymentPanel from "./PaymentPanel";
 import NotesPanel from "./NotesPanel";
 import InvoicePanel from "./InvoicePanel";
-import { removeLine, setOrderKind } from "../actions";
+import { removeLine, choosePurchaseOption, discardOrder } from "../actions";
 
 const STATUS_CHROME: Record<OrderStatus, string> = {
   draft: "border-accent/40 text-accent",
@@ -46,8 +48,7 @@ const STATUS_CHROME: Record<OrderStatus, string> = {
 /**
  * The till.
  *
- * One page, top to bottom in the order a sale actually happens: who, what,
- * where to, how much, and how they paid. Nothing is a wizard — a customer
+ * One page: products, customer, purchase option, conditions, delivery and payment. Nothing is a wizard — a customer
  * changes their mind about a machine after the delivery address has been taken,
  * and a screen that made you go back would be a screen people worked around.
  *
@@ -64,6 +65,7 @@ export default function OrderScreen({
   invoices,
   invoicing,
   role,
+  financeInitialPercent,
 }: {
   order: OrderDetail;
   lines: OrderLineRow[];
@@ -72,6 +74,7 @@ export default function OrderScreen({
   invoices: OrderInvoiceRow[];
   invoicing: { ok: boolean; error?: string; bank: boolean };
   role: AppRole;
+  financeInitialPercent?: number;
 }) {
   const router = useRouter();
   /**
@@ -86,6 +89,7 @@ export default function OrderScreen({
   const [removing, setRemoving] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   /** Hire dates typed but not yet saved. The pay button waits for them. */
+  const [planDirty, setPlanDirty] = useState(false);
   const [hireDirty, setHireDirty] = useState(false);
 
   /**
@@ -110,7 +114,7 @@ export default function OrderScreen({
   }, []);
 
   const busy = isPending || switching || removing !== null;
-  const locked = order.status !== "draft";
+  const locked = order.status !== "draft" || Boolean(order.plan_confirmed_at);
   const hire = order.kind === "hire";
   /**
    * The number of days the hire is priced on, from the SAVED dates — the
@@ -150,12 +154,27 @@ export default function OrderScreen({
     startTransition(() => router.refresh());
   };
 
-  const switchKind = async (kind: OrderKind) => {
-    if (kind === order.kind) return;
+  const option = purchaseOption(order);
+  const switchOption = async (next: PurchaseOption) => {
+    if (next === option) return;
     setSwitching(true);
-    const result = await setOrderKind(order.id, kind);
-    setSwitching(false);
-    handled(result.ok ? { ok: true } : { ok: false, message: result.error });
+    try {
+      await flush();
+      const result = await choosePurchaseOption(order.id, next);
+      if (result.ok) { setPlanDirty(false); setHireDirty(false); }
+      handled(result.ok ? { ok: true } : { ok: false, message: result.error });
+    } catch { handled({ ok: false, message: 'Could not save the purchase option. Refresh and try again.' }); }
+    finally { setSwitching(false); }
+  };
+
+  const discard = async () => {
+    if (!window.confirm('Discard this draft and release its items?')) return;
+    setSwitching(true);
+    try {
+      const result = await discardOrder(order.id);
+      if (result.ok) { router.push('/orders'); router.refresh(); }
+      else handled({ ok: false, message: result.error });
+    } finally { setSwitching(false); }
   };
 
   const drop = async (itemId: string) => {
@@ -210,44 +229,8 @@ export default function OrderScreen({
         </div>
       )}
 
-      {/* First, because it changes what every panel below means. A sale
-          sells the machines; a rental sends them out for a period at a rate
-          worked out from the asking price, and takes them back. The database
-          freezes the choice once a machine is on the order, so the chips go
-          quiet rather than offering a switch that would be refused. */}
-      {!locked && (
-        <Panel
-          title="What is this order?"
-          subtitle={
-            lines.length > 0
-              ? "Take the machines off the order to change this."
-              : "A sale sells the machines. A rental sends them out and takes them back."
-          }
-        >
-          <div className="flex gap-2">
-            {ORDER_KINDS.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => switchKind(kind)}
-                disabled={busy || lines.length > 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-light border transition-colors disabled:cursor-not-allowed ${
-                  order.kind === kind
-                    ? "border-accent/70 bg-accent/10 text-accent"
-                    : "border-border text-white/70 hover:border-white/25 disabled:opacity-40"
-                }`}
-              >
-                {kind === "sale" ? "Normal sale" : ORDER_KIND_LABELS[kind]}
-              </button>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <CustomerPicker order={order} locked={locked} onDone={handled} />
-
       <Panel
-        title="Machines"
+        title="1. Products"
         subtitle={
           locked
             ? undefined
@@ -374,6 +357,23 @@ export default function OrderScreen({
         </div>
       </Panel>
 
+      <CustomerPicker order={order} locked={locked} onDone={handled} />
+
+      <Panel title="3. Purchase option" subtitle="Choose the agreement. Choosing an option does not record a payment.">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {PURCHASE_OPTIONS.map(next => <button key={next} type="button" aria-pressed={option === next}
+            disabled={locked || busy || !order.sale_plans_ready || !order.lead_id || lines.length === 0 || Boolean(order.sold_by)}
+            onClick={() => void switchOption(next)}
+            className={`rounded-xl border p-3 text-sm text-left transition-colors disabled:cursor-not-allowed ${option === next ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:border-white/30 disabled:opacity-50'}`}>
+            {PURCHASE_OPTION_LABELS[next]}
+          </button>)}
+        </div>
+        {!order.sale_plans_ready ? <p className="mt-3 text-xs text-muted">The new options need the database migration before use.</p> : !order.lead_id || !lines.length ? <p className="mt-3 text-xs text-muted">Add products and a customer to choose an option.</p> : null}
+        {option === 'payjustnow' && <p className="mt-3 text-xs text-muted">Record the payment received from PayJustNow. Customer instalments are handled by the provider.</p>}
+      </Panel>
+
+      {!hire && option && option !== 'immediate' && option !== 'payjustnow' && <SalePlanPanel key={`${order.id}-${order.plan_confirmed_at ?? order.sale_plan}`} order={order} listTotal={listTotal} financeInitialPercent={financeInitialPercent} busy={busy} onDone={handled} onDirty={setPlanDirty} />}
+
       {hire && (
         <HirePanel
           order={order}
@@ -385,15 +385,17 @@ export default function OrderScreen({
         />
       )}
 
-      <DeliveryPanel order={order} locked={locked} busy={busy} onDone={handled} />
+      <DeliveryPanel order={order} locked={order.status !== "draft"} busy={busy} onDone={handled} />
 
       {/* Above the payment, because it is written DURING the conversation —
           "collecting on Saturday", "hire back on the 17th" — and below it is
           where a salesperson stops looking once the money is taken. It prints
           on the invoice, which is what makes it worth typing. */}
-      <NotesPanel order={order} locked={locked} busy={busy} track={track} onDone={handled} />
+      <NotesPanel order={order} locked={order.status !== "draft"} busy={busy} track={track} onDone={handled} />
 
-      <PaymentPanel
+
+      {(hire || option === "immediate" || option === "payjustnow") && <PaymentPanel
+        key={`${order.id}-${option}-${listTotal}`}
         order={order}
         listTotalCents={listTotal}
         costTotalCents={costTotal}
@@ -413,11 +415,13 @@ export default function OrderScreen({
               }
             : null
         }
-        busy={busy}
+        busy={busy || planDirty}
         track={track}
         beforeConfirm={flush}
         onDone={handled}
-      />
+      />}
+
+      {!locked && !order.sold_by && option !== 'immediate' && option !== 'payjustnow' && option !== 'hire' && <Button variant="danger" disabled={busy} onClick={() => void discard()}>Discard draft &amp; release items</Button>}
 
       {/* Last, because it is the last thing that happens: the money is
           recorded and then the customer is handed something. A proforma is the

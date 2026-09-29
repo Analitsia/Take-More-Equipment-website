@@ -29,7 +29,7 @@ export type LeadInterestRow = {
   subcategory_id: string | null;
   item_id: string | null;
   budget_max_cents: number | null;
-  min_grade: "A" | "B" | "C" | null;
+  min_grade: "N" | "A" | "B" | "C" | null;
   description: string;
   active: boolean;
   created_at: string;
@@ -181,7 +181,7 @@ export type QueuedMessage = {
     brand: string | null;
     slug: string;
     list_price_cents: number | null;
-    condition_grade: "A" | "B" | "C" | null;
+    condition_grade: "N" | "A" | "B" | "C" | null;
     media: MediaRef[];
   } | null;
 };
@@ -303,7 +303,7 @@ export type MatchingItem = {
   brand: string | null;
   slug: string;
   list_price_cents: number | null;
-  condition_grade: "A" | "B" | "C" | null;
+  condition_grade: "N" | "A" | "B" | "C" | null;
   score: number;
   /** We have already queued, sent or deliberately skipped this pairing. */
   already_told: boolean;

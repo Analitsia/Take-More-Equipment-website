@@ -39,6 +39,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  planBalance,
+  paymentAmount,
   checkInvoiceTotals,
   deliveryFeeCents,
   formatItemCode,
@@ -224,7 +226,7 @@ check("the buyer starts as a lead, not a customer", lead.status === "new", lead.
 const revenueBefore = num((await one(db, `select coalesce(sum(revenue_cents),0) r from public.money_by_month
                                           where month = date_trunc('month', now())::date`)).r);
 
-const order = await one(db, "insert into public.orders (status) values ('draft') returning id, code");
+const order = await one(db, "insert into public.orders (status,sale_plan) values ('draft','immediate') returning id, code");
 check("an order gets a readable number", /^ORD-\d{4}$/.test(order.code), order.code);
 
 // Typed the way somebody at a counter types it: lower case, unpadded.
@@ -527,7 +529,7 @@ const bench = await one(db, `
           'A machine that is in the workshop, described at some length here.', 'refurbishing')
   returning id, sku`);
 
-const bench_order = await one(db, "insert into public.orders (status) values ('draft') returning id, code");
+const bench_order = await one(db, "insert into public.orders (status,sale_plan) values ('draft','immediate') returning id, code");
 await db.exec(`select public.add_order_line('${bench_order.id}', '${bench.sku}')`);
 
 r = await one(db, `select status from public.items where id='${bench.id}'`);
@@ -541,7 +543,7 @@ check("cancelling puts it back IN THE WORKSHOP, not on sale", r.status === "refu
 
 /** A line written before the column existed still has to be safe to cancel. */
 const legacy = await make("Legacy", 500000, 100000, 0);
-const legacy_order = await one(db, "insert into public.orders (status) values ('draft') returning id");
+const legacy_order = await one(db, "insert into public.orders (status,sale_plan) values ('draft','immediate') returning id");
 await db.exec(`select public.add_order_line('${legacy_order.id}', '${legacy.sku}')`);
 await db.exec(`update public.order_lines set held_from_status = null where item_id='${legacy.id}'`);
 await db.exec(`select public.void_order('${legacy_order.id}', 'Nobody remembers')`);
@@ -552,7 +554,7 @@ check("a line that remembers nothing falls back to For sale, as it always did",
 console.log("\nTAKING A MACHINE OFF");
 {
   const off = await make("Comes off again", 700_000, 200_000, 0);
-  const draft = await one(db, "insert into public.orders (status) values ('draft') returning id");
+  const draft = await one(db, "insert into public.orders (status,sale_plan) values ('draft','immediate') returning id");
   await db.exec(`select public.add_order_line('${draft.id}', '${off.sku}')`);
   r = await one(db, `select public.remove_order_line('${draft.id}', '${off.id}') x`);
   check("taking a machine off an open order says where it went", r.x.status === "listed" && r.x.sku === off.sku, JSON.stringify(r.x));
@@ -640,9 +642,19 @@ const hirer = await one(db, `insert into public.leads (full_name, email, source)
 const hire = await one(db, "insert into public.orders (status, kind) values ('draft', 'hire') returning id, code");
 await db.exec(`select public.add_order_line('${hire.id}', '${tenK.sku}')`);
 await db.exec(`select public.add_order_line('${hire.id}', '${odd.sku}')`);
-check("a hire cannot be turned into a sale once it has machines on it",
-      await refuses(db, `update public.orders set kind = 'sale' where id='${hire.id}'`));
+check("purchase option requires the customer before switching", await refuses(db, `select public.choose_purchase_option('${hire.id}','immediate')`));
 await db.exec(`update public.orders set lead_id='${hirer.id}' where id='${hire.id}'`);
+await db.exec(`select public.choose_purchase_option('${hire.id}','payjustnow')`);
+r = await one(db, `select kind,sale_plan,purchase_option,payment_method,(select count(*) from public.order_lines where order_id='${hire.id}') n from public.orders where id='${hire.id}'`);
+check("PayJustNow persists the sale option and keeps both stock holds",r.kind==='sale' && r.sale_plan==='immediate' && r.purchase_option==='payjustnow' && r.payment_method===null && num(r.n)===2);
+await db.exec(`select public.choose_purchase_option('${hire.id}','layby')`);
+r = await one(db, `select sale_plan,payment_method,plan_confirmed_at from public.orders where id='${hire.id}'`);
+check("choosing lay-by clears PayJustNow without confirming an agreement",r.sale_plan==='layby' && r.payment_method===null && r.plan_confirmed_at===null);
+await db.exec(`select public.choose_purchase_option('${hire.id}','hire')`);
+r = await one(db, `select kind,sale_plan from public.orders where id='${hire.id}'`);
+check("hire can be chosen after products without stale sale terms",r.kind==='hire' && r.sale_plan===null);
+check("unknown purchase options are rejected",await refuses(db, `select public.choose_purchase_option('${hire.id}','unknown')`));
+
 
 check("a hire cannot be paid without its dates",
       await refuses(db, `select public.confirm_hire_paid('${hire.id}', 'card_machine', null)`));
@@ -697,7 +709,7 @@ check("the hirer became a customer — money changed hands", r.status === "custo
 r = await one(db, "select summary from public.activity_log where entity='order' and action='status_changed' order by created_at desc limit 1");
 check("the activity log says it was a hire", /hire 10 days/.test(r.summary), r.summary);
 
-const other = await one(db, "insert into public.orders (status) values ('draft') returning id");
+const other = await one(db, "insert into public.orders (status,sale_plan) values ('draft','immediate') returning id");
 check("a machine out on hire cannot go on another order",
       await refuses(db, `select public.add_order_line('${other.id}', '${tenK.sku}')`));
 rows = await all(db, `select on_order from public.search_sellable_items('${tenK.sku}', 5, null)`);
@@ -772,6 +784,78 @@ r = await one(db, `select has_column_privilege('anon', 'public.items', 'stock_qu
 check("anonymous readers cannot read internal quantities", r.allowed === false);
 r = await one(db, `select count(*) n from information_schema.columns where table_schema='public' and table_name='public_items' and column_name='stock_quantity'`);
 check("public catalogue excludes quantity", num(r.n) === 0);
+
+console.log("\nSALE PLANS AND RECEIPTS");
+const plannedItem = await make('Plan item', 100000, 10000, 0);
+const planned = await one(db, `insert into public.orders(status,lead_id) values ('draft','${hirer.id}') returning id`);
+await db.exec(`select public.add_order_line('${planned.id}','${plannedItem.sku}')`);
+check('a new sale requires an explicit choice of terms', await refuses(db, `select public.confirm_order_paid('${planned.id}',100000,'bank_transfer','REF')`));
+await db.exec(`select public.save_sale_plan('${planned.id}','layby',100000,'2026-01-31',3,31,10000,null)`);
+r=await one(db, `select plan_final_due::text, status from public.orders where id='${planned.id}'`);
+check('month-end lay-by ends on the last real day of the month', String(r.plan_final_due).startsWith('2026-04-30'));
+check('confirming terms does not claim payment', r.status==='draft');
+check('plan cannot bypass actual receipts via old full-payment RPC', await refuses(db, `select public.confirm_order_paid('${planned.id}',100000,'bank_transfer','REF')`));
+check('confirmed agreements cannot switch purchase option',await refuses(db, `select public.choose_purchase_option('${planned.id}','hire')`));
+check('confirmed terms cannot be silently repriced', await refuses(db, `update public.orders set sold_total_cents=90000 where id='${planned.id}'`));
+check('confirmed plan items cannot be removed', await refuses(db, `select public.remove_order_line('${planned.id}','${plannedItem.id}')`));
+const receiptId = (await one(db, 'select gen_random_uuid() id')).id;
+const receiptSql = `select public.record_order_receipt('${planned.id}',12000,'bank_transfer','PLAN-1','2026-02-28','${receiptId}',false)`;
+await db.exec(receiptSql); await db.exec(receiptSql);
+r=await one(db, `select count(*) n,sum(amount_cents) total from public.order_receipts where order_id='${planned.id}'`);
+check('retrying the same receipt records money once', num(r.n)===1 && num(r.total)===12000);
+check('idempotency key cannot be reused for another amount', await refuses(db, `select public.record_order_receipt('${planned.id}',20000,'bank_transfer','PLAN-1','2026-02-28','${receiptId}',false)`));
+check('overpayment is refused', await refuses(db, `select public.record_order_receipt('${planned.id}',99000,'bank_transfer','PLAN-2','2026-03-01',gen_random_uuid(),false)`));
+check('future payment is refused', await refuses(db, `select public.record_order_receipt('${planned.id}',100,'bank_transfer','PLAN-2','2099-01-01',gen_random_uuid(),false)`));
+const terms = {sale_plan:'layby',plan_start:'2026-01-31',plan_months:3,plan_payment_day:31,plan_deposit_cents:10000,plan_final_due:'2026-04-30',plan_confirmed_at:'2026-01-31'};
+check('receipt amounts keep cents visible', paymentAmount(33334).includes('333,34'));
+const roundedSchedule = planBalance({...terms,plan_deposit_cents:0},100000,[]).schedule;
+check('rounding is absorbed by the final instalment', roundedSchedule[1].target===33334 && roundedSchedule[2].target===66668 && roundedSchedule[3].target===100000);
+const balancePreview = planBalance(terms,100000,[{amount_cents:12000,entry_kind:'payment'}],'2026-02-28');
+check('a small partial payment leaves overdue money visible', balancePreview.due===28000 && balancePreview.balance===88000 && balancePreview.next.date==='2026-02-28');
+await db.exec(`select public.record_order_receipt('${planned.id}',88000,'payjustnow','PLAN-3','2026-03-01',gen_random_uuid(),false)`);
+r=await one(db, `select status from public.orders where id='${planned.id}'`);
+check('exact final payment completes the sale',r.status==='paid');
+r=await one(db, `select status from public.items where id='${plannedItem.id}'`);
+check('only full payment marks the item sold',r.status==='sold');
+check('paid plans cannot reopen and lose ledger alignment',await refuses(db, `select public.reopen_order('${planned.id}')`));
+
+const reservedItem=await make('Reserved item',100000,10000,0);
+const reserved=await one(db, `insert into public.orders(status,lead_id) values ('draft','${hirer.id}') returning id`);
+await db.exec(`select public.add_order_line('${reserved.id}','${reservedItem.sku}')`);
+check('reservation requires the agreed 50 percent deposit',await refuses(db, `select public.save_sale_plan('${reserved.id}','reservation',100000,'2026-01-31',null,null,20000,null)`));
+await db.exec(`select public.save_sale_plan('${reserved.id}','reservation',100000,'2026-01-31',null,null,50000,null)`);
+r=await one(db,`select plan_final_due::text from public.orders where id='${reserved.id}'`);
+check('reservation due date is exactly seven days later',String(r.plan_final_due).startsWith('2026-02-07'));
+await db.exec(`select public.record_order_receipt('${reserved.id}',50000,'bank_transfer','RES-1','2026-01-31',gen_random_uuid(),false)`);
+check('an agreement with receipts cannot be deleted',await refuses(db,`delete from public.orders where id='${reserved.id}'`));
+await db.exec(`select public.void_order('${reserved.id}','Customer cancelled')`);
+r=await one(db,`select status from public.items where id='${reservedItem.id}'`);
+check('cancellation releases reserved stock',r.status==='listed');
+r=await one(db,`select count(*) n from public.order_receipts where order_id='${reserved.id}'`);
+check('cancellation preserves received money',num(r.n)===1);
+check('cannot record more refunds than receipts',await refuses(db,`select public.record_order_receipt('${reserved.id}',60000,'bank_transfer','REFUND','2026-02-01',gen_random_uuid(),true)`));
+await db.exec(`select public.record_order_receipt('${reserved.id}',50000,'bank_transfer','REFUND','2026-02-01',gen_random_uuid(),true)`);
+r=await one(db,`select sum(case when entry_kind='payment' then amount_cents else -amount_cents end) net from public.order_receipts where order_id='${reserved.id}'`);
+check('actual refund clears amount owed without deleting history',num(r.net)===0);
+check('anonymous cannot read receipts',!(await one(db,`select has_table_privilege('anon','public.order_receipts','select') allowed`)).allowed);
+check('staff cannot insert receipts outside the validating RPC',!(await one(db,`select has_table_privilege('authenticated','public.order_receipts','insert') allowed`)).allowed);
+check('staff cannot change purchase option outside RPC',!(await one(db,`select has_column_privilege('authenticated','public.orders','purchase_option','update') allowed`)).allowed);
+check('staff cannot change terms outside the validating RPC',!(await one(db,`select has_column_privilege('authenticated','public.orders','sale_plan','update') allowed`)).allowed);
+check('new condition sorts above like new for matching', (await one(db, `select 'N'::public.condition_grade < 'A'::public.condition_grade ok`)).ok);
+await db.exec(`set role authenticated`);
+const staffDraft = await one(db, "insert into public.orders(status) values('draft') returning id");
+await db.exec(`select public.save_sale_plan('${staffDraft.id}','immediate')`);
+check('approved staff can open and choose terms through the real grants', (await one(db, `select sale_plan from public.orders where id='${staffDraft.id}'`)).sale_plan==='immediate');
+check('direct API cannot bypass plan validation',await refuses(db,`update public.orders set plan_confirmed_at=now() where id='${staffDraft.id}'`));
+r=await one(db,`select count(*) n from public.order_receipts where order_id='${reserved.id}'`);
+check('approved staff can read receipts through RLS',num(r.n)===2);
+await db.exec(`reset role`);
+await db.exec(`set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000000'; set role authenticated`);
+r=await one(db,`select count(*) n from public.order_receipts`);
+check('unapproved authenticated user cannot read receipts',num(r.n)===0);
+check('unapproved user cannot choose purchase option',await refuses(db,`select public.choose_purchase_option('${staffDraft.id}','immediate')`));
+check('unapproved user cannot call payment RPC',await refuses(db,`select public.record_order_receipt('${reserved.id}',100,'bank_transfer','X','2026-02-01',gen_random_uuid(),true)`));
+await db.exec(`reset role`);
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

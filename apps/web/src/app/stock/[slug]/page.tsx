@@ -1,3 +1,5 @@
+
+import { gradeLabel } from "@takemore/core";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +11,6 @@ import EnquiryForm from "@/components/EnquiryForm";
 import ProductGallery from "@/components/ProductGallery";
 import { Breadcrumbs } from "@/components/PageShell";
 import {
-  WARRANTY_MONTHS,
   cm,
   deliveryFor,
   priceLabel,
@@ -144,7 +145,7 @@ export default async function ProductPage({
     ...known("Depth", mm(depth)),
     ...known("Height", mm(height)),
     ...known("Weight", item.weightKg > 0 ? `${item.weightKg} kg` : null),
-    ["Condition", `Grade ${item.grade}`],
+    ["Condition", gradeLabel(item.grade)],
   ];
 
   return (
@@ -180,7 +181,7 @@ export default async function ProductPage({
                 {item.category}
               </span>
               <span className="px-4 py-1.5 rounded-full border border-border text-xs font-light text-muted">
-                Grade {item.grade}
+                {gradeLabel(item.grade)}
               </span>
               {/*
                 The code, last in the row and quiet on purpose. It is not a
@@ -273,7 +274,7 @@ export default async function ProductPage({
               )}
             </div>
 
-            {/* Delivery + warranty */}
+            {/* Delivery + viewing */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoCard
                 icon="solar:delivery-linear"
@@ -281,9 +282,9 @@ export default async function ProductPage({
                 copy={delivery.detail}
               />
               <InfoCard
-                icon="solar:shield-check-linear"
-                title={`${WARRANTY_MONTHS}-month warranty`}
-                copy="Parts and labour in writing. If it fails inside six months we collect it, repair it and return it at our cost."
+                icon="solar:map-point-linear"
+                title="See it in person"
+                copy="Visit our Montague Gardens warehouse to inspect the item and ask your questions before choosing."
               />
             </div>
 

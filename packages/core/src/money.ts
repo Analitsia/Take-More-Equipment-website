@@ -46,3 +46,7 @@ export const savingPercent = (
   if (!retailCents || retailCents <= listCents) return null;
   return Math.round(((retailCents - listCents) / retailCents) * 100);
 };
+
+/** Payment records retain cents; catalogue display may still use whole rands. */
+export const paymentAmount = (cents: Cents): string =>
+  `R${centsToRands(cents).toLocaleString("en-ZA", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;

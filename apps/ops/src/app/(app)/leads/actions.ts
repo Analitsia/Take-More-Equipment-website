@@ -248,7 +248,7 @@ export type InterestPatch = {
   category_id?: string | null;
   subcategory_id?: string | null;
   budget_max_cents?: number | null;
-  min_grade?: "A" | "B" | "C" | null;
+  min_grade?: "N" | "A" | "B" | "C" | null;
   description?: string;
   active?: boolean;
 };

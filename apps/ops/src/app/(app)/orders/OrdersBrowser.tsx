@@ -4,11 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ORDER_STATUS_LABELS,
+  SALE_PLAN_LABELS,
+  purchaseOption,
+  planBalance,
   PAYMENT_METHOD_LABELS,
   formatPhone,
   isOutOnHire,
   normalisePhone,
-  rands,
+  paymentAmount as rands,
   type OrderStatus,
 } from "@takemore/core";
 import type { OrderRow } from "@/lib/orders";
@@ -21,7 +24,7 @@ import type { OrderRow } from "@/lib/orders";
  * the difference between a list somebody uses and a list somebody avoids.
  */
 
-type Filter = "all" | "draft" | "paid" | "out" | "void";
+type Filter = "all" | "draft" | "paid" | "out" | "void" | "layby" | "reservation" | "asset_finance" | "due" | "refund" | "payjustnow";
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "Everything" },
@@ -31,6 +34,12 @@ const FILTERS: { value: Filter; label: string }[] = [
   // the stock is rather than where the money is.
   { value: "out", label: "Out on hire" },
   { value: "void", label: "Cancelled" },
+  { value: "layby", label: "Lay-by" },
+  { value: "reservation", label: "Reserved" },
+  { value: "asset_finance", label: "Asset financing" },
+  { value: "payjustnow", label: "PayJustNow" },
+  { value: "due", label: "Payment due" },
+  { value: "refund", label: "Refund pending" },
 ];
 
 
@@ -71,8 +80,13 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
     const asPhone = normalisePhone(query);
 
     return orders.filter((order) => {
-      if (filter === "out" ? !isOutOnHire(order) : filter !== "all" && order.status !== filter)
-        return false;
+      const b = planBalance(order, order.charged_total_cents ?? 0, order.receipts);
+      if (filter === "payjustnow" && purchaseOption(order) !== "payjustnow") return false;
+      if (filter === "out" && !isOutOnHire(order)) return false;
+      if (["draft", "paid", "void"].includes(filter) && order.status !== filter) return false;
+      if (["layby", "reservation", "asset_finance"].includes(filter) && (order.sale_plan !== filter || order.status !== "draft")) return false;
+      if (filter === "due" && (order.status !== "draft" || b.due <= 0)) return false;
+      if (filter === "refund" && (order.status !== "void" || b.received <= 0)) return false;
       if (!term) return true;
 
       const haystack = [
@@ -156,7 +170,8 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
                     </p>
                     <p className="text-[11px] font-light text-muted truncate">
                       {[
-                        `${machines} machine${machines === 1 ? "" : "s"}`,
+                        `${machines} item${machines === 1 ? "" : "s"}`,
+                        order.sale_plan ? SALE_PLAN_LABELS[order.sale_plan] : null,
                         order.kind === "hire" && order.hire_start && order.hire_end
                           ? `${orderDate.format(new Date(order.hire_start))} – ${orderDate.format(new Date(order.hire_end))}`
                           : null,
@@ -173,6 +188,7 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    {order.plan_confirmed_at && order.status !== 'paid' && <PlanSummary order={order} />}
                     <span className="flex items-center gap-1.5">
                       {order.kind === "hire" && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-light border border-white/15 text-white/80">
@@ -199,4 +215,10 @@ export default function OrdersBrowser({ orders }: { orders: OrderRow[] }) {
       )}
     </>
   );
+}
+
+function PlanSummary({ order }: { order: OrderRow }) {
+  const b = planBalance(order, order.charged_total_cents ?? 0, order.receipts);
+  if (order.status === 'void') return b.received > 0 ? <span className="text-xs text-status-sold">Refund pending · {rands(b.received)}</span> : null;
+  return <span className="text-xs text-right"><span className={b.due > 0 ? "text-status-sold" : "text-accent"}>{b.due > 0 ? `PAYMENT DUE · ${rands(b.due)}` : `${rands(b.balance)} outstanding`}</span>{b.next && <span className="block text-muted">{b.next.label} · {b.next.date}</span>}</span>;
 }

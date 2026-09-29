@@ -1,3 +1,5 @@
+
+import { gradeLabel } from "@takemore/core";
 import { rands, type OutreachChannel } from "@takemore/core";
 
 /**
@@ -40,7 +42,7 @@ export type MatchContext = {
   itemBrand: string | null;
   itemSlug: string;
   itemPriceCents: number | null;
-  itemGrade: "A" | "B" | "C" | null;
+  itemGrade: "N" | "A" | "B" | "C" | null;
   /** How many photographs the email will carry, so the copy can point at them. */
   photoCount?: number;
   /** How many clips, same reason. */
@@ -106,7 +108,7 @@ export function draftMatchMessage(
   channel: OutreachChannel
 ): string {
   const price = context.itemPriceCents ? rands(context.itemPriceCents) : null;
-  const grade = context.itemGrade ? `Grade ${context.itemGrade}` : null;
+  const grade = context.itemGrade ? gradeLabel(context.itemGrade) : null;
   const spec = [price, grade].filter(Boolean).join(", ");
 
   if (channel === "whatsapp") {
@@ -229,7 +231,7 @@ export function draftInvoiceMessage(context: {
     `Thanks — that's paid. Here is invoice ${context.number}, ${total}.`,
     "",
     context.delivering
-      ? "We'll be in touch about the delivery. Keep this for the warranty."
-      : "Keep this for the warranty — bring it with the machine if anything needs looking at.",
+      ? "We'll be in touch about the delivery. Keep this as your purchase reference."
+      : "Keep this as your purchase reference. Contact our team if you have a question.",
   ].join("\n");
 }

@@ -12,7 +12,8 @@ import type { Segment } from "@takemore/core";
  * the data source did.
  */
 
-export const GRADES = ["A", "B", "C"] as const;
+export { CONDITION_GRADES as GRADES } from "@takemore/core";
+import { DELIVERY_RULE_LABEL, CONDITION_GRADES as GRADES } from "@takemore/core";
 export type Grade = (typeof GRADES)[number];
 
 /**
@@ -161,7 +162,6 @@ export function relatedTo(
   return [...sameCategory, ...byPrice].slice(0, limit);
 }
 
-export const WARRANTY_MONTHS = 6;
 
 /** Light items go on a courier; anything heavy is delivered or collected. */
 export function deliveryFor(item: Equipment) {
@@ -173,7 +173,7 @@ export function deliveryFor(item: Equipment) {
     : {
         headline: "Delivered or collected",
         detail:
-          "Cape Town delivery within 48 hours, quoted by distance. Or collect free from Montague Gardens.",
+          `Collect from Montague Gardens or arrange delivery: ${DELIVERY_RULE_LABEL}.`,
       };
 }
 

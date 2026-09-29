@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -485,13 +487,13 @@ function InterestCard({
           <Select
             value={interest.min_grade ?? ""}
             onChange={(e) =>
-              patch({ min_grade: (e.target.value || null) as "A" | "B" | "C" | null })
+              patch({ min_grade: (e.target.value || null) as "N" | "A" | "B" | "C" | null })
             }
           >
             <option value="">Any grade</option>
             {CONDITION_GRADES.map((g) => (
               <option key={g} value={g}>
-                Grade {g} or better
+                {gradeLabel(g)} or better
               </option>
             ))}
           </Select>

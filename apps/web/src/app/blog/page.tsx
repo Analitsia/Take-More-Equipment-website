@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/blog" },
   title: "Journal — Take More",
   description:
-    "Buying guides and notes from the workshop: what equipment should actually cost, what to check before you pay, and how we grade and warranty condition.",
+    "Buying guides and notes from the workshop: what equipment should actually cost, what to check before you pay, and how we describe condition.",
 };
 
 export default function BlogIndexPage() {
@@ -35,7 +35,7 @@ export default function BlogIndexPage() {
                 href="/conditions"
                 className="inline-flex items-center gap-3 border border-border rounded-2xl px-6 py-4 hover:border-white/25 transition-colors"
               >
-                <span className="text-sm font-light">How we grade and warranty</span>
+                <span className="text-sm font-light">How we describe condition</span>
                 <iconify-icon icon="solar:arrow-right-linear" width="16" height="16"></iconify-icon>
               </Link>
               <Link
@@ -56,7 +56,7 @@ export default function BlogIndexPage() {
     <PageShell
       eyebrow="Journal"
       title={<>What we learn rebuilding kitchens for a living.</>}
-      intro="Real prices, what to check before you pay for any machine, and the reasoning behind how we grade and warranty equipment. Written for people spending their own money on a kitchen."
+      intro="Real prices, what to check before you pay for any machine, and the reasoning behind how we describe equipment condition. Written for people spending their own money on a kitchen."
       crumbs={[{ label: "Home", href: "/" }, { label: "Journal" }]}
     >
       <ContentSection>

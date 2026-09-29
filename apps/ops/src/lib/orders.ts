@@ -1,6 +1,9 @@
 import { supabase } from "./supabase";
 import { reportError } from "@takemore/observability";
 import type {
+  PurchaseOption,
+  SaleTerms,
+  OrderReceipt,
   InvoiceDocument,
   InvoiceKind,
   ItemStatus,
@@ -29,7 +32,10 @@ const orEmpty = <T>(
   return result.data ?? [];
 };
 
-export type OrderRow = {
+export type OrderRow = SaleTerms & {
+  purchase_option: PurchaseOption | null;
+  sale_plans_ready: boolean;
+  receipts: OrderReceipt[];
   id: string;
   code: string;
   status: OrderStatus;
@@ -51,6 +57,8 @@ export type OrderRow = {
 
 const ORDER_LIST_SELECT = `
   id, code, status, kind, hire_start, hire_end, hire_returned_at,
+  purchase_option, sale_plan, plan_start, plan_months, plan_payment_day, plan_deposit_cents, plan_final_due, plan_confirmed_at,
+  receipts:order_receipts(id,amount_cents,entry_kind,method,reference,received_on,recorded_at),
   sold_total_cents, delivery, delivery_fee_cents,
   charged_total_cents, payment_method, paid_at, created_at, voided_at,
   lead:leads(id, full_name, business_name, phone),
@@ -65,22 +73,32 @@ const ORDER_LIST_SELECT = `
  * instant filtering is the difference between a list somebody uses and a list
  * somebody avoids.
  */
+const planSchemaMissing = (error: { message: string } | null) => Boolean(error && /purchase_option|sale_plan|plan_start|order_receipts/.test(error.message) && /does not exist|schema cache|relationship/.test(error.message));
+const legacySelect = (select: string) => select
+  .replace(/purchase_option, /g, "")
+  .replace(/sale_plan, plan_start, plan_months, plan_payment_day, plan_deposit_cents, plan_final_due, plan_confirmed_at,/g, "")
+  .replace(/receipts:order_receipts\([^)]*\),/g, "");
+const pendingPlan = { purchase_option: null, sale_plans_ready: false, sale_plan: null, plan_start: null, plan_months: null, plan_payment_day: null, plan_deposit_cents: null, plan_final_due: null, plan_confirmed_at: null, receipts: [] };
 export async function listOrders(): Promise<OrderRow[]> {
   const client = await supabase();
-  return orEmpty(
-    "orders/listOrders",
-    await client
-      .from("orders")
-      .select(ORDER_LIST_SELECT)
-      .order("created_at", { ascending: false })
-  ) as unknown as OrderRow[];
+  const result = await client.from("orders").select(ORDER_LIST_SELECT).order("created_at", { ascending: false });
+  if (planSchemaMissing(result.error)) {
+    const legacy = await client.from("orders").select(legacySelect(ORDER_LIST_SELECT)).order("created_at", { ascending: false });
+    if (legacy.error) throw new Error(legacy.error.message);
+    return ((legacy.data ?? []) as unknown as Record<string, unknown>[]).map(row => ({ ...pendingPlan, ...row })) as unknown as OrderRow[];
+  }
+  if (result.error) throw new Error(result.error.message);
+  return (result.data ?? []).map(row => ({ ...row, sale_plans_ready: true })) as unknown as OrderRow[];
 }
 
-export type OrderDetail = {
+export type OrderDetail = SaleTerms & {
+  purchase_option: PurchaseOption | null;
+  sale_plans_ready: boolean;
+  receipts: OrderReceipt[];
   id: string;
   code: string;
   status: OrderStatus;
-  /** Sale or hire. Frozen by the database once a machine is on the order. */
+  /** Sale or hire. Frozen once an agreement or payment has been confirmed. */
   kind: OrderKind;
   /** `2026-09-01`. Both null on a sale; both required before a hire is paid. */
   hire_start: string | null;
@@ -120,21 +138,22 @@ export type OrderDetail = {
 
 export async function getOrder(id: string): Promise<OrderDetail | null> {
   const client = await supabase();
-  const { data, error } = await client
-    .from("orders")
-    .select(
-      `id, code, status, kind, hire_start, hire_end, hire_returned_at,
+  const select = `id, code, status, kind, hire_start, hire_end, hire_returned_at,
+       purchase_option, sale_plan, plan_start, plan_months, plan_payment_day, plan_deposit_cents, plan_final_due, plan_confirmed_at,
+       receipts:order_receipts(id,amount_cents,entry_kind,method,reference,received_on,recorded_at),
        lead_id, sold_total_cents, delivery, delivery_address,
        delivery_km, delivery_km_source, delivery_fee_cents, charged_total_cents,
        payment_method, payment_reference, paid_at, sold_by, notes, voided_at, void_reason,
        created_at,
-       lead:leads(id, full_name, business_name, email, phone)`
-    )
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  return data as unknown as OrderDetail | null;
+       lead:leads(id, full_name, business_name, email, phone)`;
+  const result = await client.from("orders").select(select).eq("id", id).maybeSingle();
+  if (planSchemaMissing(result.error)) {
+    const legacy = await client.from("orders").select(legacySelect(select)).eq("id", id).maybeSingle();
+    if (legacy.error) throw new Error(legacy.error.message);
+    return legacy.data ? { ...pendingPlan, ...(legacy.data as unknown as Record<string, unknown>) } as unknown as OrderDetail : null;
+  }
+  if (result.error) throw new Error(result.error.message);
+  return result.data ? { ...result.data, sale_plans_ready: true } as unknown as OrderDetail : null;
 }
 
 export type OrderLineRow = {

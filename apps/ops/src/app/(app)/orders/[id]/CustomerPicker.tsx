@@ -71,7 +71,7 @@ export default function CustomerPicker({
     const name =
       order.lead.full_name?.trim() || order.lead.business_name?.trim() || "Someone";
     return (
-      <Panel title="Customer">
+      <Panel title="2. Customer">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium tracking-tight truncate">{name}</p>
@@ -107,7 +107,7 @@ export default function CustomerPicker({
 
   if (locked) {
     return (
-      <Panel title="Customer">
+      <Panel title="2. Customer">
         <p className="text-sm font-light text-muted">Nobody was recorded on this order.</p>
       </Panel>
     );
@@ -115,7 +115,7 @@ export default function CustomerPicker({
 
   return (
     <Panel
-      title="Customer"
+      title="2. Customer"
       subtitle="Search for them, or take their details."
       actions={
         <Button variant="ghost" onClick={() => setCapturing((v) => !v)}>

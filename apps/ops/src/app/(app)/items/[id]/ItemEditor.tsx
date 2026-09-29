@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -541,7 +543,7 @@ export default function ItemEditor({
               <option value="">Choose…</option>
               {CONDITION_GRADES.map((g) => (
                 <option key={g} value={g}>
-                  Grade {g}
+                  {gradeLabel(g)}
                 </option>
               ))}
             </Select>
@@ -551,8 +553,8 @@ export default function ItemEditor({
               the same fryer the same way. */}
           {form.condition_grade && (
             <p className="text-[11px] font-light text-muted leading-relaxed bg-background border border-border rounded-xl px-3 py-2.5">
-              <span className="text-accent">Grade {form.condition_grade}</span> —{" "}
-              {GRADE_GUIDANCE[form.condition_grade as "A" | "B" | "C"]}
+              <span className="text-accent">{gradeLabel(form.condition_grade)}</span> —{" "}
+              {GRADE_GUIDANCE[form.condition_grade as "N" | "A" | "B" | "C"]}
             </p>
           )}
 

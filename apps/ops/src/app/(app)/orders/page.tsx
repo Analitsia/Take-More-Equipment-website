@@ -1,5 +1,5 @@
 import { requireStaff } from "@/lib/supabase";
-import { isOutOnHire, rands } from "@takemore/core";
+import { isOutOnHire, planBalance, paymentAmount as rands } from "@takemore/core";
 import NewOrderButton from "@/components/NewOrderButton";
 import { listOrders } from "@/lib/orders";
 import OrdersBrowser from "./OrdersBrowser";
@@ -14,7 +14,9 @@ export default async function OrdersPage() {
   const out = orders.filter(isOutOnHire);
   // What has actually been taken, ever. Charged rather than goods, because this
   // is the till's number and delivery is money that came in too.
-  const taken = paid.reduce((sum, o) => sum + (o.charged_total_cents ?? 0), 0);
+  const taken = orders.reduce((sum, o) => sum + (o.plan_confirmed_at
+    ? planBalance(o, o.charged_total_cents ?? 0, o.receipts).received
+    : o.status === "paid" ? (o.charged_total_cents ?? 0) : 0), 0);
 
   return (
     <div className="max-w-5xl">
@@ -28,7 +30,7 @@ export default async function OrdersPage() {
           <h1 className="text-xl md:text-2xl font-medium tracking-tight">
             {orders.length === 0
               ? "No sales yet"
-              : `${paid.length} sold · ${rands(taken)}`}
+              : `${paid.length} paid orders · ${rands(taken)} received`}
           </h1>
           <p className="text-sm font-light text-muted mt-1">
             {[

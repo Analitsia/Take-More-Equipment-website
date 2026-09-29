@@ -14,11 +14,12 @@ export default function Footer() {
           Stock
         </Link>
         <Link href="/conditions" className="hover:text-white transition-colors">
-          Condition &amp; Warranty
+          Condition &amp; Inspection
         </Link>
         <Link href="/delivery" className="hover:text-white transition-colors">
           Delivery
         </Link>
+        <Link href="/payment-options" className="hover:text-white transition-colors">Ways to Pay</Link>
         <Link href="/about" className="hover:text-white transition-colors">
           About
         </Link>

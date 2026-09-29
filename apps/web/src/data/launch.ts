@@ -183,10 +183,6 @@ export const claims = {
     { number: "50", suffix: "%", label: "Average Saving vs New" },
     "Take a sample of sold units, compare each to its new-equivalent quote, and average honestly."
   ),
-  warranty: unverified<Stat>(
-    { number: "6", suffix: "Mo", label: "Workshop Warranty" },
-    "This is a promise you are legally held to. It must match the warranty terms you actually issue."
-  ),
   delivery: unverified<Stat>(
     { number: "48", suffix: "H", label: "Cape Town Delivery" },
     "Must match what /delivery says and what actually happens. A missed delivery promise is a refund claim."

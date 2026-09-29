@@ -84,7 +84,7 @@ export type ItemPatch = {
   model?: string | null;
   category_id?: string | null;
   subcategory_id?: string | null;
-  condition_grade?: "A" | "B" | "C" | null;
+  condition_grade?: "N" | "A" | "B" | "C" | null;
   description?: string | null;
   workshop_notes?: string[];
   capacity?: string | null;

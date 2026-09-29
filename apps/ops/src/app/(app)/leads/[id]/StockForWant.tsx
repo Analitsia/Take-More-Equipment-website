@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@takemore/ui";
@@ -76,7 +78,7 @@ export default function StockForWant({
               <p className="text-[11px] font-light text-muted tabular-nums">
                 {[
                   item.list_price_cents ? rands(item.list_price_cents) : null,
-                  item.condition_grade ? `Grade ${item.condition_grade}` : null,
+                  item.condition_grade ? gradeLabel(item.condition_grade) : null,
                   `match ${item.score}`,
                 ]
                   .filter(Boolean)

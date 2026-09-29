@@ -38,7 +38,7 @@ export const isOutOnHire = (order: {
   hire_returned_at: string | null;
 }): boolean => order.kind === "hire" && order.status === "paid" && !order.hire_returned_at;
 
-export const PAYMENT_METHODS = ["card_machine", "bank_transfer"] as const;
+export const PAYMENT_METHODS = ["card_machine", "bank_transfer", "payjustnow"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 /**
@@ -49,6 +49,7 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   card_machine: "Card machine",
   bank_transfer: "Bank transfer",
+  payjustnow: "PayJustNow",
 };
 
 /**

@@ -148,7 +148,6 @@ export function relatedTo(
   return [...sameCategory, ...byPrice].slice(0, limit);
 }
 
-export const WARRANTY_MONTHS = 6;
 
 /** Light items go on a courier; anything heavy is delivered or collected. */
 export function deliveryFor(weightKg: number | null) {

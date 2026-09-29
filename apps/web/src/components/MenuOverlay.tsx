@@ -15,8 +15,9 @@ import { site, whatsappLink } from "@/data/site";
 
 export const navLinks = [
   { href: "/#catalogue", label: "Stock", blurb: "Every unit priced on the card" },
-  { href: "/conditions", label: "Condition & Warranty", blurb: "What A, B and C mean" },
+  { href: "/conditions", label: "Condition & Inspection", blurb: "What New, Like New, Good and Fair mean" },
   { href: "/delivery", label: "Delivery & Collection", blurb: "Lead times and costs" },
+  { href: "/payment-options", label: "Ways to Pay", blurb: "Options for your in-store purchase" },
   { href: "/about", label: "About Us", blurb: "Why we cost half of new" },
   // Dropped entirely while no post has been verified, rather than offering a
   // prominent route to an empty page.

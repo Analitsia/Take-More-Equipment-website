@@ -3,46 +3,20 @@ import Link from "next/link";
 import PageShell from "@/components/PageShell";
 import { ContentSection } from "@/components/Prose";
 import Subheading from "@/components/Subheading";
-import { GRADES, WARRANTY_MONTHS } from "@/data/equipment";
+import { GRADES } from "@/data/equipment";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/conditions" },
-  title: "Condition & Warranty — Take More",
+  title: "Condition & Inspection — Take More",
   description:
-    "What Grade A, B and C mean, what we replace before a unit is listed, and the terms of the six-month parts-and-labour warranty.",
+    "What New, Like New, Good and Fair mean, and what to check when you visit the warehouse.",
 };
 
-const grades: Record<
-  (typeof GRADES)[number],
-  { headline: string; copy: string; examples: string[] }
-> = {
-  A: {
-    headline: "Presentable front of house",
-    copy: "Light surface marks visible up close, nothing you would notice from two metres. Doors, panels and handles straight and aligned.",
-    examples: [
-      "Fine scratching on stainless, no dents",
-      "All original panels and handles",
-      "Buy this if customers will see it",
-    ],
-  },
-  B: {
-    headline: "Honest working condition",
-    copy: "Scratches, scuffs, heat discolouration or a dent that does not affect function. Typically 15–25% cheaper than the equivalent Grade A unit.",
-    examples: [
-      "Dented panel or marked drainer",
-      "Heat colouring on grates and trims",
-      "Buy this if it lives behind the pass",
-    ],
-  },
-  C: {
-    headline: "Cosmetically rough, priced for it",
-    copy: "Dents along an edge, mismatched panels, a previous owner's drill holes. Works exactly as it should, and every flaw is photographed and listed.",
-    examples: [
-      "Visible dents or previous repairs",
-      "Mismatched or re-drilled fittings",
-      "Buy this if only function matters",
-    ],
-  },
+const grades = {
+  N: { headline: "New", copy: "New and unused.", examples: ["Not previously used", "Product details explain what is included"] },
+  A: { headline: "Like New", copy: "Previously owned, with a near-new appearance.", examples: ["No significant visible wear", "Check the listing for details"] },
+  B: { headline: "Good", copy: "Visible signs of use, clearly described and photographed.", examples: ["Surface scratches or small dents", "Condition reflected in the price"] },
+  C: { headline: "Fair", copy: "Noticeable wear or cosmetic damage, clearly described and photographed.", examples: ["Visible marks or previous repairs", "Inspect the details before buying"] },
 };
 
 const workshop = [
@@ -64,40 +38,35 @@ const workshop = [
   {
     icon: "solar:gallery-wide-linear",
     title: "Grade and photograph",
-    copy: "An honest A, B or C for cosmetics only, then photographed as-is. Scratches included.",
+    copy: "A clear condition label, then photographed as-is. Scratches included.",
   },
 ];
 
 export default function ConditionsPage() {
   return (
     <PageShell
-      eyebrow="Condition & Warranty"
+      eyebrow="Condition & Inspection"
       title={<>A lower price should not mean a bigger gamble.</>}
-      intro="Most dealers grade their stock and never publish the rules, which is convenient for them and useless for you. Ours are below, along with exactly what we replace before anything gets a price, and precisely what the six-month warranty pays for."
-      crumbs={[{ label: "Home", href: "/" }, { label: "Condition & Warranty" }]}
+      intro="Clear condition labels help you shortlist. Visit the warehouse to inspect your favourites and ask our team about each item."
+      crumbs={[{ label: "Home", href: "/" }, { label: "Condition & Inspection" }]}
     >
       <ContentSection>
         <Subheading text="The Grades" />
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-4">
-          Three letters, cosmetics only
+          Clear condition. No guesswork.
         </h2>
         <p className="text-muted font-light text-sm leading-relaxed max-w-2xl mb-12">
           Grades describe appearance and nothing else. Mechanical condition is not part of
-          the grade, because a machine either works properly or we do not list it. All
-          three grades carry the same warranty.
+          the grade, because a machine either works properly or we do not list it. Check the product details and ask our team about the tests carried out.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {GRADES.map((grade) => (
             <div
               key={grade}
               className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 flex flex-col"
             >
-              <div className="flex items-baseline gap-3 mb-6">
-                <span className="text-5xl font-light tracking-tighter">{grade}</span>
-                <span className="text-accent text-sm font-light">Grade</span>
-              </div>
-              <h3 className="text-lg font-medium tracking-tight mb-3">
+              <h3 className="text-2xl font-medium tracking-tight mb-3">
                 {grades[grade].headline}
               </h3>
               <p className="text-muted font-light text-sm leading-relaxed mb-6">
@@ -127,14 +96,14 @@ export default function ConditionsPage() {
           {workshop.map((step, idx) => (
             <div key={step.title} className="border-t border-border pt-8 flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <span className="text-4xl sm:text-5xl font-light tracking-tighter text-white/15">
+                <span className="text-4xl sm:text-3xl font-light tracking-tighter text-white/15">
                   0{idx + 1}
                 </span>
                 <div className="w-12 h-12 rounded-2xl bg-card border border-border flex items-center justify-center text-accent">
                   <iconify-icon icon={step.icon} width="22" height="22"></iconify-icon>
                 </div>
               </div>
-              <h3 className="text-lg font-medium tracking-tight mb-3">{step.title}</h3>
+              <h3 className="text-2xl font-medium tracking-tight mb-3">{step.title}</h3>
               <p className="text-muted font-light text-sm leading-relaxed">{step.copy}</p>
             </div>
           ))}
@@ -142,95 +111,11 @@ export default function ConditionsPage() {
       </ContentSection>
 
       <ContentSection>
-        <div className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
-            <div>
-              <Subheading text="The Warranty" />
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-6">
-                {WARRANTY_MONTHS} months, parts and labour, in writing.
-              </h2>
-              <p className="text-muted font-light text-sm leading-relaxed">
-                If a unit fails within {WARRANTY_MONTHS} months of collection or delivery,
-                we collect it, repair it and return it at our cost. You get the warranty
-                document with your invoice — not a verbal promise at the door. A private
-                sale gives you none of this, and that difference is the entire reason to
-                buy a machine that has been through a workshop.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-8">
-              <div>
-                <h3 className="text-sm font-medium tracking-tight mb-4 flex items-center gap-3">
-                  <iconify-icon
-                    icon="solar:check-read-linear"
-                    width="16"
-                    height="16"
-                    className="text-accent"
-                  ></iconify-icon>
-                  Covered
-                </h3>
-                <ul className="flex flex-col gap-2.5">
-                  {[
-                    "Mechanical and electrical failure under normal commercial use",
-                    "Parts we replaced in the workshop",
-                    "Compressors, elements, thermostats, pumps and motors",
-                    "Collection and return transport within the Cape Town metro",
-                  ].map((line) => (
-                    <li key={line} className="flex items-start gap-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 mt-1.5"></span>
-                      <span className="text-xs font-light text-muted leading-relaxed">
-                        {line}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium tracking-tight mb-4 flex items-center gap-3">
-                  <iconify-icon
-                    icon="solar:close-circle-linear"
-                    width="16"
-                    height="16"
-                    className="text-muted"
-                  ></iconify-icon>
-                  Not covered
-                </h3>
-                <ul className="flex flex-col gap-2.5">
-                  {[
-                    "Cosmetic condition disclosed at the time of sale",
-                    "Damage from incorrect installation, supply or gas pressure",
-                    "Consumables — lamps, filters, rinse aid, fuses",
-                    "Scale damage where no water treatment was fitted",
-                    "Units modified or repaired by a third party",
-                  ].map((line) => (
-                    <li key={line} className="flex items-start gap-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0 mt-1.5"></span>
-                      <span className="text-xs font-light text-muted leading-relaxed">
-                        {line}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <p className="text-xs font-light text-muted max-w-lg">
-              Consumer Protection Act rights are not affected. Cooling-off and return
-              rights for distance sales apply in addition to this warranty.
-            </p>
-            <Link href="/#catalogue" className="inline-flex items-center gap-4 group shrink-0">
-              <span className="text-sm font-light group-hover:text-accent transition-colors">
-                Browse the catalogue
-              </span>
-              <span className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-background group-hover:scale-105 transition-transform">
-                <iconify-icon icon="solar:arrow-right-linear" width="18" height="18"></iconify-icon>
-              </span>
-            </Link>
-          </div>
-        </div>
+        <Subheading text="Before You Choose" />
+        <h2 className="text-2xl md:text-4xl font-medium tracking-tight mb-4">Take a closer look.</h2>
+        <p className="text-muted font-light leading-relaxed max-w-2xl mb-6">Check the condition, dimensions and features in person. For equipment, confirm that the power, gas, water and access requirements suit your space. Ask our team about the item and the work carried out.</p>
+        <p className="text-xs text-muted mb-6">Your applicable statutory consumer rights are not affected.</p>
+        <Link href="/about#visit" className="text-accent text-sm">Plan your visit →</Link>
       </ContentSection>
     </PageShell>
   );

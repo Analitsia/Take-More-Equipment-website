@@ -125,7 +125,7 @@ type MessageForSending = {
     brand: string | null;
     slug: string;
     list_price_cents: number | null;
-    condition_grade: "A" | "B" | "C" | null;
+    condition_grade: "N" | "A" | "B" | "C" | null;
     status: string;
     published_at: string | null;
     deleted_at: string | null;

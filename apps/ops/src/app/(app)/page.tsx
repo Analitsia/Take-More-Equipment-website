@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { listOrders } from "@/lib/orders";
+import { planBalance } from "@takemore/core";
 import { Suspense } from "react";
 import { getLastCronRun, listItems } from "@/lib/queries";
 import { listLeads } from "@/lib/leads";
@@ -60,12 +62,14 @@ export default async function DashboardPage() {
   if (canSeeCosts(staff.role)) {
     return (
       <Suspense fallback={<HomeSkeleton />}>
+        <PaymentAttention />
         <ManagerDashboard greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />
       </Suspense>
     );
   }
   return (
     <Suspense fallback={<HomeSkeleton />}>
+      <PaymentAttention />
       <StaffToday greeting={`${timeOfDay()}, ${firstName}`} sweep={lastSweep} />
     </Suspense>
   );
@@ -410,4 +414,22 @@ function SweepStatus({ run }: { run: Sweep }) {
       </div>
     </div>
   );
+}
+
+async function PaymentAttention() {
+  try {
+    const orders = await listOrders();
+    let due = 0, refunds = 0;
+    for (const order of orders) {
+      if (!order.plan_confirmed_at) continue;
+      const balance = planBalance(order, order.charged_total_cents ?? 0, order.receipts);
+      if (order.status === "draft" && balance.due > 0) due++;
+      if (order.status === "void" && balance.received > 0) refunds++;
+    }
+    if (!due && !refunds) return null;
+    return <Link href="/orders" className="block mb-5 rounded-xl border border-accent/30 bg-accent/5 p-4 text-sm text-accent">{due} payment{due === 1 ? "" : "s"} due · {refunds} refund{refunds === 1 ? "" : "s"} pending. Review orders →</Link>;
+  } catch (error) {
+    reportError(error, { where: "dashboard/payment-attention" });
+    return <Link href="/orders" className="block mb-4 text-sm text-muted">Payment checks could not load. Open orders to review →</Link>;
+  }
 }

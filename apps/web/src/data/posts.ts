@@ -157,13 +157,13 @@ const drafts: Draft[] = [
       { kind: "h", text: "Or skip the list" },
       {
         kind: "p",
-        text: "Every unit on our floor has been through all nine before it was priced, with the worn parts replaced rather than cleaned, the results published on its listing, and six months of parts-and-labour warranty behind it. You are welcome to run the checks again yourself in Montague Gardens before you pay — we would rather you did.",
+        text: "Every unit on our floor has been through all nine before it was priced, with the worn parts replaced rather than cleaned, the results published on its listing. You are welcome to run the checks again yourself in Montague Gardens before you pay — we would rather you did.",
       },
     ],
   },
   {
     slug: "grade-a-b-c-what-the-letters-mean",
-    title: "Grade A, B or C — what the letters actually mean",
+    title: "New, Like New, Good or Fair — what condition means",
     excerpt:
       "Condition grades are meaningless unless the seller publishes the rules. Here are ours, including exactly what will and will not get a unit downgraded.",
     date: "2026-06-11",
@@ -178,17 +178,17 @@ const drafts: Draft[] = [
         kind: "p",
         text: "Ours are deliberately simple, and they describe cosmetic condition only. Mechanical condition is not part of the grade, because nothing leaves our workshop mechanically compromised — a machine either works properly or we do not list it.",
       },
-      { kind: "h", text: "Grade A" },
+      { kind: "h", text: "Like New" },
       {
         kind: "p",
         text: "Presentable front of house. Light surface marks visible up close, nothing you would notice from two metres. Doors, panels and handles all straight. This is what you buy if the unit will be in view of customers.",
       },
-      { kind: "h", text: "Grade B" },
+      { kind: "h", text: "Good" },
       {
         kind: "p",
-        text: "Honest working condition. Scratches, scuffs, heat discolouration, or a dent in a panel that does not affect function. Perfectly good behind a pass where nobody sees it, and typically 15–25% cheaper than the equivalent Grade A.",
+        text: "Honest working condition. Scratches, scuffs, heat discolouration, or a dent in a panel that does not affect function. Perfectly good behind a pass where nobody sees it, and typically 15–25% cheaper than the equivalent Like New.",
       },
-      { kind: "h", text: "Grade C" },
+      { kind: "h", text: "Fair" },
       {
         kind: "p",
         text: "Cosmetically rough and priced accordingly. Dents along an edge, mismatched panels, previous owner's drill holes. Works exactly as it should. We photograph every flaw and list it in the workshop report, so nothing is a surprise on delivery.",
@@ -199,12 +199,12 @@ const drafts: Draft[] = [
         items: [
           "Anything mechanical. Worn parts get replaced before listing, whatever the grade.",
           "Missing accessories. If pans, racks or shelves are missing we say so in the listing and adjust the price.",
-          "Age on its own. A well-kept ten-year-old machine can be Grade A.",
+          "Age on its own. A well-kept ten-year-old machine can be Like New.",
         ],
       },
       {
         kind: "p",
-        text: "All three grades carry the same six-month parts-and-labour warranty. A cheaper grade buys you a more marked panel, not a shorter guarantee.",
+        text: "Condition labels describe appearance. Read the item details and inspect the equipment at the warehouse before choosing.",
       },
     ],
   },

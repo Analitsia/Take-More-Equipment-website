@@ -1042,8 +1042,22 @@ export type Database = {
           },
         ]
       }
+      order_receipts: {
+        Row: { id: string; order_id: string; amount_cents: number; entry_kind: string; method: Database["public"]["Enums"]["payment_method"]; reference: string; received_on: string; recorded_at: string; recorded_by: string; request_id: string }
+        Insert: { id?: string; order_id: string; amount_cents: number; entry_kind: string; method: Database["public"]["Enums"]["payment_method"]; reference: string; received_on: string; recorded_at?: string; recorded_by: string; request_id: string }
+        Update: { amount_cents?: number }
+        Relationships: [{ foreignKeyName: "order_receipts_order_id_fkey"; columns: ["order_id"]; isOneToOne: false; referencedRelation: "orders"; referencedColumns: ["id"] }]
+      }
       orders: {
         Row: {
+          purchase_option: string | null
+          sale_plan: string | null
+          plan_start: string | null
+          plan_months: number | null
+          plan_payment_day: number | null
+          plan_deposit_cents: number | null
+          plan_final_due: string | null
+          plan_confirmed_at: string | null
           charged_total_cents: number | null
           code: string
           created_at: string
@@ -1071,6 +1085,14 @@ export type Database = {
           voided_at: string | null
         }
         Insert: {
+          purchase_option?: string | null
+          sale_plan?: string | null
+          plan_start?: string | null
+          plan_months?: number | null
+          plan_payment_day?: number | null
+          plan_deposit_cents?: number | null
+          plan_final_due?: string | null
+          plan_confirmed_at?: string | null
           charged_total_cents?: number | null
           code?: string
           created_at?: string
@@ -1098,6 +1120,14 @@ export type Database = {
           voided_at?: string | null
         }
         Update: {
+          purchase_option?: string | null
+          sale_plan?: string | null
+          plan_start?: string | null
+          plan_months?: number | null
+          plan_payment_day?: number | null
+          plan_deposit_cents?: number | null
+          plan_final_due?: string | null
+          plan_confirmed_at?: string | null
           charged_total_cents?: number | null
           code?: string
           created_at?: string
@@ -1762,6 +1792,10 @@ export type Database = {
       }
     }
     Functions: {
+      choose_purchase_option: { Args: { p_order_id: string; p_option: string }; Returns: undefined }
+      save_sale_plan: { Args: { p_order_id: string; p_plan: string; p_total?: number; p_start?: string; p_months?: number; p_day?: number; p_deposit?: number; p_due?: string }; Returns: undefined }
+      record_order_receipt: { Args: { p_order_id: string; p_amount: number; p_method: Database["public"]["Enums"]["payment_method"]; p_reference: string; p_date: string; p_request_id: string; p_refund?: boolean }; Returns: Json }
+
       add_order_line: {
         Args: { p_code?: string; p_item_id?: string; p_order_id: string }
         Returns: Json
@@ -1914,7 +1948,7 @@ export type Database = {
         | "deleted"
       app_role: "staff" | "manager" | "owner"
       campaign_state: "draft" | "sending" | "sent" | "failed"
-      condition_grade: "A" | "B" | "C"
+      condition_grade: "N" | "A" | "B" | "C"
       cost_kind:
         | "auction"
         | "workshop"
@@ -1956,7 +1990,7 @@ export type Database = {
       order_status: "draft" | "paid" | "void"
       outreach_channel: "email" | "whatsapp"
       outreach_state: "queued" | "sent" | "skipped" | "failed"
-      payment_method: "card_machine" | "bank_transfer"
+      payment_method: "card_machine" | "bank_transfer" | "payjustnow"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2095,7 +2129,7 @@ export const Constants = {
       ],
       app_role: ["staff", "manager", "owner"],
       campaign_state: ["draft", "sending", "sent", "failed"],
-      condition_grade: ["A", "B", "C"],
+      condition_grade: ["N", "A", "B", "C"],
       cost_kind: [
         "auction",
         "workshop",
@@ -2141,7 +2175,7 @@ export const Constants = {
       order_status: ["draft", "paid", "void"],
       outreach_channel: ["email", "whatsapp"],
       outreach_state: ["queued", "sent", "skipped", "failed"],
-      payment_method: ["card_machine", "bank_transfer"],
+      payment_method: ["card_machine", "bank_transfer", "payjustnow"],
     },
   },
 } as const

@@ -71,13 +71,13 @@ export default function PaymentPanel({
   beforeConfirm?: () => Promise<void>;
   onDone: (result: { ok: boolean; message?: string }) => void;
 }) {
-  const [cents, setCents] = useState<number | null>(order.sold_total_cents);
+  const [cents, setCents] = useState<number | null>(order.sold_total_cents ?? listTotalCents);
   /**
    * No default. "Card machine" pre-selected meant a bank transfer recorded as
    * a card payment by anybody who did not look, and the day's reconciliation
    * is the first place that shows up.
    */
-  const [method, setMethod] = useState<PaymentMethod | null>(order.payment_method ?? null);
+  const [method, setMethod] = useState<PaymentMethod | null>(order.purchase_option === "payjustnow" ? "payjustnow" : order.payment_method ?? null);
   const [reference, setReference] = useState(order.payment_reference ?? "");
   const [saving, setSaving] = useState(false);
   const [voiding, setVoiding] = useState(false);
@@ -124,7 +124,7 @@ export default function PaymentPanel({
   const canConfirm =
     (hire ? hireReady : Boolean(cents) && (cents as number) > 0) &&
     Boolean(order.lead_id) &&
-    method !== null;
+    method !== null && (Boolean(hire) || (order.sale_plans_ready && order.sale_plan === "immediate"));
   /**
    * Everything in, everything out, and the share we keep.
    *
@@ -188,7 +188,7 @@ export default function PaymentPanel({
 
   return (
     <Panel
-      title={paid ? "Paid" : cancelled ? "Cancelled" : hire ? "What the hire comes to" : "What it sold for"}
+      title={paid ? "Paid" : cancelled ? "Cancelled" : hire ? "What the hire comes to" : "Price & payment"}
       subtitle={
         cancelled
           ? (order.void_reason ?? undefined)
@@ -288,7 +288,7 @@ export default function PaymentPanel({
           <>
             <Field label="How did they pay?">
               <div className="flex flex-wrap gap-2">
-                {PAYMENT_METHODS.map((m) => (
+                {PAYMENT_METHODS.filter(m => order.purchase_option === "payjustnow" ? m === "payjustnow" : m !== "payjustnow").map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -344,6 +344,8 @@ export default function PaymentPanel({
                     ? "Add a priced machine first"
                     : !hire && (!cents || cents <= 0)
                       ? "Type what it sold for first"
+                      : !hire && order.sale_plan !== "immediate"
+                        ? "Choose and save the sale terms first"
                       : method === null
                         ? "Choose how they paid first"
                         : "Record the payment"}

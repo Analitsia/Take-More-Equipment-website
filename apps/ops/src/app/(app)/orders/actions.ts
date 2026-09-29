@@ -776,3 +776,45 @@ export async function issueInvoice(orderId: string): Promise<
         : `${result?.number} is ready.`,
   };
 }
+
+
+export async function saveSalePlan(orderId: string, input: {
+  plan: string; total?: number; start?: string; months?: number; day?: number; deposit?: number; due?: string;
+}): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+  const { error } = await client.rpc("save_sale_plan", {
+    p_order_id: orderId, p_plan: input.plan, p_total: input.total, p_start: input.start,
+    p_months: input.months, p_day: input.day, p_deposit: input.deposit, p_due: input.due,
+  });
+  if (error) return { ok: false, error: humanise(error.message) };
+  await revalidateSale(orderId);
+  return { ok: true, notice: "Sale terms saved." };
+}
+
+export async function recordReceipt(orderId: string, input: {
+  amount: number; method: PaymentMethod; reference: string; date: string; requestId: string; refund: boolean;
+}): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+  const { data, error } = await client.rpc("record_order_receipt", {
+    p_order_id: orderId, p_amount: input.amount, p_method: input.method,
+    p_reference: input.reference, p_date: input.date, p_request_id: input.requestId, p_refund: input.refund,
+  });
+  if (error) return { ok: false, error: humanise(error.message) };
+  const items = (data as { items?: string[] } | null)?.items ?? [];
+  for (const id of items) await revalidateStorefront(id);
+  await revalidateSale(orderId, items);
+  return { ok: true, notice: input.refund ? "Refund recorded." : "Payment recorded. Balance updated." };
+}
+
+/** Choose the agreement before confirming any money. Stock holds stay in place. */
+export async function choosePurchaseOption(orderId: string, option: import('@takemore/core').PurchaseOption): Promise<ActionResult> {
+  await requireStaff();
+  const client = await supabase();
+  const { error } = await client.rpc('choose_purchase_option', { p_order_id: orderId, p_option: option });
+  if (error) return { ok: false, error: humanise(error.message) };
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath('/orders');
+  return { ok: true };
+}

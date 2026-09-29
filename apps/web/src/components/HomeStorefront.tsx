@@ -8,6 +8,7 @@ import Hero from "./Hero";
 import FeaturedStock from "./FeaturedStock";
 import Catalogue from "./Catalogue";
 import CtaBand from "./CtaBand";
+import BuyingInfo from "./BuyingInfo";
 import Subheading from "./Subheading";
 import type { Equipment, Vocabulary, CategoryChoice } from "@/data/equipment";
 
@@ -41,6 +42,7 @@ export default function HomeStorefront({ stock, vocabulary, categories, formEnab
       <div data-segment-surface>{home ? <HomeStory kind="discovery" /> : process}</div>
       <div data-segment-surface>{home ? <HomeStory kind="details" /> : proof}</div>
       <div data-segment-surface>{home ? <HomeStory kind="visit" /> : about}</div>
+      <div data-segment-surface><BuyingInfo /></div>
       <div data-segment-surface><CtaBand key={segment} categories={choices} formEnabled={formEnabled} homestaging={home} /></div>
       <div data-segment-surface>{footer}</div>
     </div>

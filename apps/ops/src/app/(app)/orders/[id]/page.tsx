@@ -58,6 +58,7 @@ export default async function OrderPage({
         // whether a document could be issued, and why not when it could not.
         invoicing={invoicingIsConfigured()}
         role={staff.role}
+        financeInitialPercent={Number(process.env.ASSET_FINANCE_INITIAL_PERCENT) || undefined}
       />
     </div>
   );

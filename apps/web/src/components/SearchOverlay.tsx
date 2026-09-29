@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useScrollLock from "@/hooks/useScrollLock";
@@ -118,7 +120,7 @@ export default function SearchOverlay({
                         {item.title}
                       </span>
                       <span className="text-xs font-light text-muted truncate">
-                        {[item.brand, item.category, `Grade ${item.grade}`]
+                        {[item.brand, item.category, gradeLabel(item.grade)]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>

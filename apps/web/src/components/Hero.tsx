@@ -151,7 +151,7 @@ export default function Hero() {
             >
               {home ? "Furniture with character." : "Rebuilt in our workshop."}
               <br />
-              {home ? "Find your next great piece." : "Warrantied for six months."}
+              {home ? "Find your next great piece." : "Tested before you choose."}
             </motion.div>
             <motion.div
               initial={{ opacity: 0 }}
@@ -159,7 +159,7 @@ export default function Hero() {
               transition={{ delay: 0.7 }}
               className="text-center max-w-[250px] hidden lg:block"
             >
-              {home ? "Furniture, decor and unexpected finds for your home or your next staging project." : "Every machine is stripped, rebuilt and run under load before it earns a price on this page."}
+              {home ? "Furniture, decor and unexpected finds for your home or your next staging project." : "Browse online, then visit our warehouse to see the equipment and speak to our team."}
             </motion.div>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function Hero() {
             It is written as two lines, with a hard <br/> after "Kit,". Putting
             the Instagram/WhatsApp column beside it costs this one roughly
             330px plus the lg:pl-12 gutter, which took the headline's box from
-            652px down to 531px — narrower than "Restaurant-Grade Kit," needs
+            652px down to 531px — narrower than "Restaurant-Grade Equipment." needs
             at text-7xl. So the line broke again on its own, and between the lg
             breakpoint and about 1180px the headline silently rendered as three
             lines, or four from 1024–1080px, before snapping back to two on a
@@ -197,14 +197,14 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="max-w-2xl"
           >
-            <Subheading text={home ? "Homestaging & Home Finds · Cape Town" : "Commercial Catering Equipment · Cape Town"} />
+            <Subheading text={home ? "Furniture & Home Finds · Cape Town" : "Commercial Catering Equipment · Cape Town"} />
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-4 md:mb-5">
-              {home ? "Great Pieces." : "Restaurant-Grade Kit,"}
+              {home ? "Great Pieces." : "Restaurant-Grade Equipment."}
               <br />
               {home ? "Unexpected Prices." : "Half The Retail Price"}
             </h1>
             <p className="text-sm md:text-base font-light text-white/70 leading-relaxed max-w-lg mb-1">
-              {home ? "Furniture and home finds with character. From everyday essentials to the piece that brings a whole room together — discover what is on the floor." : "Rebuilt in our own workshop, tested under load, priced on the page and covered for six months. Standing on our floor today — not eight weeks away on a ship."}
+              {home ? "Furniture and home finds with character. Browse the collection, then visit our warehouse to find the piece that feels right." : "Inspected, repaired and tested catering equipment. Browse online, then see it in person at our Montague Gardens warehouse."}
             </p>
           </motion.div>
 

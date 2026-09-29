@@ -240,7 +240,7 @@ export const ITEMS = [
     subcategory: "cooking-ovens-combis",
     grade: "C",
     description:
-      "An honest grade C. It heats, the fan runs, the timer works and the door shuts square — and it looks every one of its years, with pitting on the top panel and a door glass that will never look clean again. For a food truck, a church hall or a second oven in a back kitchen this is a lot of oven for the money. Sold as seen, six-month warranty on the element and fan.",
+      "An honest grade C. It heats, the fan runs, the timer works and the door shuts square — and it looks every one of its years, with pitting on the top panel and a door glass that will never look clean again. For a food truck, a church hall or a second oven in a back kitchen this is a lot of oven for the money. Inspect the condition and ask about the equipment at the warehouse.",
     workshopNotes: ["New element", "Fan motor replaced", "Door glass will not clean up — as seen"],
     capacity: "4 × 600 × 400",
     power: "3.1 kW",

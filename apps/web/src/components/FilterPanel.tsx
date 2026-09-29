@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import { GRADES, PRICE_BANDS, tagLabel, type Filters } from "@/data/filters";
 import { stockedDivisions, type CategoryMeta, type Vocabulary } from "@/data/equipment";
 
@@ -232,7 +234,7 @@ export default function FilterPanel({
             {GRADES.map((grade) => (
               <Row
                 key={grade}
-                label={`Grade ${grade}`}
+                label={gradeLabel(grade)}
                 active={filters.grades.includes(grade)}
                 onClick={() => toggle("grades", grade)}
               />

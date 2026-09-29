@@ -1,5 +1,7 @@
 "use client";
 
+import { gradeLabel } from "@takemore/core";
+
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { priceLabel, rands, savingPercent, type Equipment } from "@/data/equipment";
@@ -257,7 +259,7 @@ export default function EquipmentCard({
                 className="text-muted shrink-0"
                 noobserver=""
               ></iconify-icon>
-              <span className="whitespace-nowrap">Grade {grade}</span>
+              <span className="whitespace-nowrap">{gradeLabel(grade)}</span>
             </div>
           </div>
         </div>

@@ -21,14 +21,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
   title: "About Us — Take More Catering Equipment, Cape Town",
   description: saving
-    ? `A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it ${saving} below new.`
-    : "A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild, test and warranty every machine we sell, and price it well below new.",
+    ? `A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild and test every machine we sell, and price it ${saving} below new.`
+    : "A commercial kitchen equipment workshop in Montague Gardens, Cape Town. We rebuild and test every machine we sell, and price it well below new.",
 };
 
 const statFacts = [
   claims.machinesRebuilt,
   claims.averageSaving,
-  claims.warranty,
   claims.delivery,
 ];
 
@@ -46,7 +45,7 @@ const principles = [
   {
     icon: "solar:bill-list-linear",
     title: "Put it in writing",
-    copy: "Prices, grades, workshop reports and warranty terms are published, not negotiated at the door. If we will not write it down, we will not claim it.",
+    copy: "Prices, grades, workshop details are published, not negotiated at the door. If we will not write it down, we will not claim it.",
   },
 ];
 
@@ -57,8 +56,8 @@ export default function AboutPage() {
       title={<>The kitchen you wanted, at the number you actually budgeted.</>}
       intro={
         saving
-          ? `Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it ${saving} below new, and stand behind every unit in writing for six months.`
-          : "Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it well below new, and stand behind every unit in writing for six months."
+          ? `Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it ${saving} below new, and invite you to inspect it in person before choosing.`
+          : "Take More Catering Equipment is a workshop in Montague Gardens, Cape Town. We rebuild commercial kitchen equipment to a standard it will hold for years, price it well below new, and invite you to inspect it in person before choosing."
       }
       crumbs={[{ label: "Home", href: "/" }, { label: "About Us" }]}
     >
@@ -102,7 +101,7 @@ export default function AboutPage() {
               <p>
                 The result is that a kitchen opening on a real budget runs the same German
                 and Italian equipment that gets specced into new fit-outs, at roughly half
-                the price, with six months of warranty behind it — and it is standing on
+                the price. See it in person on
                 our floor now, not eight weeks out on a ship.
               </p>
             </div>
@@ -147,22 +146,22 @@ export default function AboutPage() {
       </ContentSection>
 
       <ContentSection>
-        <div className="bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16">
+        <div id="visit" className="scroll-mt-24 bg-card rounded-[2rem] border border-border p-6 sm:p-8 md:p-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div>
               <Subheading text="Find Us" />
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight mb-6">
-                Come and see it running.
+                Come see what you find.
               </h2>
               <p className="text-muted font-light text-sm leading-relaxed">
-                We would genuinely rather you drove out and watched a machine complete a
-                cycle before you paid for it. Nothing on this site is sold sight-unseen if
-                you would prefer not to.
+                Explore the warehouse, inspect your favourites and speak to our team.
+                From catering equipment to furniture and home finds, the full experience is here.
               </p>
             </div>
 
             <div className="flex flex-col gap-5">
               <Detail icon="solar:map-point-linear" label="Warehouse" value={site.address} />
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(site.address)}`} target="_blank" rel="noopener noreferrer" className="text-accent text-sm">Get directions →</a>
               <Detail icon="solar:clock-circle-linear" label="Hours" value={site.hours} />
               <Detail icon="solar:phone-linear" label="Phone" value={site.phone} />
               <Detail icon="solar:bill-list-linear" label="Registered" value={site.legalName} />

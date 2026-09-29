@@ -9,6 +9,21 @@ has to be filled in before the domain is pointed here, see
 
 ---
 
+## Releasing sale terms and condition labels
+
+Apply `20260929154117_sale_plans_and_condition_labels.sql` and
+`20260929162521_order_purchase_options.sql` before enabling the new
+Ops release. It adds sale terms, an append-only receipt ledger, staff-only RPCs,
+and the New condition value. Existing A/B/C data keeps its meaning and displays
+as Like New / Good / Fair. Existing sales retain Pay in full terms.
+
+Until the migration is present, existing orders remain readable and the new
+sale controls show a migration notice. Do not treat this fallback as a completed
+release. Verify a lay-by partial payment, cancellation/refund and final payment
+against an isolated database before production. `npm run test:schema` covers
+these rules and simulated authenticated RLS; it does not prove a live Supabase
+session or PostgREST deployment.
+
 ## Getting a new staff member working
 
 **You create the account. They never create their own.** The request-access form is gone
@@ -383,3 +398,7 @@ Worth knowing so they read as design rather than as bugs:
 3. **Ship a stock photo URL anywhere in the storefront source.** CI fails. The
    one exception is `apps/web/src/data/launch.ts`, where they are quarantined
    and never rendered.
+
+The optional server setting `ASSET_FINANCE_INITIAL_PERCENT` pre-fills the initial
+finance payment. Configure the agreed rate privately in each environment. Staff
+review the amount and enter the expected final payment date before confirmation.
