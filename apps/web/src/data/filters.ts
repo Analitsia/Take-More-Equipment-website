@@ -58,7 +58,7 @@ export function applyFilters(
   const band = PRICE_BANDS.find((b) => b.id === filters.price);
 
   return stock.filter((item) => {
-    if (filters.division && item.divisionSlug !== filters.division) return false;
+    if (filters.division && !item.segments.includes(filters.division as import("@takemore/core").Segment)) return false;
     if (filters.categories.length && !filters.categories.includes(item.category))
       return false;
     if (filters.grades.length && !filters.grades.includes(item.grade)) return false;

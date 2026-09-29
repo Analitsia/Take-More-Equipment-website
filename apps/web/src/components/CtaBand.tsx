@@ -10,8 +10,10 @@ import type { CategoryChoice } from "@/data/equipment";
 export default function CtaBand({
   categories = [],
   formEnabled = true,
+  homestaging = false,
 }: {
   categories?: CategoryChoice[];
+  homestaging?: boolean;
   /** From `enquiryFormEnabled()` on the server — see EnquiryForm. */
   formEnabled?: boolean;
 }) {
@@ -29,18 +31,16 @@ export default function CtaBand({
           <div className="max-w-2xl">
             <Subheading text="Looking For Something Specific?" />
             <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight leading-tight mb-6">
-              Most of our stock sells before it reaches this page.
+              {homestaging ? "Looking for the piece that finishes your room?" : "Most of our stock sells before it reaches this page."}
             </h2>
             <p className="text-muted font-light text-sm leading-relaxed max-w-lg mb-8">
-              Tell us the machine and the number you have to hit. If it is not on the floor
-              this week, we will find it, rebuild it, and send you photos and a price
-              before it goes anywhere near this page.
+              {homestaging ? "Tell us about the furniture or home piece you need, your space and your budget. If we do not have it, we can keep an eye out." : "Tell us the machine and the number you have to hit. If it is not on the floor this week, we will find it, rebuild it, and send you photos and a price before it goes anywhere near this page."}
             </p>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 shrink-0">
             <a
               href={whatsappLink(
-                "Hi Take More, I'm looking for the following equipment:"
+                homestaging ? "Hi Take More, I'm looking for furniture and home finds:" : "Hi Take More, I'm looking for the following equipment:"
               )}
               target="_blank"
               rel="noopener noreferrer"

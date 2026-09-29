@@ -1,4 +1,5 @@
 import "server-only";
+import { itemSegments } from "@takemore/core";
 
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@takemore/db";
@@ -66,6 +67,7 @@ type PublicItemRow = {
   sku: string | null;
   title: string;
   brand: string | null;
+  specs: unknown;
   division_slug: string | null;
   division_name: string | null;
   category_name: string | null;
@@ -106,6 +108,7 @@ function toEquipment(row: PublicItemRow, images: string[]): Equipment {
     // and a card that says "Uncategorised" beats one that says "undefined".
     division: row.division_name ?? "Uncategorised",
     divisionSlug: row.division_slug ?? "uncategorised",
+    segments: itemSegments(row.specs, row.division_slug),
     category: row.category_name ?? "Uncategorised",
     // Left undefined rather than defaulted: the detail page skips the row
     // entirely when there is no subcategory, and "—" would be noise.
@@ -203,7 +206,8 @@ function tolerant<A extends unknown[], T>(
   };
 }
 
-const cachedStock = unstable_cache(fetchStock, ["stock"], {
+// Invalidate pre-segment projections retained by the Data Cache across deploys.
+const cachedStock = unstable_cache(fetchStock, ["stock", "segments-v1"], {
   tags: [STOCK_TAG],
   revalidate: REVALIDATE_SECONDS,
 });
@@ -239,7 +243,7 @@ async function fetchVocabulary(stock: Equipment[]): Promise<Vocabulary> {
 
   const divisionCounts = new Map<string, number>();
   for (const item of stock)
-    divisionCounts.set(item.divisionSlug, (divisionCounts.get(item.divisionSlug) ?? 0) + 1);
+    for (const segment of item.segments) divisionCounts.set(segment, (divisionCounts.get(segment) ?? 0) + 1);
 
   return {
     divisions: (divisions ?? []).map((d: any) => ({

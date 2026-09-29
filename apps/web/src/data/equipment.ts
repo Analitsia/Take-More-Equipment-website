@@ -1,3 +1,4 @@
+import type { Segment } from "@takemore/core";
 /**
  * The storefront's view model.
  *
@@ -49,6 +50,7 @@ export type Equipment = {
    * that gets reworded, which should not silently empty the catalogue.
    */
   divisionSlug: string;
+  segments: Segment[];
   category: Category;
   /** The second level of the tree, where one has been chosen. Optional by design. */
   subcategory?: string;
@@ -151,7 +153,7 @@ export function relatedTo(
   item: Equipment,
   limit = 3
 ): Equipment[] {
-  const others = stock.filter((candidate) => candidate.slug !== item.slug);
+  const others = stock.filter((candidate) => candidate.slug !== item.slug && candidate.segments.some((s) => item.segments.includes(s)));
   const sameCategory = others.filter((c) => c.category === item.category);
   const byPrice = others
     .filter((c) => c.category !== item.category)

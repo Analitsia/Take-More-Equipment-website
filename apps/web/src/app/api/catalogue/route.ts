@@ -21,6 +21,7 @@ export async function GET() {
       categories: vocabulary.categories,
       items: stock.map((item) => ({
         slug: item.slug,
+        segments: item.segments,
         title: item.title,
         brand: item.brand,
         category: item.category,

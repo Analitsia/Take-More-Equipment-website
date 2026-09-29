@@ -1,14 +1,16 @@
 "use client";
 
+import Image from "next/image";
+import { useSegment } from "./SegmentProvider";
 import { motion } from "framer-motion";
 import Navbar from "./Navbar";
 import Subheading from "./Subheading";
-import SiteImage from "./SiteImage";
-import { media } from "@/data/launch";
 import { site, whatsappLink } from "@/data/site";
 
 // Hero Component
 export default function Hero() {
+  const { segment } = useSegment();
+  const home = segment === "homestaging";
   return (
     // On a phone the framed image was 85vh with the title pinned to its floor,
     // which left a screenful of empty photo between the city line and the
@@ -54,10 +56,10 @@ export default function Hero() {
         className="relative w-full rounded-[2rem] rounded-b-none overflow-hidden flex flex-col
                    min-h-[max(482px,calc(58vh-0.5rem))] md:min-h-[max(504px,calc(90vh-1rem))]"
       >
-        <SiteImage
-          fact={media.hero}
-          className="absolute inset-0 w-full h-full object-cover scale-105"
-          fallbackClassName="absolute inset-0 w-full h-full"
+        <Image
+          src={home ? "/images/homestaging-hero.webp" : "/images/industrial-kitchen-hero.webp"}
+          alt={home ? "A warm living room styled with wood furniture and natural textures" : "An industrial kitchen with orderly stainless steel workstations and extraction canopies"}
+          fill sizes="100vw" priority unoptimized className="object-cover scale-105"
         />
         {/* Scrim is heavier than the source template's — that hero used an already-dark
             studio car shot, whereas kitchen interiors are lit and busy. It is also
@@ -94,17 +96,17 @@ export default function Hero() {
           style={{
             backgroundImage:
               "linear-gradient(to bottom," +
-              "rgba(8,8,5,0) 0%," +
-              "rgba(8,8,5,0.028) 10%," +
-              "rgba(8,8,5,0.104) 20%," +
-              "rgba(8,8,5,0.216) 30%," +
-              "rgba(8,8,5,0.352) 40%," +
-              "rgba(8,8,5,0.5) 50%," +
-              "rgba(8,8,5,0.648) 60%," +
-              "rgba(8,8,5,0.784) 70%," +
-              "rgba(8,8,5,0.896) 80%," +
-              "rgba(8,8,5,0.972) 90%," +
-              "rgba(8,8,5,1) 100%)",
+              "rgb(var(--site-background) / 0 ) 0%," +
+              "rgb(var(--site-background) / 0.028) 10%," +
+              "rgb(var(--site-background) / 0.104) 20%," +
+              "rgb(var(--site-background) / 0.216) 30%," +
+              "rgb(var(--site-background) / 0.352) 40%," +
+              "rgb(var(--site-background) / 0.5) 50%," +
+              "rgb(var(--site-background) / 0.648) 60%," +
+              "rgb(var(--site-background) / 0.784) 70%," +
+              "rgb(var(--site-background) / 0.896) 80%," +
+              "rgb(var(--site-background) / 0.972) 90%," +
+              "rgb(var(--site-background) / 1) 100%)",
           }}
         ></div>
 
@@ -147,9 +149,9 @@ export default function Hero() {
               transition={{ delay: 0.6 }}
               className="hidden md:block absolute left-1/2 top-0 -translate-x-1/2 text-center max-w-[200px]"
             >
-              Rebuilt in our workshop.
+              {home ? "Furniture with character." : "Rebuilt in our workshop."}
               <br />
-              Warrantied for six months.
+              {home ? "Find your next great piece." : "Warrantied for six months."}
             </motion.div>
             <motion.div
               initial={{ opacity: 0 }}
@@ -157,8 +159,7 @@ export default function Hero() {
               transition={{ delay: 0.7 }}
               className="text-center max-w-[250px] hidden lg:block"
             >
-              Every machine is stripped, rebuilt and run under load before it earns a price
-              on this page.
+              {home ? "Furniture, decor and unexpected finds for your home or your next staging project." : "Every machine is stripped, rebuilt and run under load before it earns a price on this page."}
             </motion.div>
           </div>
         </div>
@@ -196,16 +197,14 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="max-w-2xl"
           >
-            <Subheading text="Commercial Catering Equipment · Cape Town" />
+            <Subheading text={home ? "Homestaging & Home Finds · Cape Town" : "Commercial Catering Equipment · Cape Town"} />
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1] mb-4 md:mb-5">
-              Restaurant-Grade Kit,
+              {home ? "Great Pieces." : "Restaurant-Grade Kit,"}
               <br />
-              Half The Retail Price
+              {home ? "Unexpected Prices." : "Half The Retail Price"}
             </h1>
             <p className="text-sm md:text-base font-light text-white/70 leading-relaxed max-w-lg mb-1">
-              Rebuilt in our own workshop, tested under load, priced on the page and
-              covered for six months. Standing on our floor today — not eight weeks away
-              on a ship.
+              {home ? "Furniture and home finds with character. From everyday essentials to the piece that brings a whole room together — discover what is on the floor." : "Rebuilt in our own workshop, tested under load, priced on the page and covered for six months. Standing on our floor today — not eight weeks away on a ship."}
             </p>
           </motion.div>
 
@@ -231,7 +230,7 @@ export default function Hero() {
             </a>
             <div className="hidden sm:block w-[1px] h-8 bg-white/10"></div>
             <a
-              href={whatsappLink("Hi Take More, I'm looking for equipment for my kitchen.")}
+              href={whatsappLink(home ? "Hi Take More, I'm looking for furniture and home finds." : "Hi Take More, I'm looking for equipment for my kitchen.")}
               target="_blank"
               rel="noopener noreferrer"
               className="group flex items-center space-x-3 text-lg font-light hover:text-accent transition-colors w-full sm:w-auto justify-between"

@@ -191,6 +191,7 @@ async function run(cookie) {
   // the view, the RLS guard and the render in a single request.
   await visit(cookie, "/", { contains: ["Tied up now", "No stock yet"] });
   thumbnailsAreStills("/items", await visit(cookie, "/items"));
+  await visit(cookie, "/items/new", { contains: "Which collection is this item for?" });
   thumbnailsAreStills("/board", await visit(cookie, "/board"));
   await redirects(cookie, "/money", "/");
   // Team is now the roster and the log on one page. The heading below only
@@ -254,7 +255,7 @@ async function run(cookie) {
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
-  if (item) await visit(cookie, `/items/${item.id}`);
+  if (item) await visit(cookie, `/items/${item.id}`, { contains: "Number of units" });
 
   // The printable label. Its own route group with its own layout, so a broken
   // auth check there would not show up anywhere else in this file.

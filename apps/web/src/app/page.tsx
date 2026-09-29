@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import Hero from "@/components/Hero";
-import FeaturedStock from "@/components/FeaturedStock";
-import Catalogue from "@/components/Catalogue";
-import EmptyCatalogue from "@/components/EmptyCatalogue";
+import HomeStorefront from "@/components/HomeStorefront";
 import About from "@/components/About";
 import Process from "@/components/Process";
 import Testimonials from "@/components/Testimonials";
-import CtaBand from "@/components/CtaBand";
 import Footer from "@/components/Footer";
-import { MAX_FEATURED } from "@takemore/core";
 import { getCategoryChoices, getStock, getVocabulary } from "@/lib/stock";
 import { enquiryFormEnabled } from "@/lib/forms";
 
@@ -27,41 +22,8 @@ export default async function Page() {
   // straight through to capture_lead(), which resolves them into a real
   // category so the stock matcher has something to join on.
   const categories = await getCategoryChoices();
-  // Capped here as well as in the database. The trigger stops a worker choosing
-  // a ninth; this stops anything that arrived around the trigger — a seeded row,
-  // a repair run in the SQL editor — from turning the highlights row back into
-  // the catalogue. `getStock` already sorts featured first, then newest.
-  const featured = stock.filter((item) => item.featured).slice(0, MAX_FEATURED);
   const formEnabled = enquiryFormEnabled();
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Hero />
-      {/* Stock leads the page — the stats and the story follow it. */}
-      {featured.length > 0 && <FeaturedStock items={featured} />}
-      {/* An empty catalogue is a statement, not a filter result. See EmptyCatalogue. */}
-      {stock.length > 0 ? (
-        <Catalogue stock={stock} vocabulary={vocabulary} />
-      ) : (
-        <EmptyCatalogue categories={categories} formEnabled={formEnabled} />
-      )}
-      {/* Process makes the argument once. It used to be made three times in a
-          row — Process, then a "Why Take More" card grid restating the same
-          price/rebuild/warranty claims, then the proof panel below in the same
-          three-card shape. The middle one said nothing the other two did not,
-          so it is gone and the two that carry their own weight stayed. */}
-      <Process />
-      <Testimonials />
-      {/* About sits after the proof, not before it: the workshop story lands
-          better once the reader has seen the stock, the reason it is cheap and
-          the things they can check. Its "Our Process" link now points back up
-          the page rather than down — still the right destination, since that is
-          where the claim it makes is spelled out. */}
-      <About />
-      {/* The closing band keeps its form even on launch day: a visitor who
-          scrolled past the empty-catalogue panel gets one more chance to ask. */}
-      <CtaBand categories={categories} formEnabled={formEnabled} />
-      <Footer />
-    </div>
-  );
+  return <HomeStorefront stock={stock} vocabulary={vocabulary} categories={categories} formEnabled={formEnabled}
+    process={<Process />} proof={<Testimonials />} about={<About />} footer={<Footer />} />;
 }

@@ -6,6 +6,17 @@ import preset from "@takemore/ui/tailwind-preset";
 // places, or in neither. This file now only says which files to scan.
 const config: Config = {
   presets: [preset as Config],
+  theme: {
+    extend: {
+      colors: {
+        background: "rgb(var(--site-background) / <alpha-value>)",
+        accent: "rgb(var(--site-accent) / <alpha-value>)",
+        card: "rgb(var(--site-card) / <alpha-value>)",
+        border: "rgb(var(--site-border) / <alpha-value>)",
+        muted: "rgb(var(--site-muted) / <alpha-value>)",
+      },
+    },
+  },
   content: [
     "./src/**/*.{ts,tsx}",
     // The package this config reads its palette from, and imports a component

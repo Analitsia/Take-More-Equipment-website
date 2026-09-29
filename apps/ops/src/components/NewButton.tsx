@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { createDraft } from "@/app/(app)/items/actions";
+import { usePathname } from "next/navigation";
+import NewItemButton from "./NewItemButton";
 import { createOrderDraft } from "@/app/(app)/orders/actions";
 
 /**
@@ -12,13 +13,8 @@ import { createOrderDraft } from "@/app/(app)/orders/actions";
  * The bottom bar has room for one more destination, not two, and picking one to
  * promote would be picking which half of the job is real. So the slot asks.
  *
- * WHY IT IS NOT A LINK, EITHER OF THEM
- * ------------------------------------
- * Both options post to a server action that INSERTS and then redirects, for the
- * reason written at length on NewItemButton: a GET that creates a row is fired
- * by prefetch, by the back button and by a reload. On stock that produced
- * untitled drafts; on the till it would produce empty orders in a ledger of
- * sales, and an order number is something said out loud to a customer.
+ * New item opens the collection question without creating stock. New order
+ * posts to a server action; navigation and prefetch never create a draft.
  *
  * The sheet is deliberately tall and the two targets are deliberately large.
  * This is pressed with a thumb, one-handed, by somebody who is also holding
@@ -33,6 +29,8 @@ export default function NewButton({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  useEffect(() => setOpen(false), [pathname]);
 
   // Escape closes it. Cheap, and the alternative on a desk is a sheet that can
   // only be dismissed by aiming at the backdrop.
@@ -89,13 +87,10 @@ export default function NewButton({
               />
             </form>
 
-            <form action={createDraft}>
-              <Choice
-                icon="solar:box-linear"
-                title="New item"
-                detail="A machine has come in. Photograph it and write it up."
-              />
-            </form>
+            <NewItemButton className="block w-full rounded-xl border border-border bg-background px-3 py-3 text-left">
+              <span className="block text-sm font-medium">New item</span>
+              <span className="block text-[11px] font-light text-muted">Choose its collection, then add photos and details.</span>
+            </NewItemButton>
           </div>
         </>
       )}

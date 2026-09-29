@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree } from "next/font/google";
 import IconifyLoader from "@/components/IconifyLoader";
+import SegmentProvider from "@/components/SegmentProvider";
 import { site } from "@/data/site";
 import "./globals.css";
 
@@ -72,7 +73,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased selection:bg-accent selection:text-black">
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
         <IconifyLoader />
-        {children}
+        <SegmentProvider>{children}</SegmentProvider>
       </body>
     </html>
   );

@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import { useSegment } from "@/components/SegmentProvider";
+import type { Segment } from "@takemore/core";
 
 export type IndexItem = {
+  segments: Segment[];
   slug: string;
   title: string;
   brand: string;
@@ -46,6 +50,7 @@ const load = () => {
 };
 
 export default function useCatalogueIndex(): CatalogueIndex | null {
+  const { segment } = useSegment();
   const [index, setIndex] = useState<CatalogueIndex | null>(null);
 
   useEffect(() => {
@@ -58,5 +63,14 @@ export default function useCatalogueIndex(): CatalogueIndex | null {
     };
   }, []);
 
-  return index;
+  return useMemo(() => {
+    if (!index) return null;
+    const items = index.items.filter((item) => item.segments?.includes(segment));
+    return {
+      items,
+      divisions: index.divisions.filter((d) => d.slug === segment).map((d) => ({ ...d, count: items.length })),
+      categories: index.categories.filter((c) => c.divisionSlug === segment || items.some((i) => i.category === c.name))
+        .map((c) => ({ ...c, divisionSlug: segment, count: items.filter((i) => i.category === c.name).length })),
+    };
+  }, [index, segment]);
 }

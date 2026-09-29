@@ -25,3 +25,4 @@ export * from "./roles.ts";
 export * from "./sku.ts";
 export * from "./slug.ts";
 export * from "./status.ts";
+export * from "./segments.ts";

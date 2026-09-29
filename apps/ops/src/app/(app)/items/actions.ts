@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { supabase, requireStaff } from "@/lib/supabase";
 import { createAdminClient } from "@takemore/db/admin";
 import { revalidateStorefront } from "@/lib/storefront";
-import { STAGES, UNTITLED, type CostKind, type ItemStatus } from "@takemore/core";
+import { STAGES, UNTITLED, validSegments, type Segment, type CostKind, type ItemStatus } from "@takemore/core";
 
 /**
  * Every mutation the ops app makes.
@@ -56,29 +56,29 @@ async function isLive(
   return !!data?.published_at;
 }
 
-export async function createDraft(): Promise<never> {
+export async function createDraft(_previous: { error: string | null }, formData: FormData): Promise<{ error: string | null }> {
   await requireStaff();
+  const segments = formData.getAll("segments");
+  if (!validSegments(segments)) return { error: "Choose Homestaging, Industrial Kitchen, or both." };
   const client = await supabase();
 
-  // A draft is created empty and immediately opened for editing, so the first
-  // thing a worker does is photograph rather than fill in a form header. The
-  // row exists from that moment, which is what makes autosave possible.
-  // Spelled out rather than `.insert({})` — an empty object makes the generated
-  // client pick its array overload, and the placeholder title is what the
-  // column default would have supplied anyway.
+  // Create only after the collection question is answered. The row then
+  // supports photo uploads and autosave in the product editor.
   const { data, error } = await client
     .from("items")
-    .insert({ title: UNTITLED })
+    .insert({ title: UNTITLED, specs: { segments } })
     .select("id")
     .single();
 
-  if (error) throw new Error(humanise(error.message));
+  if (error) return { error: humanise(error.message) };
 
   revalidatePath("/items");
   redirect(`/items/${data.id}`);
 }
 
 export type ItemPatch = {
+  stock_quantity?: number | null;
+  segments?: Segment[];
   title?: string;
   brand?: string | null;
   model?: string | null;
@@ -100,21 +100,35 @@ export type ItemPatch = {
 
 export async function updateItem(id: string, patch: ItemPatch): Promise<ActionResult> {
   await requireStaff();
+  if (patch.stock_quantity !== undefined && patch.stock_quantity !== null &&
+      (!Number.isInteger(patch.stock_quantity) || patch.stock_quantity < 0 || patch.stock_quantity > 2147483647)) {
+    return { ok: false, error: "Enter a whole number of units, 0 or more." };
+  }
   const client = await supabase();
+
+  const { segments, ...fields } = patch;
+  let specs;
+  if (segments !== undefined) {
+    if (!validSegments(segments)) return { ok: false, error: "Choose at least one product segment." };
+    const { data: item, error: readError } = await client.from("items").select("specs").eq("id", id).single();
+    if (readError) return { ok: false, error: humanise(readError.message) };
+    const existing = item.specs && typeof item.specs === "object" && !Array.isArray(item.specs) ? item.specs : {};
+    specs = { ...existing, segments };
+  }
 
   const { data, error } = await client
     .from("items")
-    .update(patch)
+    .update({ ...fields, ...(specs ? { specs } : {}) })
     .eq("id", id)
     .select("published_at")
-    .maybeSingle();
+    .single();
   if (error) return { ok: false, error: humanise(error.message) };
 
   revalidatePath(`/items/${id}`);
   revalidatePath("/items");
   // A published item that changes is a storefront change. A draft's is not,
   // and the write comes back with published_at so nobody has to ask twice.
-  if (data?.published_at) await revalidateStorefront(id);
+  if (data?.published_at && Object.keys(patch).some((key) => key !== "stock_quantity")) await revalidateStorefront(id);
   return { ok: true };
 }
 

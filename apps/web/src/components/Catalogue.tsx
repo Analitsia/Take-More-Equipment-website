@@ -14,7 +14,8 @@ import {
   type Filters,
   type SortId,
 } from "@/data/filters";
-import { stockedDivisions, type Equipment, type Vocabulary } from "@/data/equipment";
+import type { Segment } from "@takemore/core";
+import { type Equipment, type Vocabulary } from "@/data/equipment";
 
 /**
  * The whole shop: the filter sidebar and the grid it drives.
@@ -27,9 +28,11 @@ import { stockedDivisions, type Equipment, type Vocabulary } from "@/data/equipm
 export default function Catalogue({
   stock,
   vocabulary,
+  segment,
 }: {
   stock: Equipment[];
   vocabulary: Vocabulary;
+  segment: Segment;
 }) {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [sort, setSort] = useState<SortId>("featured");
@@ -40,21 +43,6 @@ export default function Catalogue({
     [stock, filters, sort]
   );
   const activeCount = countActive(filters);
-
-  /**
-   * The switcher only exists when there is genuinely something to switch
-   * between. One line of stock on the site means one shop, and a tab leading to
-   * an empty grid is a worse answer than no tab.
-   */
-  const lines = useMemo(() => stockedDivisions(vocabulary), [vocabulary]);
-  const showLines = lines.length > 1;
-
-  // Switching line drops the category ticks and nothing else: they name
-  // categories that do not exist on the other side, so keeping them would show
-  // an empty grid. Price, condition and specification mean the same thing in
-  // both, so they carry over.
-  const chooseLine = (slug: string | null) =>
-    setFilters({ ...filters, division: slug, categories: [] });
 
   // Tighter on top than the site's usual py-14/24: the highlights row above is
   // the same subject, so the two read as one stock block rather than two
@@ -68,43 +56,13 @@ export default function Catalogue({
         <div>
           <Subheading text="The Catalogue" />
           <h2 className="text-2xl sm:text-3xl lg:text-5xl font-medium tracking-tight">
-            Every Unit On The Floor
+            {segment === "homestaging" ? "Furniture & Home Finds" : "Equipment On The Floor"}
           </h2>
         </div>
         <p className="text-muted font-light text-sm leading-relaxed max-w-sm">
-          One of each, every price on the card against what the same machine costs new.
-          Sold units stay listed at what they went for, so you can see the real numbers
-          before you spend anything.
+          {segment === "homestaging" ? "Explore the furniture and decor currently available. Find the piece that makes your space feel like yours." : "Browse our current catering equipment. Photographs, condition and asking prices, all in one place."}
         </p>
       </div>
-
-      {showLines && (
-        <div
-          role="group"
-          aria-label="Line of business"
-          className="flex flex-wrap items-center gap-2 mb-6 md:mb-8"
-        >
-          {[{ slug: null, name: "Everything", count: stock.length }, ...lines].map((line) => {
-            const on = filters.division === line.slug;
-            return (
-              <button
-                key={line.slug ?? "all"}
-                type="button"
-                aria-pressed={on}
-                onClick={() => chooseLine(line.slug)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-light border transition-colors ${
-                  on
-                    ? "border-accent/70 bg-accent/10 text-accent"
-                    : "border-border text-muted hover:border-white/25 hover:text-white/80"
-                }`}
-              >
-                {line.name}
-                <span className={on ? "text-accent/70" : "text-muted/60"}>{line.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         <FilterPanel
@@ -163,13 +121,12 @@ export default function Catalogue({
                 ></iconify-icon>
               </div>
               <h3 className="text-xl font-medium tracking-tight mb-3">
-                Nothing matches that combination
+                {stock.length === 0 ? "More finds are on the way" : "Nothing matches that combination"}
               </h3>
               <p className="text-muted font-light text-sm leading-relaxed max-w-sm mb-6">
-                Stock rotates weekly and the best units go fast. Clear the filters, or tell
-                us what you are after and we will find it for you.
+                {stock.length === 0 ? "There are no published items in this collection right now. Tell us what you are looking for." : "Try another filter, or tell us what you are looking for."}
               </p>
-              <button
+              {stock.length === 0 ? <a href="/wanted" className="text-accent text-sm">Tell us what you need →</a> : <button
                 type="button"
                 onClick={() => setFilters(clearedWithin(filters))}
                 className="inline-flex items-center gap-3 group"
@@ -180,7 +137,7 @@ export default function Catalogue({
                 <span className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center group-hover:border-accent transition-colors">
                   <iconify-icon icon="solar:restart-linear" width="14" height="14"></iconify-icon>
                 </span>
-              </button>
+              </button>}
             </div>
           )}
         </div>

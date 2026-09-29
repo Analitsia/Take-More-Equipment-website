@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  SEGMENTS, SEGMENT_LABELS, itemSegments, type Segment,
   CONDITION_GRADES,
   GRADE_GUIDANCE,
   canSeeCosts,
@@ -87,6 +88,7 @@ export default function ItemEditor({
   const toMm = (cm: string) => (cm === "" ? null : Math.round(Number(cm) * 10));
 
   const [form, setForm] = useState({
+    stock_quantity: item.stock_quantity ?? "",
     title: item.title ?? "",
     brand: item.brand ?? "",
     model: item.model ?? "",
@@ -107,6 +109,10 @@ export default function ItemEditor({
     height_cm: toCm(item.height_mm),
     weight_kg: item.weight_kg ?? "",
   });
+
+  const [segments, setSegments] = useState<Segment[]>(() => itemSegments(item.specs,
+    divisions.find((d) => d.id === categories.find((c) => c.id === item.category_id)?.division_id)?.slug));
+  const [savingSegments, setSavingSegments] = useState(false);
 
   /** Only the categories belonging to the line of business currently chosen. */
   const categoryOptions = categories.filter(
@@ -142,6 +148,7 @@ export default function ItemEditor({
    * figure while the database kept the wrong one.
    */
   const lastSaved = useRef<Record<string, unknown>>({
+    stock_quantity: item.stock_quantity ?? "",
     title: item.title ?? "",
     brand: item.brand ?? "",
     model: item.model ?? "",
@@ -195,6 +202,12 @@ export default function ItemEditor({
       const raw = (form as any)[key];
       const original = lastSaved.current[key] ?? "";
       if (String(raw) === String(original)) return;
+      if (key === "stock_quantity" && raw !== "" &&
+          (!Number.isInteger(Number(raw)) || Number(raw) < 0 || Number(raw) > 2147483647)) {
+        setSaveState("error");
+        setError("Enter a whole number of units, 0 or more.");
+        return;
+      }
       // The one field the database will not take empty. Refusing it here says
       // so in plain words and puts the last saved title back, instead of
       // sending null and showing "null value in column" to a warehouse.
@@ -379,11 +392,42 @@ export default function ItemEditor({
         </div>
       )}
 
+      <Panel title="Product collections" subtitle="Required. Choose one or both website collections.">
+        <div className="flex flex-wrap gap-3">
+          {SEGMENTS.map((segment) => <label key={segment} className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${segments.includes(segment) ? "border-accent bg-accent/10" : "border-border"}`}>
+            <input type="checkbox" checked={segments.includes(segment)} disabled={savingSegments}
+              onChange={async (event) => {
+                const next = event.target.checked ? [...segments, segment] : segments.filter((s) => s !== segment);
+                if (!next.length) { setError("Keep at least one product collection selected."); return; }
+                setSavingSegments(true);
+                setError(null);
+                try {
+                  const result = await save({ segments: next });
+                  if (result.ok) setSegments(next);
+                } catch {
+                  setError("Could not save the collections. Please try again.");
+                  setSaveState("error");
+                } finally {
+                  setSavingSegments(false);
+                }
+              }} className="w-4 h-4 accent-accent" />
+            <span className="text-sm">{SEGMENT_LABELS[segment]}</span>
+          </label>)}
+        </div>
+      </Panel>
+
       <MediaManager
         itemId={item.id}
         media={item.media ?? []}
         onCountChange={setMediaCount}
       />
+
+      <Panel title="Stock quantity" subtitle="Internal only. Not shown on the website.">
+        <Field label="Number of units" hint="Update manually. Leave blank if not counted yet; enter 0 if none remain.">
+          <Input {...commit("stock_quantity", (value) => value === "" ? null : Number(value))}
+            type="number" min="0" max="2147483647" step="1" inputMode="numeric" placeholder="Not recorded" />
+        </Field>
+      </Panel>
 
       <Panel title="The machine" subtitle="What it is, and what a buyer is looking at.">
         <div className="space-y-4">
@@ -409,7 +453,7 @@ export default function ItemEditor({
               wardrobe should never have to scroll past Wash-Up to find Storage.
               Picking a line of business here is what makes the other line's
               categories disappear from the next dropdown. */}
-          <Field label="Line of business" required>
+          <Field label="Category group" required hint="Organises categories. Website collections are selected above.">
             <Select
               value={form.division_id}
               onChange={(e) => {

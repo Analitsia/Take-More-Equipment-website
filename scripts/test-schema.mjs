@@ -44,6 +44,8 @@ import {
   formatItemCode,
   hireFeeCents,
   normaliseItemCode,
+  itemSegments,
+  validSegments,
 } from "@takemore/core";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -746,6 +748,30 @@ check("a typed code finds the machine and outranks everything else",
       rows[0]?.sku === big.sku && rows[0]?.rank === 0, rows.map((x) => `${x.sku}#${x.rank}`).join(" "));
 rows = await all(db, `select id from public.search_everything('${typed}', 10)`);
 check("and the command palette finds it too", rows.some((x) => x.id === big.id), `${rows.length} hits`);
+
+console.log("\nPRODUCT SEGMENTS");
+check("new products require a segment", !validSegments([]));
+check("unknown and repeated segments are rejected", !validSegments(["unknown"]) && !validSegments(["homestaging", "homestaging"]));
+check("both segments can be selected", validSegments(["homestaging", "industrial-kitchen"]));
+check("legacy products retain their category segment", itemSegments({}, "homestaging").join() === "homestaging");
+check("explicit selection takes precedence over category", itemSegments({ segments: ["industrial-kitchen"] }, "homestaging").join() === "industrial-kitchen");
+check("malformed selection cannot leak into a segment", itemSegments({ segments: [] }, "industrial-kitchen").length === 0);
+check("shared products belong to both catalogues", itemSegments({ segments: ["homestaging", "industrial-kitchen"] }).length === 2);
+
+console.log("\nINTERNAL STOCK QUANTITY");
+r = await one(db, `select stock_quantity from public.items where id='${big.id}'`);
+check("existing stock has no invented quantity", r.stock_quantity === null);
+await db.exec(`update public.items set stock_quantity=12 where id='${big.id}'`);
+r = await one(db, `select stock_quantity from public.items where id='${big.id}'`);
+check("manual quantity persists", r.stock_quantity === 12);
+check("negative quantities are rejected", await refuses(db, `update public.items set stock_quantity=-1 where id='${big.id}'`));
+await db.exec(`update public.items set stock_quantity=0 where id='${big.id}'`);
+r = await one(db, `select stock_quantity from public.items where id='${big.id}'`);
+check("zero quantity is allowed", r.stock_quantity === 0);
+r = await one(db, `select has_column_privilege('anon', 'public.items', 'stock_quantity', 'select') allowed`);
+check("anonymous readers cannot read internal quantities", r.allowed === false);
+r = await one(db, `select count(*) n from information_schema.columns where table_schema='public' and table_name='public_items' and column_name='stock_quantity'`);
+check("public catalogue excludes quantity", num(r.n) === 0);
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {
